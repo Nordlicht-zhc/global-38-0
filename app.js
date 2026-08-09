@@ -10,17 +10,456 @@
   const FORCED_FIT_PENALTY = 6;
   const EUROPE_LIST_VERSION = "2025-26-v2";
   const SIM_VERSION = "2026-v2";
+  const LANG_KEY = "g38-lang";
+  let currentLang = "zh";
+  try {
+    currentLang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "zh";
+  } catch { currentLang = "zh"; }
+  const staticOriginals = new WeakMap();
+
+  const STATIC_TRANSLATIONS = [
+    { sel: "#historyBtnText", en: "History" },
+    { sel: "#newGameBtnText", en: "New Draft" },
+    { sel: ".brand-text strong", en: "Global All-Stars" },
+    { sel: ".hero-copy .eyebrow", en: "1992-93 to 2025-26 seasons" },
+    { sel: ".hero-copy h1", en: "All Five Leagues. Build Your Ultimate XI." },
+    { sel: ".hero-sub", en: "Spin for a club, pick players from its real squad, assign positions, then test your squad over a full season. Covers England, Spain, Italy, Germany and France." },
+    { sel: ".league-panel .eyebrow", en: "Database" },
+    { sel: ".league-panel h2", en: "Select Leagues" },
+    { sel: "#toggleAllLeagues", en: "All / Clear" },
+    { sel: ".setup-panel .eyebrow", en: "New Season" },
+    { sel: ".setup-panel h2", en: "Draft Setup" },
+    { sel: ".setup-panel label.field:nth-of-type(1) > span", en: "Season Range" },
+    { sel: ".setup-panel label.field:nth-of-type(2) > span", en: "Difficulty" },
+    { sel: "#difficultySelect option[value='easy']", en: "Easy: 3 rerolls" },
+    { sel: "#difficultySelect option[value='normal']", en: "Normal: 1 reroll" },
+    { sel: "#difficultySelect option[value='hard']", en: "Hard: 0 rerolls" },
+    { sel: ".setup-panel label.field:nth-of-type(3) > span", en: "Rating Mode" },
+    { sel: "#hideRatingsSelect option[value='0']", en: "Show ratings" },
+    { sel: "#hideRatingsSelect option[value='1']", en: "Hide ratings" },
+    { sel: ".setup-panel label.field:nth-of-type(4) > span", en: "Formation" },
+    { sel: "#startBtn", en: "Start Global Draft" },
+    { sel: ".hint", en: "Your save is stored locally and survives a page refresh." },
+    { sel: ".history-home .eyebrow", en: "Recent Results" },
+    { sel: ".history-home h2", en: "Local Season History" },
+    { sel: "#backSetupBtn", en: "Back to Setup" },
+    { sel: "#backGameBtn", en: "Back to Home" },
+    { sel: "#shareBtn", en: "Copy Report" },
+    { sel: ".league-choice .eyebrow", en: "Season Sim" },
+    { sel: ".league-choice h2", en: "Choose Your League" },
+    { sel: ".simulation-panel .eyebrow", en: "Match-by-Match Sim" },
+    { sel: ".simulation-panel h2", en: "Season In Progress" },
+    { sel: ".pitch-panel .eyebrow", en: "Squad" },
+    { sel: "#spinBtn", en: "Spin" },
+    { sel: "#rerollBtn", en: "Use Reroll" },
+    { sel: "#resultBadge", en: "Season Result" },
+    { sel: "#resultMatchEyebrow", en: "38 Matches" },
+    { sel: ".matches-panel h2", en: "Fixtures" },
+    { sel: ".result-lineup-panel .eyebrow", en: "Squad Review" },
+    { sel: ".result-table-panel .eyebrow", en: "Final Standings" },
+    { sel: ".result-table-panel h2", en: "League Table" },
+    { sel: ".europe-panel .eyebrow", en: "Europe" },
+    { sel: "#europeStartBtn", en: "Start European Competition" },
+    { sel: "footer span:nth-child(1)", en: "Global 38-0 ? Independent fan project" },
+    { sel: "footer span:nth-child(2)", en: "Historical season ratings from FIFA / EA FC public data and authoritative sources" }
+  ];
+
+  const EXACT_PHRASES = [
+    ["中文", "Chinese"],
+    ["欧洲冠军联赛", "Champions League"],
+    ["欧冠冠军", "Champions League Champion"],
+    ["欧冠亚军", "Champions League Runner-Up"],
+    ["欧联杯", "Europa League"],
+    ["欧联杯冠军", "Europa League Champion"],
+    ["欧联杯亚军", "Europa League Runner-Up"],
+    ["欧协联", "Conference League"],
+    ["欧协联冠军", "Conference League Champion"],
+    ["欧协联亚军", "Conference League Runner-Up"],
+    ["我的球队", "My Team"],
+    ["2025-26 五大联赛 23 人名单", "2025-26 Big Five 23-man squads"],
+    ["至", "to"],
+    ["大联赛", "Leagues"],
+    ["本季球队", "Clubs"],
+    ["本季球员", "Players"],
+    ["可抽球员", "Draft Pool"],
+    ["还没有赛季记录，先开始一场选秀吧。", "No season records yet. Start a new draft."],
+    ["请至少选择一个联赛。", "Select at least one league."],
+    ["新选秀已开始，先转动转盘。", "New draft started. Spin the wheel."],
+    ["已选择加入", "Joined "],
+    ["赛前预测：", "Prediction: "],
+    ["预计", "Expected"],
+    ["场拿到", " matches to earn "],
+    ["阵容", " Squad"],
+    ["待定", "TBD"],
+    ["最佳球员", "Best Player"],
+    ["金靴", "Golden Boot"],
+    ["最多助攻", "Most Assists"],
+    ["球员赛季数据", "Player Season Stats"],
+    ["这个位置已经有球员，请先选择空位。", "This slot already has a player. Choose an empty slot."],
+    ["不能踢", "cannot play"],
+    ["换位失败：两名球员都必须能踢对方的新位置。", "Swap failed: both players must be able to play the new positions."],
+    ["换位成功。", "Swap successful."],
+    ["阵容完成，请选择参赛联赛。", "Squad complete. Choose your league."],
+    ["转动转盘，抽取一支俱乐部。", "Spin the wheel to draw a club."],
+    ["没有抽到球队，请重新转动转盘。", "No club drawn. Spin again."],
+    ["先转动转盘，再从这家俱乐部挑选球员。", "Spin first, then pick players from this club."],
+    ["正在抽取球队...", "Drawing a club..."],
+    ["已选择球员，正在抽取下一队...", "Player selected. Drawing the next club..."],
+    ["这家俱乐部的候选球员已经被选完了。", "This club candidate pool is exhausted."],
+    ["这名球员已经被选中。", "This player is already selected."],
+    ["这名球员没有可放的空位。", "No empty slot available for this player."],
+    ["可强放，但会降低总评", "Forced placement will lower overall"],
+    ["点击球场上可踢的空位", "Click a compatible slot"],
+    ["请先开始一场选秀。", "Start a draft first."],
+    ["这个赛季没有可抽球队，请换一个赛季。", "No clubs available for this season. Pick another season."],
+    ["抽中", "Drew "],
+    ["没有可用重转次数。", "No rerolls available."],
+    ["这名球员已经不能被选中。", "This player can no longer be selected."],
+    ["这名球员没有可踢的空位，请先腾出兼容位置。", "No compatible slot for this player. Free up a slot first."],
+    ["先填满 11 个位置。", "Fill all 11 slots first."],
+    ["模拟正在进行中。", "Simulation in progress."],
+    ["先选择你要加入的联赛。", "Choose your league first."],
+    ["赛程生成异常，请刷新后重新开始模拟。", "Schedule generation failed. Refresh and restart the simulation."],
+    ["对手", "Opponent"],
+    ["未获得欧战资格", "No European qualification"],
+    ["欧洲联队", "Europe XI"],
+    ["南美全明星", "South America All-Stars"],
+    ["非洲联队", "Africa XI"],
+    ["亚洲明星队", "Asia All-Stars"],
+    ["北美联队", "North America XI"],
+    ["世界联队", "World XI"],
+    ["传奇十一人", "Legends XI"],
+    ["青年军", "Young Guns"],
+    ["冠军联队", "Champions XI"],
+    ["欧陆豪门", "European Giants"],
+    ["美洲冠军", "Americas Champions"],
+    ["海湾之星", "Gulf Stars"],
+    ["太平洋联队", "Pacific XI"],
+    ["伊比利亚明星", "Iberian Stars"],
+    ["地中海联队", "Mediterranean XI"],
+    ["大西洋联队", "Atlantic XI"],
+    ["北欧劲旅", "Nordic Side"],
+    ["东欧联队", "Eastern Europe XI"],
+    ["中东联队", "Middle East XI"],
+    ["无名英雄", "Unknown Hero"],
+    ["阵容评分", "Squad Rating"],
+    ["球队", "Team"],
+    ["队内最佳球员", "Team Best Player"],
+    ["名额分配：", "Allocation: "],
+    ["我的赛果", "My Results"],
+    ["战报已复制", "Report copied"],
+    ["复制失败，可以手动复制。", "Copy failed. Copy it manually."],
+    ["请选择联赛", "Select League"],
+    ["赛事转盘", "League Wheel"],
+    ["欧洲赛事", "European Competition"],
+    ["欧战结束", "Europe Finished"],
+    ["本队", "My Team "],
+    ["最终成绩", "Final Result"],
+    ["36 队联赛阶段积分表", "36-team League Phase Table"],
+    ["最佳射手：", "Top Scorer: "],
+    ["联赛第", "League #"],
+    ["联赛阶段第", "League Stage R"],
+    ["出局", " Eliminated"],
+    ["点球", "Penalties"],
+    ["加时", "Extra Time"],
+    ["晋级", " advance"],
+    ["半决赛", "Semifinals"],
+    ["已选中", "Selected "],
+    ["Global 38-0：", "Global 38-0: "],
+    ["我用了", "I used "],
+    ["阵容，", " lineup, "],
+    ["名。敢来挑战吗？", " Can you beat it?"],
+    ["敢来挑战吗？", "Can you beat it?"],
+    ["赛季结果", "Season Result"],
+    ["已完成", "Completed"],
+    ["覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。", "A football draft game covering all 2025-26 Big Five clubs and 23-man squads. Build a team and simulate a full season."],
+
+    ["五大联赛", "Big Five"],
+    ["赛季阵容", "Season Squad"],
+    ["世界级阵容", "World-Class Squad"],
+    ["队内最佳球员", "Team Best Player"],
+    ["联赛阶段出局", "Eliminated in League Phase"],
+    ["全球全明星赛季", "Global All-Stars Season"],
+    ["请至少选择一个联赛。", "Select at least one league."],
+    ["阵容完成，请选择参赛联赛。", "Squad complete. Choose your league."],
+
+    ["欧冠", "UCL"],
+    ["欧联", "UEL"],
+    ["英格兰", "England"],
+    ["西班牙", "Spain"],
+    ["意大利", "Italy"],
+    ["德国", "Germany"],
+    ["法国", "France"],
+    ["进入欧冠区", "Champions League Places"],
+
+    ["曼城", "Manchester City"],
+    ["利物浦", "Liverpool"],
+    ["阿森纳", "Arsenal"],
+    ["切尔西", "Chelsea"],
+    ["曼联", "Manchester United"],
+    ["热刺", "Tottenham Hotspur"],
+    ["阿斯顿维拉", "Aston Villa"],
+    ["伯恩茅斯", "Bournemouth"],
+    ["布伦特福德", "Brentford"],
+    ["布莱顿", "Brighton"],
+    ["考文垂", "Coventry City"],
+    ["水晶宫", "Crystal Palace"],
+    ["埃弗顿", "Everton"],
+    ["富勒姆", "Fulham"],
+    ["赫尔城", "Hull City"],
+    ["伊普斯维奇", "Ipswich Town"],
+    ["利兹联", "Leeds United"],
+    ["纽卡斯尔联", "Newcastle United"],
+    ["诺丁汉森林", "Nottingham Forest"],
+    ["桑德兰", "Sunderland"],
+    ["皇家马德里", "Real Madrid"],
+    ["巴塞罗那", "Barcelona"],
+    ["马德里竞技", "Atletico Madrid"],
+    ["塞维利亚", "Sevilla"],
+    ["阿拉维斯", "Alaves"],
+    ["毕尔巴鄂竞技", "Athletic Bilbao"],
+    ["塞尔塔", "Celta Vigo"],
+    ["拉科鲁尼亚", "Deportivo La Coruna"],
+    ["埃尔切", "Elche"],
+    ["西班牙人", "Espanyol"],
+    ["赫塔费", "Getafe"],
+    ["莱万特", "Levante"],
+    ["马拉加", "Malaga"],
+    ["奥萨苏纳", "Osasuna"],
+    ["桑坦德竞技", "Racing Santander"],
+    ["巴列卡诺", "Rayo Vallecano"],
+    ["皇家贝蒂斯", "Real Betis"],
+    ["皇家社会", "Real Sociedad"],
+    ["瓦伦西亚", "Valencia"],
+    ["比利亚雷亚尔", "Villarreal"],
+    ["AC米兰", "AC Milan"],
+    ["尤文图斯", "Juventus"],
+    ["国际米兰", "Inter Milan"],
+    ["那不勒斯", "Napoli"],
+    ["亚特兰大", "Atalanta"],
+    ["博洛尼亚", "Bologna"],
+    ["卡利亚里", "Cagliari"],
+    ["科莫", "Como"],
+    ["佛罗伦萨", "Fiorentina"],
+    ["弗罗西诺内", "Frosinone"],
+    ["热那亚", "Genoa"],
+    ["拉齐奥", "Lazio"],
+    ["莱切", "Lecce"],
+    ["蒙扎", "Monza"],
+    ["帕尔马", "Parma"],
+    ["罗马", "Roma"],
+    ["萨索洛", "Sassuolo"],
+    ["都灵", "Torino"],
+    ["乌迪内斯", "Udinese"],
+    ["威尼斯", "Venezia"],
+    ["拜仁慕尼黑", "Bayern Munich"],
+    ["多特蒙德", "Borussia Dortmund"],
+    ["勒沃库森", "Bayer Leverkusen"],
+    ["奥格斯堡", "Augsburg"],
+    ["埃尔弗斯贝格", "Elversberg"],
+    ["法兰克福", "Eintracht Frankfurt"],
+    ["弗赖堡", "Freiburg"],
+    ["门兴格拉德巴赫", "Borussia Monchengladbach"],
+    ["汉堡", "Hamburg"],
+    ["霍芬海姆", "Hoffenheim"],
+    ["科隆", "Cologne"],
+    ["美因茨", "Mainz"],
+    ["帕德博恩", "Paderborn"],
+    ["RB莱比锡", "RB Leipzig"],
+    ["沙尔克04", "Schalke 04"],
+    ["斯图加特", "Stuttgart"],
+    ["柏林联合", "Union Berlin"],
+    ["云达不莱梅", "Werder Bremen"],
+    ["巴黎圣日耳曼", "Paris Saint-Germain"],
+    ["马赛", "Marseille"],
+    ["里昂", "Lyon"],
+    ["昂热", "Angers"],
+    ["欧塞尔", "Auxerre"],
+    ["布雷斯特", "Brest"],
+    ["勒阿弗尔", "Le Havre"],
+    ["勒芒", "Le Mans"],
+    ["朗斯", "Lens"],
+    ["里尔", "Lille"],
+    ["洛里昂", "Lorient"],
+    ["摩纳哥", "Monaco"],
+    ["尼斯", "Nice"],
+    ["巴黎FC", "Paris FC"],
+    ["雷恩", "Rennes"],
+    ["斯特拉斯堡", "Strasbourg"],
+    ["图卢兹", "Toulouse"],
+    ["特鲁瓦", "Troyes"],
+
+    ["英超", "Premier League"],
+    ["西甲", "La Liga"],
+    ["意甲", "Serie A"],
+    ["德甲", "Bundesliga"],
+    ["法甲", "Ligue 1"],
+    ["门将", "GK"],
+    ["右后卫", "RB"],
+    ["中后卫", "CB"],
+    ["左后卫", "LB"],
+    ["右翼卫", "RWB"],
+    ["左翼卫", "LWB"],
+    ["后腰", "CDM"],
+    ["中前卫", "CM"],
+    ["前腰", "CAM"],
+    ["右前卫", "RM"],
+    ["左前卫", "LM"],
+    ["右边锋", "RW"],
+    ["左边锋", "LW"],
+    ["中锋", "ST"],
+    ["历史战绩", "History"],
+    ["新选秀", "New Draft"],
+  ];
+
+  const DYNAMIC_RULES = [
+    [/(\d+) 分/g, "$1 pts"],
+    [/第 (\d+) 名/g, "Rank #$1"],
+    [/(\d+) 场/g, "$1 matches"],
+    [/(\d+) 球/g, "$1 goals"],
+    [/(\d+) 助/g, "$1 assists"],
+    [/重转 (\d+) 次/g, "Rerolls: $1"],
+    [/使用 (\d+) 次重转/g, "Use $1 reroll(s)"],
+    [/模拟 (\d+) 场赛季/g, "Simulate $1-match season"],
+    [/模拟赛季/g, "Simulate Season"],
+    [/五大联赛/g, "Big Five"],
+    [/进球：/g, "Goals: "],
+    [/无进球/g, "No goals"],
+    [/主队/g, "Home"],
+    [/客队/g, "Away"],
+    [/可放这里/g, "Place here"],
+    [/强放 -/g, "Forced -"],
+    [/进攻/g, "Attack"],
+    [/中场/g, "Midfield"],
+    [/防守/g, "Defense"],
+    [/门将/g, "Goalkeeper"],
+    [/总评/g, "Overall"],
+    [/赛季阵容/g, "Season Squad"],
+    [/待定/g, "TBD"],
+    [/最佳球员/g, "Best Player"],
+    [/金靴/g, "Golden Boot"],
+    [/最多助攻/g, "Most Assists"],
+    [/球员赛季数据/g, "Player Season Stats"],
+    [/进球破百/g, "100 Goals"],
+    [/钢铁防线/g, "Iron Defense"],
+    [/铁幕防守/g, "Iron Curtain Defense"],
+    [/黑马夺冠/g, "Cinderella Champion"],
+    [/世界级阵容/g, "World-Class Squad"],
+    [/完美赛季/g, "Perfect Season"],
+    [/不败赛季/g, "Undefeated Season"],
+    [/联赛冠军/g, "League Champion"],
+    [/进入欧冠区/g, "Champions League Places"],
+    [/排名/g, "Rank"],
+    [/积分/g, "Pts"],
+    [/净胜球/g, "Goal Diff"],
+    [/净胜/g, "GD"],
+    [/最佳射手/g, "Top Scorer"],
+    [/完成赛季/g, "Season Complete"],
+    [/进入附加赛/g, "Knockout Playoff"],
+    [/直接进入16强/g, "Direct to Round of 16"],
+    [/联赛阶段出局/g, "Eliminated in League Phase"],
+    [/进行中/g, "In Progress"],
+    [/已完成/g, "Completed"],
+    [/未参赛/g, "Not Entered"],
+    [/欧洲冠军/g, "European Champion"],
+    [/亚军/g, "Runner-Up"],
+    [/附加赛/g, "Playoff"],
+    [/十六强/g, "Round of 16"],
+    [/八强/g, "Quarterfinals"],
+    [/四强/g, "Semifinals"],
+    [/决赛/g, "Final"],
+    [/赛程明细/g, "Fixtures"],
+    [/当赛季积分表/g, "League Table"],
+    [/最终排名/g, "Final Standings"],
+    [/阵容复盘/g, "Squad Review"],
+    [/欧洲赛场/g, "Europe"],
+    [/欧洲比赛资格/g, "European Qualification"],
+    [/冠军/g, "Champion"],
+    [/进球/g, "Goals"],
+    [/失球/g, "Against"],
+    [/场次/g, "P"],
+    [/进/g, "GF"],
+    [/失/g, "GA"],
+    [/胜/g, "W"],
+    [/平/g, "D"],
+    [/负/g, "L"],
+    [/评分/g, "Rating"],
+    [/主 vs/g, "Home vs"],
+    [/客 vs/g, "Away vs"],
+    [/主/g, "Home"],
+    [/客/g, "Away"],
+    [/(\d+)场/g, "$1 matches"],
+    [/(\d+)球/g, "$1 goals"],
+    [/(\d+)助/g, "$1 assists"],
+    [/(\d+)分/g, "$1 pts"],
+    [/(\d+) 场比赛/g, "$1 matches"],
+    [/预计 (\d+) 场拿到 (\d+) 分/g, "Expected $1 matches to earn $2 pts"],
+    [/联赛第 (\d+) 名/g, "League #$1"],
+    [/联赛阶段第 (\d+) 轮/g, "League Stage R$1"],
+    [/(\d+\/\d+) 组/g, "$1"],
+    [/资格/g, " Qualification"],
+    [/(\d+) 净胜/g, "$1 GD"],
+    [/(\d+) 分，第 (\d+) 名/g, "$1 pts, Rank #$2"],
+    [/名/g, ""],
+    [/轮/g, ""],
+    [/组/g, ""],
+    [/(\d+) 队/g, "$1 teams"],
+    [/(\d+)净胜/g, "$1 GD"],
+    [/([\w-]+)阵容/g, "$1 Squad"],
+    [/，/g, ", "],
+    [/第 (\d+)/g, "Rank #$1"]
+  ];
+
+  const translateText = (text) => {
+    if (currentLang !== "en" || !text) return text;
+    let out = String(text);
+    const exactSorted = EXACT_PHRASES.slice().sort((a, b) => b[0].length - a[0].length);
+    for (const [zh, en] of exactSorted) out = out.split(zh).join(en);
+    const rules = DYNAMIC_RULES.slice().sort((a, b) => String(b[0]).length - String(a[0]).length);
+    for (const [pattern, replacement] of rules) out = out.replace(pattern, replacement);
+    return out;
+  };
+
+  const translateDom = () => {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((node) => {
+      if (currentLang === "en") {
+        if (!staticOriginals.has(node)) staticOriginals.set(node, node.nodeValue);
+        const translated = translateText(staticOriginals.get(node));
+        if (node.nodeValue !== translated) node.nodeValue = translated;
+      } else if (staticOriginals.has(node)) {
+        node.nodeValue = staticOriginals.get(node);
+      }
+    });
+  };
+
+  const applyLanguage = () => {
+    document.documentElement.lang = currentLang === "en" ? "en" : "zh-CN";
+    if (ui.langToggle) ui.langToggle.textContent = currentLang === "en" ? "中文" : "EN";
+    document.title = currentLang === "en" ? "Global 38-0 | Global All-Stars" : "Global 38-0 | 全球全明星赛季";
+    STATIC_TRANSLATIONS.forEach((item) => {
+      const node = document.querySelector(item.sel);
+      if (!node) return;
+      if (!staticOriginals.has(node)) staticOriginals.set(node, node.textContent);
+      node.textContent = currentLang === "en" ? item.en : staticOriginals.get(node);
+    });
+    translateDom();
+  };
+
+
   const EUROPE_COMPETITIONS = {
     UCL: { name: "欧洲冠军联赛", champion: "欧冠冠军", runnerUp: "欧冠亚军" },
     UEL: { name: "欧联杯", champion: "欧联杯冠军", runnerUp: "欧联杯亚军" },
     UECL: { name: "欧协联", champion: "欧协联冠军", runnerUp: "欧协联亚军" }
   };
   const PROMOTED_TEAMS = {
-    eng: ["Sunderland", "Leeds United", "Burnley"],
-    esp: ["Elche CF", "Levante UD", "Real Oviedo"],
-    ita: ["Sassuolo", "Cremonese", "Pisa"],
-    ger: ["1. FC Köln", "Hamburger SV", "FC St. Pauli"],
-    fra: ["Paris FC", "FC Lorient", "FC Metz"]
+    eng: ["桑德兰", "利兹联", "考文垂"],
+    esp: ["埃尔切", "莱万特", "桑坦德竞技"],
+    ita: ["萨索洛", "科莫", "帕尔马"],
+    ger: ["科隆", "汉堡", "帕德博恩"],
+    fra: ["巴黎FC", "洛里昂", "勒芒"]
   };
 
   const state = {
@@ -44,6 +483,8 @@
     seasonRangeEndLabel: $("#seasonRangeEndLabel"),
     seasonRangeFill: $("#seasonRangeFill"),
     difficultySelect: $("#difficultySelect"),
+    langToggle: $("#langToggle"),
+    hideRatingsSelect: $("#hideRatingsSelect"),
     formationSelect: $("#formationSelect"),
     leagueChoice: $("#leagueChoice"),
     leagueChoiceOptions: $("#leagueChoiceOptions"),
@@ -86,7 +527,7 @@
   const el = (tag, className, text) => {
     const node = document.createElement(tag);
     if (className) node.className = className;
-    if (text !== undefined) node.textContent = text;
+    if (text !== undefined) node.textContent = translateText(text);
     return node;
   };
 
@@ -132,9 +573,10 @@
     const club = getSeasonData(season).clubs.find((c) => c.id === id);
     return club || CLUBS[id] || getSeasonData(season).clubs[0];
   };
-  const clubsForLeague = (id, season) => getSeasonData(season).clubs.filter((c) => c.league === id);
+  const clubsForLeague = (id, season) => getSeasonData("2025-26").clubs.filter((c) => c.league === id);
   const allClubs = (season) => getSeasonData(season).clubs;
   const simulationSeason = (game) => game?.season || game?.seasonRange?.end || "2025-26";
+  const isRatingsHidden = (game) => Boolean(game?.hideRatings && game.draftedPlayers.length < game.slots.length);
 
   const pruneData = () => {
     LEAGUES.splice(0, LEAGUES.length, ...LEAGUES.filter((league) => BIG_FIVE_IDS.has(league.id)));
@@ -297,11 +739,29 @@
   }
 
   const toast = (message) => {
-    ui.toast.textContent = message;
+    ui.toast.textContent = translateText(message);
     ui.toast.classList.add("show");
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => ui.toast.classList.remove("show"), 2600);
   };
+
+
+  function toggleLanguage() {
+    currentLang = currentLang === "en" ? "zh" : "en";
+    localStorage.setItem(LANG_KEY, currentLang);
+    applyLanguage();
+    renderLeagueGrid();
+    renderHeroStats();
+    renderHomeHistory();
+    if (state.game) {
+      renderGame();
+      renderPitch();
+      renderCandidates();
+      renderTeamRating();
+    }
+    if (state.viewingRun) renderResult(state.viewingRun);
+    setTimeout(translateDom, 0);
+  }
 
   async function init() {
     await loadStorage();
@@ -310,6 +770,15 @@
     renderLeagueGrid();
     renderHeroStats();
     renderHomeHistory();
+    applyLanguage();
+    if (typeof MutationObserver !== "undefined") {
+      new MutationObserver(() => {
+        if (currentLang === "en") {
+          clearTimeout(window.__g38LangTimer);
+          window.__g38LangTimer = setTimeout(translateDom, 0);
+        }
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
     bindEvents();
     loadSavedGame();
     if (state.game) renderGame();
@@ -317,6 +786,7 @@
   }
 
   function bindEvents() {
+    ui.langToggle.addEventListener("click", toggleLanguage);
     $("#startBtn").addEventListener("click", startGame);
     $("#newGameBtn").addEventListener("click", showNewGameSetup);
     $("#historyBtn").addEventListener("click", showHomeHistory);
@@ -507,6 +977,7 @@
       season: randomSeasonInRange(),
       league: null,
       difficulty: ui.difficultySelect.value,
+      hideRatings: ui.hideRatingsSelect.value === "1",
       formation,
       slots,
       draftedPlayers: [],
@@ -639,6 +1110,7 @@
 
   function renderPitch() {
     const game = state.game;
+    const hidden = isRatingsHidden(game);
     ui.pitchField.innerHTML = "";
     const pending = game.candidates.find((p) => p.id === state.pendingDraftPlayerId) || null;
     const selectedSlot = state.selectedSlotIndex !== null ? game.slots[state.selectedSlotIndex] : null;
@@ -665,7 +1137,7 @@
       button.appendChild(pos);
       if (slot.player) {
         button.appendChild(el("span", "slot-name", slot.player.name));
-        button.appendChild(el("span", "slot-rate", String(slot.player.rate)));
+        button.appendChild(el("span", "slot-rate", hidden ? "?" : String(slot.player.rate)));
       } else if (pending) {
         const normalFit = canPlaySlot(pending, slot.pos);
         const forcedFit = !normalFit && canForcePlace(pending, slot.pos);
@@ -704,10 +1176,11 @@
     });
     const avg = (values) => values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : "--";
     ui.unitRatings.innerHTML = "";
+    const hidden = isRatingsHidden(game);
     [
-      ["进攻", avg(groups.ATT)],
-      ["中场", avg(groups.MID)],
-      ["防守", avg(groups.DEF)]
+      ["进攻", hidden ? "--" : avg(groups.ATT)],
+      ["中场", hidden ? "--" : avg(groups.MID)],
+      ["防守", hidden ? "--" : avg(groups.DEF)]
     ].forEach(([label, value]) => appendAbilityRating(ui.unitRatings, label, value));
   }
 
@@ -963,12 +1436,14 @@
       ));
       return;
     }
+    const hidden = isRatingsHidden(game);
     const canPlace = (candidate) => game.slots.some((slot) => !slot.player && canPlaySlot(candidate, slot.pos));
     const canForce = (candidate) => game.slots.some((slot) => !slot.player && canForcePlace(candidate, slot.pos));
+    const sortFn = hidden ? () => 0 : (a, b) => b.rate - a.rate;
     const ordered = [
-      ...game.candidates.filter((candidate) => canPlace(candidate)).sort((a, b) => b.rate - a.rate),
-      ...game.candidates.filter((candidate) => canForce(candidate)).sort((a, b) => b.rate - a.rate),
-      ...game.candidates.filter((candidate) => !canPlace(candidate) && !canForce(candidate)).sort((a, b) => b.rate - a.rate)
+      ...game.candidates.filter((candidate) => canPlace(candidate)).sort(sortFn),
+      ...game.candidates.filter((candidate) => canForce(candidate)).sort(sortFn),
+      ...game.candidates.filter((candidate) => !canPlace(candidate) && !canForce(candidate)).sort(sortFn)
     ];
     ordered.forEach((candidate) => {
       const button = el("button", "candidate", "");
@@ -980,7 +1455,7 @@
       button.appendChild(el("strong", "", candidate.name));
       const forced = canForce(candidate) && !canPlace(candidate);
       button.appendChild(el("small", "", `${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}${forced ? " · 强放 -" + FORCED_FIT_PENALTY : ""}`));
-      button.appendChild(el("span", "rate", String(candidate.rate)));
+      button.appendChild(el("span", "rate", hidden ? "?" : String(candidate.rate)));
       button.addEventListener("click", () => {
         if (isDrafted(candidate.id)) {
           toast("这名球员已经被选中。");
@@ -1089,14 +1564,17 @@
   function buildCandidates(club, game) {
     const spinSeason = game.currentSpin?.season || game.season || "2025-26";
     const pool = getClub(club.id, spinSeason)?.players || club.players || [];
-    return pool
+    const mapped = pool
       .map((player) => ({
         ...player,
         id: `${spinSeason}|${club.id}|${player.name}`,
         rate: clamp(calibrateRate(Number(player.rate || 80), spinSeason) + Math.floor(Math.random() * 3) - 1, 40, 99)
       }))
-      .filter((player) => !isDrafted(player.id))
-      .sort((a, b) => b.rate - a.rate);
+      .filter((player) => !isDrafted(player.id));
+    if (!game.hideRatings) {
+      return mapped.sort((a, b) => b.rate - a.rate);
+    }
+    return shuffleWithRng(mapped, makeRng(hashSeed(`hidden-${spinSeason}-${club.id}-${game.draftedPlayers.length}`)));
   }
 
   function calibrateRate(rate, season) {
@@ -1156,6 +1634,10 @@
   }
 
   function renderTeamRating() {
+    if (isRatingsHidden(state.game)) {
+      ui.teamRating.textContent = "?";
+      return;
+    }
     const rating = calcTeamRating(state.game);
     ui.teamRating.textContent = rating ? String(rating) : "--";
   }
@@ -2601,11 +3083,8 @@
 
   function goBackFromResult() {
     state.viewingRun = null;
-    if (state.game) {
-      renderGame();
-    } else {
-      showView("setup");
-    }
+    showView("setup");
+    renderHomeHistory();
   }
 
   function shareResult() {

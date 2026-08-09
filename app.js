@@ -7,6 +7,9 @@
   const BIG_FIVE_IDS = new Set(["eng", "esp", "ita", "ger", "fra"]);
   const WING_POSITIONS = ["LM", "RM", "LW", "RW"];
   const MIDFIELD_CENTRE_POSITIONS = ["CM", "CDM", "CAM"];
+  const FORCED_FIT_PENALTY = 6;
+  const EUROPE_LIST_VERSION = "2025-26-v2";
+  const SIM_VERSION = "2026-v2";
   const EUROPE_COMPETITIONS = {
     UCL: { name: "欧洲冠军联赛", champion: "欧冠冠军", runnerUp: "欧冠亚军" },
     UEL: { name: "欧联杯", champion: "欧联杯冠军", runnerUp: "欧联杯亚军" },
@@ -92,7 +95,7 @@
   const leagueTeamCount = (leagueId) => (leagueId === "ger" || leagueId === "fra" ? 18 : 20);
   const leagueMatchCount = (leagueId) => (leagueTeamCount(leagueId) - 1) * 2;
   const expectedPointsForRating = (rating, played) => {
-    const base = played >= 38 ? 40 + (rating - 70) * 2.2 : 36 + (rating - 70) * 1.9;
+    const base = rating >= 80 ? 71 + (rating - 80) * 4.8 : 42 + (rating - 76) * 7.25;
     return clamp(Math.round(base), 18, Math.max(18, played * 3 - 8));
   };
   const rankFromPoints = (points, size) => {
@@ -101,7 +104,7 @@
     return clamp(1 + Math.round((topPoints - points) / step), 1, size);
   };
   const getLeagueTeams = (game) => {
-    const season = game?.seasonRange?.end || game?.season || "2025-26";
+    const season = simulationSeason(game);
     const real = clubsForLeague(game?.league, season).map((club) => club.name);
     if (!real.length) return ["我的球队"];
     const rng = makeRng(hashSeed(`replace-${game?.id}-${game?.league}`));
@@ -132,6 +135,7 @@
   };
   const clubsForLeague = (id, season) => getSeasonData(season).clubs.filter((c) => c.league === id);
   const allClubs = (season) => getSeasonData(season).clubs;
+  const simulationSeason = (game) => game?.season || game?.seasonRange?.end || "2025-26";
 
   const pruneData = () => {
     LEAGUES.splice(0, LEAGUES.length, ...LEAGUES.filter((league) => BIG_FIVE_IDS.has(league.id)));
@@ -266,6 +270,21 @@
     const result = run?.result;
     if (!result || !Array.isArray(result.matches)) return false;
     return result.matches.some(isSelfMatch);
+  }
+
+  function isStaleSimulationResult(run) {
+    return Boolean(run?.result && run.result.simVersion !== SIM_VERSION);
+  }
+
+  function isStaleEuropeResult(run) {
+    return Boolean(run?.europeResult && run.europeResult.listVersion !== EUROPE_LIST_VERSION);
+  }
+
+  function clearStaleEuropeResult(run) {
+    if (isStaleEuropeResult(run)) {
+      run.europeResult = null;
+      run.europeSim = null;
+    }
   }
 
   const toast = (message) => {
@@ -467,6 +486,18 @@
         saved.simulation = null;
         safeSet(STORAGE_GAME, saved);
       }
+      if (isStaleEuropeResult(saved)) {
+        saved.europeResult = null;
+        saved.europeSim = null;
+        safeSet(STORAGE_GAME, saved);
+      }
+      if (isStaleSimulationResult(saved)) {
+        saved.result = null;
+        saved.simulation = null;
+        saved.europeResult = null;
+        saved.europeSim = null;
+        safeSet(STORAGE_GAME, saved);
+      }
       state.game = saved;
       state.selectedSlotIndex = null;
       state.pendingDraftPlayerId = null;
@@ -643,8 +674,11 @@
       button.classList.toggle("empty", !slot.player);
       button.classList.toggle("selected", state.selectedSlotIndex === index);
       if (pending) {
-        button.classList.toggle("compatible", !slot.player && canPlaySlot(pending, slot.pos));
-        button.classList.toggle("incompatible", !slot.player && !canPlaySlot(pending, slot.pos));
+        const normalFit = canPlaySlot(pending, slot.pos);
+        const forcedFit = !normalFit && canForcePlace(pending, slot.pos);
+        button.classList.toggle("compatible", !slot.player && normalFit);
+        button.classList.toggle("forced-compatible", !slot.player && forcedFit);
+        button.classList.toggle("incompatible", !slot.player && !normalFit && !forcedFit);
       } else if (swapMode && index !== state.selectedSlotIndex) {
         const canSwap = canPlaySlot(selectedSlot.player, slot.pos)
           && canPlaySlot(slot.player, selectedSlot.pos);
@@ -655,8 +689,14 @@
       if (slot.player) {
         button.appendChild(el("span", "slot-name", slot.player.name));
         button.appendChild(el("span", "slot-rate", String(slot.player.rate)));
-      } else if (pending && canPlaySlot(pending, slot.pos)) {
-        button.appendChild(el("span", "slot-hint", "可放这里"));
+      } else if (pending) {
+        const normalFit = canPlaySlot(pending, slot.pos);
+        const forcedFit = !normalFit && canForcePlace(pending, slot.pos);
+        if (normalFit) {
+          button.appendChild(el("span", "slot-hint", "可放这里"));
+        } else if (forcedFit) {
+          button.appendChild(el("span", "slot-hint", "强放 -" + FORCED_FIT_PENALTY));
+        }
       }
       button.addEventListener("click", () => selectSlot(index));
       ui.pitchField.appendChild(button);
@@ -776,7 +816,7 @@
         toast("这个位置已经有球员，请先选择空位。");
         return;
       }
-      if (!canPlaySlot(pending, slot.pos)) {
+      if (!canPlaySlot(pending, slot.pos) && !canForcePlace(pending, slot.pos)) {
         toast(`${pending.name} 不能踢 ${POSITION_NAMES[slot.pos]}。`);
         return;
       }
@@ -807,6 +847,25 @@
     if (slotPos === "CM" && player.pos.some((pos) => MIDFIELD_CENTRE_POSITIONS.includes(pos))) return true;
     if (player.pos.includes("CM") && (slotPos === "CDM" || slotPos === "CAM")) return true;
     return false;
+  }
+
+  function isForceableMidfielder(player) {
+    return Boolean(player && Array.isArray(player.pos) && player.pos.some((pos) => MIDFIELD_CENTRE_POSITIONS.includes(pos) || pos === "LM" || pos === "RM"));
+  }
+
+  function hasNormalPlacement() {
+    const game = state.game;
+    if (!game) return false;
+    return game.candidates.some((candidate) => !isDrafted(candidate.id) && game.slots.some((slot) => !slot.player && canPlaySlot(candidate, slot.pos)));
+  }
+
+  function canForcePlace(player, slotPos) {
+    const game = state.game;
+    if (!game || !player || !slotPos) return false;
+    const slot = game.slots.find((item) => item.pos === slotPos);
+    if (!slot || slot.player) return false;
+    if (!isForceableMidfielder(player)) return false;
+    return !hasNormalPlacement();
   }
 
   function trySwapSlots(firstIndex, secondIndex) {
@@ -840,11 +899,13 @@
       toast("这个位置已经有球员，请先选择空位。");
       return;
     }
+    const forced = !canPlaySlot(candidate, slot.pos) && canForcePlace(candidate, slot.pos);
     const baseRate = Number(candidate.baseRate || candidate.rate);
     const drafted = {
       ...candidate,
       baseRate,
-      rate: clamp(baseRate + fitBonus(slot.pos, candidate.pos), 40, 99)
+      forced,
+      rate: clamp(baseRate + fitBonus(slot.pos, candidate.pos, forced), 40, 99)
     };
     slot.player = drafted;
     game.draftedPlayers.push(drafted);
@@ -926,25 +987,29 @@
       return;
     }
     const canPlace = (candidate) => game.slots.some((slot) => !slot.player && canPlaySlot(candidate, slot.pos));
+    const canForce = (candidate) => game.slots.some((slot) => !slot.player && canForcePlace(candidate, slot.pos));
     const ordered = [
       ...game.candidates.filter((candidate) => canPlace(candidate)).sort((a, b) => b.rate - a.rate),
-      ...game.candidates.filter((candidate) => !canPlace(candidate)).sort((a, b) => b.rate - a.rate)
+      ...game.candidates.filter((candidate) => canForce(candidate)).sort((a, b) => b.rate - a.rate),
+      ...game.candidates.filter((candidate) => !canPlace(candidate) && !canForce(candidate)).sort((a, b) => b.rate - a.rate)
     ];
     ordered.forEach((candidate) => {
       const button = el("button", "candidate", "");
       button.type = "button";
       button.classList.toggle("used", isDrafted(candidate.id));
       button.classList.toggle("pending", candidate.id === state.pendingDraftPlayerId);
-      button.classList.toggle("unavailable", !canPlace(candidate));
+      button.classList.toggle("forced", canForce(candidate) && !canPlace(candidate));
+      button.classList.toggle("unavailable", !canPlace(candidate) && !canForce(candidate));
       button.appendChild(el("strong", "", candidate.name));
-      button.appendChild(el("small", "", `${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}`));
+      const forced = canForce(candidate) && !canPlace(candidate);
+      button.appendChild(el("small", "", `${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}${forced ? " · 强放 -" + FORCED_FIT_PENALTY : ""}`));
       button.appendChild(el("span", "rate", String(candidate.rate)));
       button.addEventListener("click", () => {
         if (isDrafted(candidate.id)) {
           toast("这名球员已经被选中。");
           return;
         }
-        if (!canPlace(candidate)) {
+        if (!canPlace(candidate) && !canForce(candidate)) {
           toast("这名球员没有可放的空位。");
           return;
         }
@@ -952,7 +1017,7 @@
         state.selectedSlotIndex = null;
         renderPitch();
         renderCandidates();
-        toast(`已选中 ${candidate.name}，点击球场上可踢的空位。`);
+        toast(`已选中 ${candidate.name}，${canForce(candidate) && !canPlace(candidate) ? "可强放，但会降低总评" : "点击球场上可踢的空位"}。`);
         document.querySelector(".pitch-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
       ui.candidates.appendChild(button);
@@ -1090,7 +1155,7 @@
       toast("这名球员已经不能被选中。");
       return;
     }
-    const compatible = game.slots.some((slot) => !slot.player && canPlaySlot(candidate, slot.pos));
+    const compatible = game.slots.some((slot) => !slot.player && (canPlaySlot(candidate, slot.pos) || canForcePlace(candidate, slot.pos)));
     if (!compatible) {
       toast("这名球员没有可踢的空位，请先腾出兼容位置。");
       return;
@@ -1101,7 +1166,7 @@
     renderCandidates();
   }
 
-  function fitBonus(slotPos, playerPositions) {
+  function fitBonus(slotPos, playerPositions, forced) {
     if (canPlaySlot({ pos: playerPositions }, slotPos)) return 0;
     const unit = (p) => {
       if (p === "GK") return "gk";
@@ -1109,7 +1174,8 @@
       if (["CDM", "CM", "CAM", "RM", "LM"].includes(p)) return "mid";
       return "att";
     };
-    return unit(slotPos) === unit(playerPositions[0]) ? -1 : -4;
+    const base = unit(slotPos) === unit(playerPositions[0]) ? -1 : -4;
+    return forced ? base - FORCED_FIT_PENALTY : base;
   }
 
   function renderTeamRating() {
@@ -1142,7 +1208,7 @@
     const avg = (list) => list.length ? Math.round(list.reduce((sum, value) => sum + value, 0) / list.length) : 80;
     const attCount = units.ATT.length;
     const midCount = units.MID.length;
-    const attack = avg([...units.ATT, ...units.MID]) + (attCount - 3) * 1.6;
+    const attack = avg(units.ATT) * 0.75 + avg([...units.ATT, ...units.MID]) * 0.25;
     const midfield = avg([...units.MID, ...units.ATT.slice(0, 1)]) + (midCount - 3) * 0.8;
     const defense = avg(units.DEF) + (units.DEF.length - 4) * 1.2;
     const goalkeeper = avg(units.GK);
@@ -1172,32 +1238,48 @@
     const mean = phases.reduce((sum, value) => sum + value, 0) / phases.length;
     const min = Math.min(...phases);
     const blended = mean * 0.82 + min * 0.18;
-    const anchored = Math.max(blended, (profile.overall || mean) * 0.92);
+    const overall = profile.overall || mean;
+    const anchored = overall * 0.75 + blended * 0.25;
     return clamp(anchored, 40, 99);
   }
 
   function createLeagueSchedule(names) {
     const order = names.slice();
-    const matches = [];
     const size = order.length;
-    for (let half = 0; half < 2; half += 1) {
-      for (let round = 0; round < size - 1; round += 1) {
-        for (let index = 0; index < size / 2; index += 1) {
-          let home = order[index];
-          let away = order[size - 1 - index];
-          if (half === 1) {
-            const swap = home;
-            home = away;
-            away = swap;
-          }
-          if (!home || !away || home === away) continue;
-          matches.push({ home, away });
-        }
-        const last = order.pop();
-        order.splice(1, 0, last);
+    const firstRounds = [];
+    const secondRounds = [];
+    for (let round = 0; round < size - 1; round += 1) {
+      const first = [];
+      const second = [];
+      for (let index = 0; index < size / 2; index += 1) {
+        let home = order[index];
+        let away = order[size - 1 - index];
+        if (!home || !away || home === away) continue;
+        first.push({ home, away });
+        second.push({ home: away, away: home });
       }
+      firstRounds.push(first);
+      secondRounds.push(second);
+      const last = order.pop();
+      order.splice(1, 0, last);
     }
-    return matches;
+    const applyFlips = (rounds, baseRound) => {
+      rounds.forEach((round, r) => {
+        const actualRound = baseRound + r;
+        const originalUserHome = round.some((match) => match.home === "我的球队");
+        const desiredHome = actualRound % 2 === 0;
+        if (originalUserHome !== desiredHome) {
+          round.forEach((match) => {
+            const swap = match.home;
+            match.home = match.away;
+            match.away = swap;
+          });
+        }
+      });
+    };
+    applyFlips(firstRounds, 0);
+    applyFlips(secondRounds, size - 1);
+    return [...firstRounds.flat(), ...secondRounds.flat()];
   }
 
   function createLeagueTable(names) {
@@ -1220,25 +1302,22 @@
   }
 
   function buildProfileMap(game, names) {
-    const season = game.seasonRange?.end || game.season || "2025-26";
+    const profiles = buildLeagueProfileMap(game, names);
     const map = {};
     names.forEach((name) => {
       if (name === "我的球队") {
         const userProfile = calcTeamProfile(game);
         map[name] = {
           ...userProfile,
-          attack: clamp(userProfile.attack + 3, 40, 99),
-          midfield: clamp(userProfile.midfield + 2, 40, 99),
-          defense: clamp(userProfile.defense + 2, 40, 99),
-          goalkeeper: clamp(userProfile.goalkeeper + 2, 40, 99),
-          overall: clamp(userProfile.overall + 3, 40, 99)
+          attack: clamp(userProfile.attack, 40, 99),
+          midfield: clamp(userProfile.midfield, 40, 99),
+          defense: clamp(userProfile.defense, 40, 99),
+          goalkeeper: clamp(userProfile.goalkeeper, 40, 99),
+          overall: clamp(userProfile.overall, 40, 99)
         };
         return;
       }
-      const club = clubsForLeague(game.league, season).find((item) => item.name === name);
-      map[name] = club
-        ? calcClubProfile(club)
-        : { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 };
+      map[name] = profiles[name] || { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 };
     });
     return map;
   }
@@ -1266,7 +1345,7 @@
     const diff = hasElo ? eloHome - eloAway : baseDiff;
     const winChance = clamp(expectedHome, 0.06, 0.88);
     const drawChance = clamp(0.3 - Math.abs(diff) * 0.008, 0.15, 0.34);
-    const roll = rng();
+    const roll = (rng() + rng()) / 2;
     const result = roll < winChance ? "H" : roll < winChance + drawChance ? "D" : "A";
     const expectedFor = clamp(
       0.85
@@ -1557,6 +1636,7 @@
       finish,
       teamRating: sim.teamRating,
       seed: hashSeed(`${game.id}|${game.slots.map((s) => s.player.id).join(",")}`),
+      simVersion: SIM_VERSION,
       topScorer,
       achievements,
       playerStats,
@@ -1596,9 +1676,9 @@
     const rng = makeRng(hashSeed(`table-${game.id}`));
     const pool = getLeagueTeams(game).filter((name) => name !== "我的球队");
     while (pool.length < size - 1) pool.push(`对手 ${pool.length + 1}`);
+    const profiles = buildLeagueProfileMap(game, getLeagueTeams(game));
     const rated = pool.map((name) => {
-      const club = clubsForLeague(game.league, game.seasonRange?.end || "2025-26").find((item) => item.name === name);
-      const profile = club ? calcClubProfile(club) : { overall: 78 };
+      const profile = profiles[name] || { overall: 78 };
       return { name, rating: profile.overall || 78 };
     }).sort((a, b) => b.rating - a.rating);
     const finish = summary.finish || rankFromPoints(summary.points, size);
@@ -1678,7 +1758,7 @@
   }
 
   function buildOpponents(game) {
-    const season = game.seasonRange?.end || game.season || "2025-26";
+    const season = simulationSeason(game);
     const pool = getLeagueTeams(game).filter((name) => name !== "我的球队");
     const filler = [
       "欧洲联队", "南美全明星", "非洲联队", "亚洲明星队", "北美联队", "世界联队",
@@ -1725,7 +1805,24 @@
     };
   }
 
-  function runSeason(game, teamRating, opponents, seed) {
+  function buildLeagueProfileMap(game, names) {
+    const season = simulationSeason(game);
+    const clubs = clubsForLeague(game.league, season).filter((club) => names.includes(club.name));
+    const rows = clubs.map((club) => ({ club, profile: calcClubProfile(club) })).sort((a, b) => b.profile.overall - a.profile.overall);
+    const count = rows.length;
+    rows.forEach((item, index) => {
+      const normalized = count > 1 ? Math.round(82 - (index / (count - 1)) * 12) : 78;
+      const delta = normalized - item.profile.overall;
+      item.profile.attack = clamp(item.profile.attack + Math.round(delta * 0.35), 40, 99);
+      item.profile.midfield = clamp(item.profile.midfield + Math.round(delta * 0.25), 40, 99);
+      item.profile.defense = clamp(item.profile.defense + Math.round(delta * 0.25), 40, 99);
+      item.profile.goalkeeper = clamp(item.profile.goalkeeper + Math.round(delta * 0.15), 40, 99);
+      item.profile.overall = normalized;
+    });
+    return Object.fromEntries(rows.map((item) => [item.club.name, item.profile]));
+  }
+
+    function runSeason(game, teamRating, opponents, seed) {
     const rng = makeRng(seed);
     const matches = [];
     const scorers = new Map();
@@ -1885,7 +1982,7 @@
     if (!run || !run.result) return;
     const result = run.result;
     const leagueName = getLeague(run.league)?.name || run.league || "";
-    const seasonText = run.seasonRange?.end || run.season || "";
+    const seasonText = run.season || run.seasonRange?.end || "";
     $("#resultMatchEyebrow").textContent = `${result.matches.length} 场比赛`;
     $("#resultBadge").textContent = `${run.formation} · ${leagueName || seasonText}`;
     $("#resultRecord").textContent = `${result.wins}-${result.draws}-${result.losses}`;
@@ -2033,34 +2130,78 @@
     simulateNextEuropeanStep(sim);
   }
 
-  function createEuropeanSimulation(run, competition) {
-    const rng = makeRng(hashSeed(`europe-${run.id}-${competition}`));
-    const pool = [
-      "Ajax", "PSV", "Feyenoord", "FC Porto", "Benfica", "Sporting CP", "Celtic", "Rangers",
-      "Club Brugge", "Anderlecht", "Galatasaray", "Fenerbahçe", "Beşiktaş", "Olympiacos", "PAOK",
-      "Red Star", "Dinamo Zagreb", "Salzburg", "Shakhtar", "Dynamo Kyiv", "Copenhagen", "Malmö",
-      "Slavia Prague", "Sparta Prague", "Young Boys", "Basel", "Partizan", "APOEL", "Ferencváros",
-      "Midtjylland", "Bodø/Glimt", "Ludogorets", "AZ Alkmaar", "Braga", "Trabzonspor", "Slovan Bratislava"
-    ];
-    const replaced = shuffleWithRng(pool, rng).slice(0, 35);
-    const teams = replaced.map((name) => {
-      const fallback = europeProfileFromStrength(72 + Math.floor(rng() * 16));
-      const profile = (typeof EUROPEAN_CLUB_PROFILES !== "undefined" && EUROPEAN_CLUB_PROFILES[name])
-        || fallback;
-      const strength = teamStrength(profile);
+  function buildEuropeanTeam(entry, rng) {
+    const club = entry.id && typeof CLUBS !== "undefined" ? CLUBS[entry.id] : null;
+    if (club) {
+      const profile = calcClubProfile(club);
       return {
-        name,
-        strength,
+        name: club.name,
+        strength: teamStrength(profile),
         profile,
         points: 0,
         goalsFor: 0,
         goalsAgainst: 0,
         isUser: false
       };
-    });
+    }
+    const profileName = entry.profile || entry.name;
+    const fallback = europeProfileFromStrength(70 + Math.floor(rng() * 16));
+    const profile = (typeof EUROPEAN_CLUB_PROFILES !== "undefined" && EUROPEAN_CLUB_PROFILES[profileName])
+      || fallback;
+    const strength = teamStrength(profile);
+    return {
+      name: entry.name,
+      strength,
+      profile,
+      points: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      isUser: false
+    };
+  }
+
+  function createEuropeanSimulation(run, competition) {
+    const rng = makeRng(hashSeed(`europe-${run.id}-${competition}`));
+    const entries = (typeof EUROPE_2025_26 !== "undefined" && EUROPE_2025_26[competition]) || null;
+    const teams = [];
+    if (entries && entries.length) {
+      const nonBigFive = entries.filter((entry) => !(
+        entry.id
+        && typeof CLUBS !== "undefined"
+        && CLUBS[entry.id]
+        && BIG_FIVE_IDS.has(CLUBS[entry.id].league)
+      ));
+      const replaced = nonBigFive.length ? shuffleWithRng(nonBigFive, rng)[0] : null;
+      entries.filter((entry) => entry !== replaced).forEach((entry) => {
+        teams.push(buildEuropeanTeam(entry, rng));
+      });
+    } else {
+      const pool = [
+        "Ajax", "PSV", "Feyenoord", "FC Porto", "Benfica", "Sporting CP", "Celtic", "Rangers",
+        "Club Brugge", "Anderlecht", "Galatasaray", "Fenerbahçe", "Beşiktaş", "Olympiacos", "PAOK",
+        "Red Star", "Dinamo Zagreb", "Salzburg", "Shakhtar", "Dynamo Kyiv", "Copenhagen", "Malmö",
+        "Slavia Prague", "Sparta Prague", "Young Boys", "Basel", "Partizan", "APOEL", "Ferencváros",
+        "Midtjylland", "Bodø/Glimt", "Ludogorets", "AZ Alkmaar", "Braga", "Trabzonspor", "Slovan Bratislava"
+      ];
+      const replaced = shuffleWithRng(pool, rng).slice(0, 35);
+      replaced.forEach((name) => {
+        const fallback = europeProfileFromStrength(72 + Math.floor(rng() * 16));
+        const profile = (typeof EUROPEAN_CLUB_PROFILES !== "undefined" && EUROPEAN_CLUB_PROFILES[name])
+          || fallback;
+        teams.push({
+          name,
+          strength: teamStrength(profile),
+          profile,
+          points: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          isUser: false
+        });
+      });
+    }
     const userProfile = calcTeamProfile(run);
     teams.push({
-      name: "我的球队",
+      name: "\u6211\u7684\u7403\u961f",
       strength: teamStrength(userProfile),
       profile: userProfile,
       points: 0,
@@ -2083,7 +2224,7 @@
       rounds: [],
       currentStage: null,
       leagueTable: null,
-      userStage: "进行中",
+      userStage: "\u8fdb\u884c\u4e2d",
       userAlive: true,
       finished: false
     };
@@ -2279,7 +2420,7 @@
       sim.userStage = winners.some((team) => team?.isUser) ? "欧洲冠军" : "亚军";
     } else if (!winners.some((team) => team?.isUser)) {
       sim.userAlive = false;
-      if (sim.userStage === "进行中") sim.userStage = `${europeStageLabel(completedStage.name)}出局`;
+      sim.userStage = `${europeStageLabel(completedStage.name)}出局`;
     }
     if (completedStage.name === "附加赛") {
       const r16Ties = sim.leagueTable.slice(0, 8).map((team, index) => createEuropeanTie(team, winners[index], true));
@@ -2308,7 +2449,11 @@
     const champion = finalStage?.ties?.[0]?.winner || null;
     const info = EUROPE_COMPETITIONS[sim.competition] || { name: sim.competitionName || sim.competition || "欧洲赛事", champion: "欧洲冠军", runnerUp: "欧战结束" };
     if (sim.userStage === "进行中") {
-      sim.userStage = champion?.isUser ? info.champion : user ? info.runnerUp : "未参赛";
+      const userRound = [...sim.rounds].reverse().find((round) => round.ties.some((tie) => tie.home?.isUser || tie.away?.isUser));
+      if (champion?.isUser) sim.userStage = info.champion;
+      else if (userRound) sim.userStage = `${europeStageLabel(userRound.name)}出局`;
+      else if (user) sim.userStage = "联赛阶段出局";
+      else sim.userStage = "未参赛";
     }
     sim.run.europeResult = {
       competition: sim.competition,
@@ -2317,6 +2462,7 @@
       userStage: sim.userStage,
       finalResult: sim.userStage,
       champion: champion?.name || null,
+      listVersion: EUROPE_LIST_VERSION,
       leagueTable: sim.leagueTable,
       rounds: sim.rounds,
       logs: sim.logs
@@ -2456,13 +2602,22 @@
 
   function loadRuns() {
     const raw = Array.isArray(safeGet(STORAGE_RUNS)) ? safeGet(STORAGE_RUNS) : [];
-    const clean = raw.filter((run) => !isBadRun(run));
-    if (clean.length !== raw.length) safeSet(STORAGE_RUNS, clean);
+    const clean = raw.filter((run) => !isBadRun(run) && !isStaleSimulationResult(run));
+    let changed = clean.length !== raw.length;
+    clean.forEach((run) => {
+      if (isStaleEuropeResult(run)) {
+        run.europeResult = null;
+        run.europeSim = null;
+        changed = true;
+      }
+    });
+    if (clean.length !== raw.length || changed) safeSet(STORAGE_RUNS, clean);
     return clean;
   }
 
   function viewRun(run) {
     if (!run?.result || isBadRun(run)) return;
+    clearStaleEuropeResult(run);
     state.viewingRun = run;
     renderResult(run);
   }

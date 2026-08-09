@@ -1628,3 +1628,28 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.slot.forced-compatible {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.18);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.24);
+}
+
+.slot.forced-compatible .slot-hint {
+  color: #fbbf24;
+}
+
+.candidate.forced {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.candidate.forced:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.candidate.forced .rate {
+  color: #1c1200;
+  background: #f59e0b;
+}

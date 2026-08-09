@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-  <link rel="stylesheet" href="styles.css?v=20260809-7" />
+  <link rel="stylesheet" href="styles.css?v=20260809-10" />
 </head>
 <body>
   <header class="topbar">
@@ -77,8 +77,12 @@
                 <span>至</span>
                 <span id="seasonRangeEndLabel">2025-26</span>
               </div>
-              <input id="seasonRangeStart" type="range" min="0" max="35" value="0" />
-              <input id="seasonRangeEnd" type="range" min="0" max="35" value="35" />
+              <div class="dual-range">
+                <div class="range-rail"></div>
+                <div class="range-fill" id="seasonRangeFill"></div>
+                <input id="seasonRangeStart" type="range" min="0" max="35" value="0" />
+                <input id="seasonRangeEnd" type="range" min="0" max="35" value="35" />
+              </div>
             </div>
           </label>
           <label class="field">
@@ -111,20 +115,7 @@
         </aside>
       </div>
 
-            <section class="panel team-library-panel collapsible-panel">
-        <details open>
-          <summary class="panel-head">
-            <div>
-              <p class="eyebrow">球队库</p>
-              <h2 id="teamLibraryTitle">当前赛季可抽球队</h2>
-            </div>
-          </summary>
-          <div class="collapsible-body">
-            <div class="team-library" id="teamLibrary"></div>
-          </div>
-        </details>
-      </section>
-
+            
             <section class="panel history-home collapsible-panel" id="homeHistory">
         <details open>
           <summary class="panel-head">
@@ -294,15 +285,15 @@
   </footer>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="data.js?v=20260809-7"></script>
-  <script src="big-five.js?v=20260809-7"></script>
-  <script src="big-five-italy.js?v=20260809-7"></script>
-  <script src="big-five-germany.js?v=20260809-7"></script>
-  <script src="big-five-france.js?v=20260809-7"></script>
-  <script src="big-five-squads.js?v=20260809-7"></script>
-  <script src="legacy-seasons.js?v=20260809-7"></script>
-  <script src="season-players.js?v=20260809-7"></script>
-  <script src="european-clubs.js?v=20260809-7"></script>
-  <script src="app.js?v=20260809-7"></script>
+  <script src="data.js?v=20260809-10"></script>
+  <script src="big-five.js?v=20260809-10"></script>
+  <script src="big-five-italy.js?v=20260809-10"></script>
+  <script src="big-five-germany.js?v=20260809-10"></script>
+  <script src="big-five-france.js?v=20260809-10"></script>
+  <script src="big-five-squads.js?v=20260809-10"></script>
+  <script src="legacy-seasons.js?v=20260809-10"></script>
+  <script src="season-players.js?v=20260809-10"></script>
+  <script src="european-clubs.js?v=20260809-10"></script>
+  <script src="app.js?v=20260809-10"></script>
 </body>
 </html>

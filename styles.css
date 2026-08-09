@@ -334,7 +334,6 @@ button {
 
 .league-panel,
 .setup-panel,
-.team-library-panel,
 .history-home,
 .pitch-panel,
 .draft-panel,
@@ -360,63 +359,6 @@ button {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
-}
-
-.team-library {
-  display: grid;
-  gap: 18px;
-}
-
-.league-block {
-  display: grid;
-  gap: 10px;
-}
-
-.league-block-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.league-block-head strong {
-  font-size: 16px;
-}
-
-.league-block-head span:last-child {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.team-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 8px;
-}
-
-.team-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 42px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.team-chip strong {
-  overflow: hidden;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.team-chip span {
-  flex: 0 0 auto;
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .league-option {
@@ -513,9 +455,92 @@ button {
   font-weight: 800;
 }
 
-.season-range input[type="range"] {
+.dual-range {
+  position: relative;
+  height: 28px;
+  margin-top: 4px;
+}
+
+.range-rail {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-50%);
+}
+
+.range-fill {
+  position: absolute;
+  top: 50%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.dual-range input[type="range"] {
+  position: absolute;
+  top: 50%;
+  left: 0;
   width: 100%;
-  accent-color: #4ade80;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translateY(-50%);
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none;
+}
+
+.dual-range input[type="range"]::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+  border: none;
+}
+
+.dual-range input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #d7f7e7;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: 5px;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.dual-range input[type="range"]::-moz-range-track {
+  height: 28px;
+  background: transparent;
+  border: none;
+}
+
+.dual-range input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 3px solid #d7f7e7;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.dual-range input#seasonRangeStart {
+  z-index: 3;
+}
+
+.dual-range input#seasonRangeEnd {
+  z-index: 2;
 }
 
 .hint {

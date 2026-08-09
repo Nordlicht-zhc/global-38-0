@@ -42,10 +42,9 @@
     seasonRangeEnd: $("#seasonRangeEnd"),
     seasonRangeStartLabel: $("#seasonRangeStartLabel"),
     seasonRangeEndLabel: $("#seasonRangeEndLabel"),
+    seasonRangeFill: $("#seasonRangeFill"),
     difficultySelect: $("#difficultySelect"),
     formationSelect: $("#formationSelect"),
-    teamLibraryTitle: $("#teamLibraryTitle"),
-    teamLibrary: $("#teamLibrary"),
     leagueChoice: $("#leagueChoice"),
     leagueChoiceOptions: $("#leagueChoiceOptions"),
     seasonPrediction: $("#seasonPrediction"),
@@ -173,16 +172,26 @@
     updateSeasonRangeLabels();
   };
 
-  const updateSeasonRangeLabels = () => {
-    const start = Number(ui.seasonRangeStart.value || 0);
-    const end = Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1);
-    if (start > end) {
-      ui.seasonRangeEnd.value = String(start);
+  const updateSeasonRangeLabels = (active = null) => {
+    const max = SEASON_KEYS.length - 1;
+    let start = Number(ui.seasonRangeStart.value || 0);
+    let end = Number(ui.seasonRangeEnd.value || max);
+    if (active === "start" && start > end) {
+      ui.seasonRangeStart.value = String(end);
+      start = end;
     }
-    ui.seasonRangeStartLabel.textContent = seasonIndexToKey(Math.min(start, Number(ui.seasonRangeEnd.value || end)));
-    ui.seasonRangeEndLabel.textContent = seasonIndexToKey(Math.max(start, Number(ui.seasonRangeEnd.value || end)));
+    if (active === "end" && end < start) {
+      ui.seasonRangeEnd.value = String(start);
+      end = start;
+    }
+    ui.seasonRangeStartLabel.textContent = seasonIndexToKey(start);
+    ui.seasonRangeEndLabel.textContent = seasonIndexToKey(end);
+    if (ui.seasonRangeFill) {
+      const total = Math.max(1, max);
+      ui.seasonRangeFill.style.left = String((start / total) * 100) + "%";
+      ui.seasonRangeFill.style.width = String(((end - start) / total) * 100) + "%";
+    }
     renderHeroStats();
-    renderTeamLibrary();
   };
 
   let memoryStore = {};
@@ -300,7 +309,6 @@
     initSeasonRange();
     renderLeagueGrid();
     renderHeroStats();
-    renderTeamLibrary();
     renderHomeHistory();
     bindEvents();
     loadSavedGame();
@@ -326,8 +334,8 @@
         rebuildGameSlots();
       }
     });
-    ui.seasonRangeStart.addEventListener("input", updateSeasonRangeLabels);
-    ui.seasonRangeEnd.addEventListener("input", updateSeasonRangeLabels);
+    ui.seasonRangeStart.addEventListener("input", () => updateSeasonRangeLabels("start"));
+    ui.seasonRangeEnd.addEventListener("input", () => updateSeasonRangeLabels("end"));
     document.querySelector(".brand").addEventListener("click", (e) => {
       e.preventDefault();
       showView("setup");
@@ -401,37 +409,6 @@
       item.appendChild(el("strong", "", String(value)));
       item.appendChild(el("span", "", label));
       ui.heroStats.appendChild(item);
-    });
-  }
-
-  function renderTeamLibrary() {
-    const season = seasonIndexToKey(Number(ui.seasonRangeEnd?.value || SEASON_KEYS.length - 1));
-    const clubs = getSeasonData(season).clubs;
-    ui.teamLibraryTitle.textContent = `${seasonRangeText()} · 可抽球队`;
-    ui.teamLibrary.innerHTML = "";
-    if (!clubs.length) {
-      ui.teamLibrary.appendChild(el("p", "history-empty", "这个赛季暂时没有可抽球队。"));
-      return;
-    }
-    BIG_FIVE_IDS.forEach((leagueId) => {
-      const league = getLeague(leagueId);
-      if (!league) return;
-      const leagueClubs = clubs.filter((club) => club.league === leagueId);
-      const block = el("section", "league-block", "");
-      const head = el("div", "league-block-head", "");
-      head.appendChild(el("span", "league-code", league.code));
-      head.appendChild(el("strong", "", league.name));
-      head.appendChild(el("span", "", `${leagueClubs.length} 队`));
-      block.appendChild(head);
-      const grid = el("div", "team-grid", "");
-      leagueClubs.forEach((club) => {
-        const card = el("div", "team-chip", "");
-        card.appendChild(el("strong", "", club.name));
-        card.appendChild(el("span", "", `${club.players?.length || 0} 名球员`));
-        grid.appendChild(card);
-      });
-      block.appendChild(grid);
-      ui.teamLibrary.appendChild(block);
     });
   }
 

@@ -1,4 +1,4 @@
-// 2026-27 season 23-player candidate pools for the Big Five leagues.
+// Legacy 2026-27 import retained for reference only; the application does not load this file.
 // Selected from Goal squad pages; names/nationalities enriched from ESPN public athlete data.
 const SEASON_SQUADS = {
   "brighton": {
@@ -949,7 +949,7 @@ const SEASON_SQUADS = {
   "real-sociedad": {
     players: [
       { name: "Álex Remiro", pos: ["GK"], nat: "西班牙", rate: 85 },
-      { name: "Álex Remiro (1)", pos: ["GK"], nat: "西班牙", rate: 85 },
+      { name: "Aitor Fraga", pos: ["GK"], nat: "西班牙", rate: 80 },
       { name: "Unai Marrero", pos: ["GK"], nat: "西班牙", rate: 82 },
       { name: "Jon Aramburu", pos: ["CB","RB","LB","RWB","LWB"], nat: "委内瑞拉", rate: 82 },
       { name: "Aihen Muñoz", pos: ["CB","RB","LB","RWB","LWB"], nat: "西班牙", rate: 83 },

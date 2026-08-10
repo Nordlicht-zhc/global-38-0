@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-  <link rel="stylesheet" href="styles.css?v=20260809-21" />
+  <link rel="stylesheet" href="styles.css?v=20260810-06" />
 </head>
 <body>
   <header class="topbar">
@@ -36,7 +36,7 @@
         <div class="hero-copy">
           <p class="eyebrow">1992-93 至 2025-26 赛季</p>
           <h1>五大联赛全部球队，组建你的终极十一人</h1>
-          <p class="hero-sub">转盘决定球队，从这家俱乐部当赛季真实球员池里选人，自己分配位置并自由换位，再用一个 38 场完整赛季检验阵容。覆盖英超、西甲、意甲、德甲、法甲。</p>
+          <p class="hero-sub">老虎机分别抽取赛季和球队，从这家俱乐部当赛季真实球员池里选人，自己分配位置并自由换位，再用一个完整联赛赛季检验阵容。覆盖英超、西甲、意甲、德甲、法甲。</p>
           <div class="hero-stats" id="heroStats"></div>
         </div>
         <div class="hero-pitch" aria-hidden="true">
@@ -175,6 +175,29 @@
         <div class="simulation-latest" id="simulationLatest"></div>
       </section>
 
+      <section class="panel transfer-panel hidden" id="transferPanel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">半程转会窗</p>
+            <h2 id="transferTitle">转会窗</h2>
+          </div>
+          <span class="chip chip-gold" id="transferProgress">0/2</span>
+        </div>
+        <div class="transfer-half-summary" id="transferHalfSummary"></div>
+        <div class="transfer-intro" id="transferIntro">
+          <div id="transferWeakText" class="transfer-status"></div>
+          <div class="transfer-actions">
+            <button class="btn btn-primary" id="enterTransferBtn" type="button">进入转会窗</button>
+            <button class="btn btn-ghost" id="skipTransferBtn" type="button">跳过转会窗</button>
+          </div>
+        </div>
+        <div class="transfer-content hidden" id="transferContent">
+          <div id="transferModeText" class="transfer-mode"></div>
+          <div id="transferStatus" class="transfer-status"></div>
+          <div id="transferLog" class="transfer-log"></div>
+        </div>
+      </section>
+
       <div class="game-layout">
         <section class="panel pitch-panel">
           <div class="panel-head">
@@ -192,12 +215,42 @@
 
         <section class="panel draft-panel">
           <div class="wheel-card">
-            <div class="wheel-wrap">
-              <canvas id="wheelCanvas" width="520" height="520" aria-label="赛事转盘"></canvas>
-              <div class="wheel-pointer"></div>
-              <div class="wheel-hub">SPIN</div>
+            <div class="slot-machine" id="slotMachine" aria-label="赛季与球队老虎机">
+              <div class="slot-machine-top">
+                <span class="slot-lights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+                <strong id="slotMachineTitle">赛季球队抽取</strong>
+                <span class="slot-lights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="slot-reels">
+                <section class="slot-reel">
+                  <span class="slot-reel-label" id="seasonReelLabel">赛季</span>
+                  <div class="slot-reel-window" id="seasonReel">
+                    <div class="slot-reel-items">
+                      <span class="slot-reel-side" id="seasonReelPrev">--</span>
+                      <strong class="slot-reel-value" id="seasonReelValue">????-??</strong>
+                      <span class="slot-reel-side" id="seasonReelNext">--</span>
+                    </div>
+                  </div>
+                  <small id="seasonReelMeta">SEASON</small>
+                </section>
+                <span class="slot-machine-divider" aria-hidden="true">×</span>
+                <section class="slot-reel slot-reel-club">
+                  <span class="slot-reel-label" id="clubReelLabel">球队</span>
+                  <div class="slot-reel-window" id="clubReel">
+                    <div class="slot-reel-items">
+                      <span class="slot-reel-side" id="clubReelPrev">--</span>
+                      <strong class="slot-reel-value" id="clubReelValue">等待抽取</strong>
+                      <span class="slot-reel-side" id="clubReelNext">--</span>
+                    </div>
+                  </div>
+                  <small id="clubReelMeta">CLUB</small>
+                </section>
+              </div>
+              <div class="slot-machine-bottom" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
             </div>
-            <button class="btn btn-accent btn-lg" id="spinBtn" type="button">转动转盘</button>
+            <button class="btn btn-accent btn-lg" id="spinBtn" type="button">启动老虎机</button>
             <button class="btn btn-ghost" id="rerollBtn" type="button" disabled>使用 1 次重转</button>
           </div>
 
@@ -224,7 +277,16 @@
         <section class="panel result-summary">
           <div class="summary-score" id="resultScore">--</div>
           <div class="summary-grid" id="resultStats"></div>
-          <div class="achievements" id="achievements"></div>
+          <div class="achievement-section">
+            <div class="achievement-heading">
+              <div>
+                <p class="eyebrow">赛季荣誉</p>
+                <h3>成就</h3>
+              </div>
+              <span class="chip chip-gold" id="achievementCount">0 项解锁</span>
+            </div>
+            <div class="achievements" id="achievements"></div>
+          </div>
         </section>
         <section class="panel matches-panel">
           <div class="panel-head">
@@ -298,10 +360,9 @@
   <script src="big-five-italy.js?v=20260809-21"></script>
   <script src="big-five-germany.js?v=20260809-21"></script>
   <script src="big-five-france.js?v=20260809-21"></script>
-  <script src="big-five-squads.js?v=20260809-21"></script>
-  <script src="legacy-seasons.js?v=20260809-21"></script>
-  <script src="season-players.js?v=20260809-21"></script>
+  <script src="legacy-seasons.js?v=20260810-01"></script>
+  <script src="season-players.js?v=20260810-02"></script>
   <script src="european-clubs.js?v=20260809-21"></script>
-  <script src="app.js?v=20260809-22"></script>
+  <script src="app.js?v=20260810-12"></script>
 </body>
 </html>

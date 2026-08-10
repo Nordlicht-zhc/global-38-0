@@ -4,18 +4,28 @@
   const $ = (sel) => document.querySelector(sel);
   const STORAGE_GAME = "g38-game-state-v4";
   const STORAGE_RUNS = "g38-runs-v2";
+  const CURRENT_DATA_SEASON = "2025-26";
+  const EUROPE_ALLOCATION_SEASON = "2026-27";
   const BIG_FIVE_IDS = new Set(["eng", "esp", "ita", "ger", "fra"]);
   const WING_POSITIONS = ["LM", "RM", "LW", "RW"];
   const MIDFIELD_CENTRE_POSITIONS = ["CM", "CDM", "CAM"];
   const FORCED_FIT_PENALTY = 6;
-  const EUROPE_LIST_VERSION = "2025-26-v2";
-  const SIM_VERSION = "2026-v2";
+  const TRANSFER_UNIT_POSITIONS = {
+    GK: ["GK"],
+    DEF: ["RB", "CB", "LB", "RWB", "LWB"],
+    MID: ["CDM", "CM", "CAM", "RM", "LM"],
+    ATT: ["ST", "LW", "RW"]
+  };
+  const SECOND_TRANSFER_MODE_KEYS = ["free", "mystery"];
+  const EUROPE_LIST_VERSION = "2025-26-v3";
+  const SIM_VERSION = "2026-v3";
   const LANG_KEY = "g38-lang";
   let currentLang = "zh";
   try {
     currentLang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "zh";
   } catch { currentLang = "zh"; }
   const staticOriginals = new WeakMap();
+  const uiText = (zh, en) => currentLang === "en" ? en : zh;
 
   const STATIC_TRANSLATIONS = [
     { sel: "#historyBtnText", en: "History" },
@@ -23,7 +33,7 @@
     { sel: ".brand-text strong", en: "Global All-Stars" },
     { sel: ".hero-copy .eyebrow", en: "1992-93 to 2025-26 seasons" },
     { sel: ".hero-copy h1", en: "All Five Leagues. Build Your Ultimate XI." },
-    { sel: ".hero-sub", en: "Spin for a club, pick players from its real squad, assign positions, then test your squad over a full season. Covers England, Spain, Italy, Germany and France." },
+    { sel: ".hero-sub", en: "Spin separate season and club reels, pick players from that real squad, assign positions, then test your team over a full league season. Covers England, Spain, Italy, Germany and France." },
     { sel: ".league-panel .eyebrow", en: "Database" },
     { sel: ".league-panel h2", en: "Select Leagues" },
     { sel: "#toggleAllLeagues", en: "All / Clear" },
@@ -49,8 +59,17 @@
     { sel: ".league-choice h2", en: "Choose Your League" },
     { sel: ".simulation-panel .eyebrow", en: "Match-by-Match Sim" },
     { sel: ".simulation-panel h2", en: "Season In Progress" },
+    { sel: ".achievement-heading .eyebrow", en: "Season Honors" },
+    { sel: ".achievement-heading h3", en: "Achievements" },
+    { sel: ".transfer-panel .eyebrow", en: "Mid-Season Transfer Window" },
+    { sel: "#transferTitle", en: "Transfer Window" },
+    { sel: "#enterTransferBtn", en: "Enter Transfer Window" },
+    { sel: "#skipTransferBtn", en: "Skip Transfer Window" },
     { sel: ".pitch-panel .eyebrow", en: "Squad" },
-    { sel: "#spinBtn", en: "Spin" },
+    { sel: "#slotMachineTitle", en: "Season & Club Draw" },
+    { sel: "#seasonReelLabel", en: "Season" },
+    { sel: "#clubReelLabel", en: "Club" },
+    { sel: "#spinBtn", en: "Spin Reels" },
     { sel: "#rerollBtn", en: "Use Reroll" },
     { sel: "#resultBadge", en: "Season Result" },
     { sel: "#resultMatchEyebrow", en: "38 Matches" },
@@ -84,7 +103,7 @@
     ["可抽球员", "Draft Pool"],
     ["还没有赛季记录，先开始一场选秀吧。", "No season records yet. Start a new draft."],
     ["请至少选择一个联赛。", "Select at least one league."],
-    ["新选秀已开始，先转动转盘。", "New draft started. Spin the wheel."],
+    ["新选秀已开始，先启动老虎机。", "New draft started. Spin the reels."],
     ["已选择加入", "Joined "],
     ["赛前预测：", "Prediction: "],
     ["预计", "Expected"],
@@ -100,9 +119,9 @@
     ["换位失败：两名球员都必须能踢对方的新位置。", "Swap failed: both players must be able to play the new positions."],
     ["换位成功。", "Swap successful."],
     ["阵容完成，请选择参赛联赛。", "Squad complete. Choose your league."],
-    ["转动转盘，抽取一支俱乐部。", "Spin the wheel to draw a club."],
-    ["没有抽到球队，请重新转动转盘。", "No club drawn. Spin again."],
-    ["先转动转盘，再从这家俱乐部挑选球员。", "Spin first, then pick players from this club."],
+    ["启动老虎机，分别抽取赛季和球队。", "Spin the reels to draw a season and club."],
+    ["没有抽到球队，请重新启动老虎机。", "No club drawn. Spin the reels again."],
+    ["先启动老虎机，再从抽中的俱乐部挑选球员。", "Spin the reels first, then pick players from the drawn club."],
     ["正在抽取球队...", "Drawing a club..."],
     ["已选择球员，正在抽取下一队...", "Player selected. Drawing the next club..."],
     ["这家俱乐部的候选球员已经被选完了。", "This club candidate pool is exhausted."],
@@ -150,7 +169,7 @@
     ["战报已复制", "Report copied"],
     ["复制失败，可以手动复制。", "Copy failed. Copy it manually."],
     ["请选择联赛", "Select League"],
-    ["赛事转盘", "League Wheel"],
+    ["赛季球队老虎机", "Season and Club Slot Machine"],
     ["欧洲赛事", "European Competition"],
     ["欧战结束", "Europe Finished"],
     ["本队", "My Team "],
@@ -310,6 +329,27 @@
     ["中锋", "ST"],
     ["历史战绩", "History"],
     ["新选秀", "New Draft"],
+    ["转会窗", "Transfer Window"],
+    ["冬季转会窗", "Winter Transfer Window"],
+    ["半程转会窗", "Mid-Season Transfer Window"],
+    ["进入转会窗", "Enter Transfer Window"],
+    ["跳过转会窗", "Skip Transfer Window"],
+    ["弱项补强", "Weak-Area"],
+    ["自由签约", "Free Signing"],
+    ["盲盒签约", "Mystery Signing"],
+    ["稳健选择", "Safe Pick"],
+    ["未知新援", "Unknown Signing"],
+    ["高风险目标", "High-Risk Target"],
+    ["打开盲盒", "Open Mystery Box"],
+    ["已锁定，必须签下这名球员", "Locked in — this player must be signed"],
+    ["随机候选名单", "Random Candidate List"],
+    ["重新抽取", "Redraw"],
+    ["转会记录", "Transfer Log"],
+    ["未进行转会", "No transfers made"],
+    ["本次转会窗已跳过。", "Transfer window skipped."],
+    ["点击球场上的兼容位置完成转会", "Click a compatible slot to complete the transfer"],
+    ["没有可签球员，请重新抽取。", "No eligible player. Redraw."],
+    ["没有足够的合格球员完成本次转会。", "Not enough eligible players for this transfer."],
   ];
 
   const DYNAMIC_RULES = [
@@ -406,6 +446,11 @@
     [/(\d+) 队/g, "$1 teams"],
     [/(\d+)净胜/g, "$1 GD"],
     [/([\w-]+)阵容/g, "$1 Squad"],
+    [/第 (\d+)\/2 次转会/g, "Transfer $1/2"],
+    [/本次转会方式已抽中：/g, "Transfer method: "],
+    [/当前最弱位置：/g, "Weakest area: "],
+    [/目标位置：/g, "Target area: "],
+    [/转会将替换/g, "This transfer replaces "],
     [/，/g, ", "],
     [/第 (\d+)/g, "Rank #$1"]
   ];
@@ -455,13 +500,131 @@
     UECL: { name: "欧协联", champion: "欧协联冠军", runnerUp: "欧协联亚军" }
   };
   const PROMOTED_TEAMS = {
-    eng: ["桑德兰", "利兹联", "考文垂"],
-    esp: ["埃尔切", "莱万特", "桑坦德竞技"],
-    ita: ["萨索洛", "科莫", "帕尔马"],
-    ger: ["科隆", "汉堡", "帕德博恩"],
-    fra: ["巴黎FC", "洛里昂", "勒芒"]
+    eng: ["Burnley", "Leeds United", "Sunderland"],
+    esp: ["Elche CF", "Levante UD", "R. Oviedo"],
+    ita: ["Cremonese", "Pisa", "Sassuolo"],
+    ger: ["1. FC Köln", "Hamburger SV"],
+    fra: ["FC Lorient", "FC Metz", "Paris FC"]
+  };
+  const ACHIEVEMENT_DETAILS = {
+    "完美赛季": ["🏆", "赢下全部联赛比赛", "Win every league match"],
+    "不败赛季": ["🛡️", "整个联赛赛季保持不败", "Finish the league season unbeaten"],
+    "联赛冠军": ["👑", "以联赛第一名结束赛季", "Finish first in the league"],
+    "进入欧冠区": ["⭐", "以联赛排名获得欧冠资格", "Qualify for the Champions League through the league"],
+    "进球破百": ["⚽", "联赛进球达到 100 个", "Score at least 100 league goals"],
+    "钢铁防线": ["🧱", "联赛失球不超过 20 个", "Concede no more than 20 league goals"],
+    "铁幕防守": ["🔒", "联赛失球不超过 10 个", "Concede no more than 10 league goals"],
+    "黑马夺冠": ["🐎", "阵容评分不高于 84 时夺冠", "Win the league with a squad rating of 84 or lower"],
+    "世界级阵容": ["🌍", "阵容评分达到 90", "Build a squad rated 90 or higher"]
+  };
+  const HISTORICAL_CLUB_IDS = {
+    "arsenal": ["arsenal-fc", "arsenal"],
+    "chelsea": ["chelsea-fc", "chelsea"],
+    "coventry": ["coventry-city"],
+    "crystal-palace": ["crystal-palace"],
+    "everton": ["everton-fc", "everton"],
+    "fulham": ["fulham-fc", "fulham"],
+    "ipswich": ["ipswich-town"],
+    "leeds": ["leeds-united"],
+    "liverpool": ["liverpool-fc", "liverpool"],
+    "man-city": ["manchester-city"],
+    "man-united": ["manchester-united", "man-utd"],
+    "newcastle": ["newcastle-united", "newcastle-utd"],
+    "nottingham-forest": ["nottingham-forest", "nott-m-forest"],
+    "sunderland": ["sunderland"],
+    "tottenham": ["tottenham-hotspur", "spurs"],
+    "athletic-bilbao": ["athletic-bilbao", "athletic-club"],
+    "atletico": ["atl-tico-de-madrid", "atletico-de-madrid"],
+    "barcelona": ["fc-barcelona"],
+    "celta": ["celta-de-vigo"],
+    "deportivo": ["deportivo-de-la-coru-a"],
+    "espanyol": ["rcd-espanyol-barcelona", "rcd-espanyol"],
+    "getafe": ["getafe"],
+    "levante": ["levante"],
+    "malaga": ["m-laga-cf", "malaga-cf"],
+    "osasuna": ["ca-osasuna", "osasuna"],
+    "racing-santander": ["racing-santander"],
+    "real-betis": ["real-betis-balompi", "real-betis"],
+    "real-madrid": ["real-madrid"],
+    "real-sociedad": ["real-sociedad"],
+    "sevilla": ["sevilla-fc", "sevilla"],
+    "valencia": ["valencia-cf", "valencia"],
+    "villarreal": ["villarreal-cf", "villarreal"],
+    "ac-milan": ["ac-milan"],
+    "atalanta": ["atalanta-bc", "bergamo-calcio"],
+    "bologna": ["bologna-fc-1909", "bologna"],
+    "cagliari": ["cagliari"],
+    "fiorentina": ["firenze", "fiorentina"],
+    "inter": ["inter-milan", "lombardia-fc"],
+    "juventus": ["juventus-fc"],
+    "lazio": ["ss-lazio", "lazio"],
+    "lecce": ["us-lecce", "lecce"],
+    "napoli": ["ssc-napoli"],
+    "parma": ["ac-parma", "parma"],
+    "roma": ["as-roma"],
+    "udinese": ["udinese-calcio", "udinese"],
+    "bayern": ["bayern-munich", "fc-bayern-munchen"],
+    "dortmund": ["borussia-dortmund"],
+    "frankfurt": ["eintracht-frankfurt"],
+    "freiburg": ["sc-freiburg"],
+    "gladbach": ["borussia-m-nchengladbach", "monchengladbach"],
+    "hamburg": ["hamburger-sv", "hamburger-sport-verein"],
+    "koln": ["1-fc-k-ln"],
+    "leverkusen": ["bayer-04-leverkusen", "bayer-leverkusen"],
+    "mainz": ["1-fsv-mainz-05"],
+    "schalke": ["fc-schalke-04"],
+    "stuttgart": ["vfb-stuttgart"],
+    "werder-bremen": ["sv-werder-bremen"],
+    "auxerre": ["aj-auxerre"],
+    "lemans": ["le-mans-union-club-72"],
+    "lens": ["rc-lens"],
+    "lille": ["losc-lille", "lille-osc"],
+    "lyon": ["olympique-lyon"],
+    "marseille": ["olympique-marseille", "marseille", "om"],
+    "monaco": ["as-monaco"],
+    "nice": ["ogc-nice"],
+    "psg": ["paris-saint-germain", "paris-sg"],
+    "rennes": ["stade-rennais-fc", "rennes"],
+    "strasbourg": ["rc-strasbourg-alsace"],
+    "toulouse": ["fc-toulouse"]
   };
 
+  const ELITE_STRENGTH = {
+    "man-city": 89,
+    "liverpool": 88,
+    "arsenal": 86,
+    "chelsea": 85,
+    "man-united": 84,
+    "tottenham": 83,
+    "newcastle": 82,
+    "real-madrid": 92,
+    "barcelona": 91,
+    "atletico": 86,
+    "sevilla": 82,
+    "athletic-bilbao": 81,
+    "real-sociedad": 80,
+    "villarreal": 80,
+    "valencia": 79,
+    "inter": 88,
+    "juventus": 87,
+    "ac-milan": 86,
+    "napoli": 85,
+    "roma": 83,
+    "lazio": 82,
+    "atalanta": 83,
+    "bayern": 89,
+    "leverkusen": 86,
+    "dortmund": 86,
+    "rb-leipzig": 84,
+    "stuttgart": 82,
+    "frankfurt": 82,
+    "psg": 88,
+    "monaco": 84,
+    "marseille": 82,
+    "lille": 81,
+    "lyon": 81,
+    "nice": 81
+  };
   const state = {
     selectedLeagues: new Set(["eng", "esp", "ita", "ger", "fra"]),
     game: null,
@@ -469,8 +632,8 @@
     selectedSlotIndex: null,
     pendingDraftPlayerId: null,
     autoSpinPending: false,
-    wheelAngle: 0,
-    spinning: false
+    spinning: false,
+    transfer: null
   };
 
   const ui = {
@@ -493,6 +656,18 @@
     simulationProgress: $("#simulationProgress"),
     simulationCurrent: $("#simulationCurrent"),
     simulationLatest: $("#simulationLatest"),
+    transferPanel: $("#transferPanel"),
+    transferTitle: $("#transferTitle"),
+    transferProgress: $("#transferProgress"),
+    transferIntro: $("#transferIntro"),
+    transferContent: $("#transferContent"),
+    transferWeakText: $("#transferWeakText"),
+    transferHalfSummary: $("#transferHalfSummary"),
+    transferModeText: $("#transferModeText"),
+    transferStatus: $("#transferStatus"),
+    transferLog: $("#transferLog"),
+    enterTransferBtn: $("#enterTransferBtn"),
+    skipTransferBtn: $("#skipTransferBtn"),
     resultLineupPanel: $("#resultLineupPanel"),
     resultLineupTitle: $("#resultLineupTitle"),
     resultLineupRating: $("#resultLineupRating"),
@@ -562,20 +737,54 @@
 
   const getLeague = (id) => LEAGUES.find((l) => l.id === id);
   const getSeasonData = (season) => {
-    if (!season || season === "2025-26") {
-      return { source: "2025-26 五大联赛 23 人名单", clubs: Object.values(CLUBS) };
+    const targetSeason = season || CURRENT_DATA_SEASON;
+    if (typeof SEASON_PLAYERS !== "undefined" && SEASON_PLAYERS[targetSeason]) return SEASON_PLAYERS[targetSeason];
+    if (typeof LEGACY_SEASONS !== "undefined" && LEGACY_SEASONS[targetSeason]) return LEGACY_SEASONS[targetSeason];
+    if (typeof SEASON_PLAYERS !== "undefined" && SEASON_PLAYERS[CURRENT_DATA_SEASON]) return SEASON_PLAYERS[CURRENT_DATA_SEASON];
+    return { source: `${CURRENT_DATA_SEASON} 五大联赛球员数据`, clubs: Object.values(CLUBS) };
+  };
+  const findClubInSeason = (id, season) => {
+    const data = getSeasonData(season);
+    const direct = data.clubs.find((club) => club.id === id);
+    if (direct) return direct;
+    const aliases = HISTORICAL_CLUB_IDS[id] || [];
+    for (const alias of aliases) {
+      const historical = data.clubs.find((club) => club.id === alias);
+      if (historical) return historical;
     }
-    if (typeof SEASON_PLAYERS !== "undefined" && SEASON_PLAYERS[season]) return SEASON_PLAYERS[season];
-    if (typeof LEGACY_SEASONS !== "undefined" && LEGACY_SEASONS[season]) return LEGACY_SEASONS[season];
-    return { source: "2025-26 五大联赛 23 人名单", clubs: Object.values(CLUBS) };
+    const current = CLUBS[id];
+    if (!current) return null;
+    const byShort = data.clubs.filter((club) => club.league === current.league && club.short === current.short);
+    return byShort.length === 1 ? byShort[0] : null;
   };
   const getClub = (id, season) => {
-    const club = getSeasonData(season).clubs.find((c) => c.id === id);
-    return club || CLUBS[id] || getSeasonData(season).clubs[0];
+    const data = getSeasonData(season);
+    const seasonal = findClubInSeason(id, season);
+    if (seasonal) return seasonal;
+    const current = CLUBS[id];
+    const aliases = HISTORICAL_CLUB_IDS[id] || [];
+    if (season && season !== CURRENT_DATA_SEASON) {
+      const targetYear = Number(String(season).slice(0, 4)) || 0;
+      const ids = new Set([id, ...aliases]);
+      const matches = [];
+      const sources = [];
+      if (typeof LEGACY_SEASONS !== "undefined") sources.push(LEGACY_SEASONS);
+      if (typeof SEASON_PLAYERS !== "undefined") sources.push(SEASON_PLAYERS);
+      sources.forEach((source) => {
+        Object.entries(source).forEach(([key, entry]) => {
+          if (key === CURRENT_DATA_SEASON || !entry?.clubs) return;
+          const club = entry.clubs.find((c) => ids.has(c.id));
+          if (club) matches.push({ year: Number(String(key).slice(0, 4)) || 0, club });
+        });
+      });
+      matches.sort((a, b) => Math.abs(a.year - targetYear) - Math.abs(b.year - targetYear) || a.year - b.year);
+      if (matches.length) return matches[0].club;
+    }
+    return current || data.clubs[0];
   };
-  const clubsForLeague = (id, season) => getSeasonData("2025-26").clubs.filter((c) => c.league === id);
+  const clubsForLeague = (id, season = CURRENT_DATA_SEASON) => getSeasonData(season).clubs.filter((c) => c.league === id);
   const allClubs = (season) => getSeasonData(season).clubs;
-  const simulationSeason = (game) => game?.season || game?.seasonRange?.end || "2025-26";
+  const simulationSeason = () => CURRENT_DATA_SEASON;
   const isRatingsHidden = (game) => Boolean(game?.hideRatings && game.draftedPlayers.length < game.slots.length);
 
   const pruneData = () => {
@@ -600,6 +809,11 @@
       ? seasonKeyToIndex(range.end)
       : Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1);
     return seasonIndexToKey(start + Math.floor(Math.random() * (Math.max(0, end - start) + 1)));
+  };
+  const seasonsInRange = (range) => {
+    const start = range ? seasonKeyToIndex(range.start) : 0;
+    const end = range ? seasonKeyToIndex(range.end) : SEASON_KEYS.length - 1;
+    return SEASON_KEYS.slice(Math.min(start, end), Math.max(start, end) + 1);
   };
   const seasonRangeText = () => `${seasonIndexToKey(Number(ui.seasonRangeStart.value || 0))} 至 ${seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1))}`;
 
@@ -758,6 +972,16 @@
       renderPitch();
       renderCandidates();
       renderTeamRating();
+      if (state.transfer) {
+        const directMode = state.transfer.mode === "free" || state.transfer.mode === "mystery";
+        ui.transferPanel.classList.remove("hidden");
+        ui.simulationPanel.classList.add("hidden");
+        document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
+        ui.rerollBtn.classList.toggle("hidden", directMode);
+        renderTransferIntro();
+        renderTransferHeader();
+        renderTransferSpinResult();
+      }
     }
     if (state.viewingRun) renderResult(state.viewingRun);
     setTimeout(translateDom, 0);
@@ -782,7 +1006,7 @@
     bindEvents();
     loadSavedGame();
     if (state.game) renderGame();
-    drawWheel(state.wheelAngle);
+    drawWheel();
   }
 
   function bindEvents() {
@@ -792,6 +1016,8 @@
     $("#historyBtn").addEventListener("click", showHomeHistory);
     $("#backSetupBtn").addEventListener("click", () => showView("setup"));
     $("#backGameBtn").addEventListener("click", goBackFromResult);
+    $("#enterTransferBtn").addEventListener("click", enterTransferWindow);
+    $("#skipTransferBtn").addEventListener("click", skipTransferWindow);
     $("#toggleAllLeagues").addEventListener("click", toggleAllLeagues);
     $("#spinBtn").addEventListener("click", spinWheel);
     $("#rerollBtn").addEventListener("click", reroll);
@@ -841,7 +1067,7 @@
       state.selectedLeagues.add(id);
     }
     syncLeagueButtons();
-    drawWheel(state.wheelAngle);
+    drawWheel();
   }
 
   function toggleAllLeagues() {
@@ -851,7 +1077,7 @@
       state.selectedLeagues = new Set(LEAGUES.map((l) => l.id));
     }
     syncLeagueButtons();
-    drawWheel(state.wheelAngle);
+    drawWheel();
   }
 
   function syncLeagueButtons() {
@@ -912,6 +1138,7 @@
   }
 
   function showNewGameSetup() {
+    state.transfer = null;
     showView("setup");
     renderHomeHistory();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -992,9 +1219,10 @@
     state.pendingDraftPlayerId = null;
     state.autoSpinPending = false;
     state.viewingRun = null;
+    state.transfer = null;
     saveGame();
     renderGame();
-    toast("新选秀已开始，先转动转盘。");
+    toast("新选秀已开始，先启动老虎机。");
   }
 
   function rebuildGameSlots() {
@@ -1041,13 +1269,15 @@
       ? `模拟 ${leagueMatchCount(game.league)} 场赛季`
       : "模拟赛季";
     ui.simulationPanel.classList.add("hidden");
+    ui.transferPanel.classList.add("hidden");
+    ui.rerollBtn.classList.remove("hidden");
+    ui.rerollBtn.textContent = uiText("使用 1 次重转", "Use Reroll");
     updateSpinControls();
     ui.leagueChoice.classList.toggle("hidden", game.draftedPlayers.length < game.slots.length);
     if (game.draftedPlayers.length >= game.slots.length) {
       renderLeagueChoice();
     }
-    const hub = document.querySelector(".wheel-hub");
-    if (hub && !game.currentSpin) hub.textContent = "SPIN";
+    if (!game.currentSpin) drawWheel();
     renderPitch();
     renderSpinResult();
     renderCandidates();
@@ -1057,6 +1287,20 @@
 
   function updateSpinControls() {
     const game = state.game;
+    if (state.transfer) {
+      const transfer = state.transfer;
+      if (transfer.mode === "free" || transfer.mode === "mystery") {
+        ui.spinBtn.disabled = true;
+        ui.rerollBtn.disabled = true;
+        return;
+      }
+      const hasSpin = Boolean(transfer.currentSpin);
+      const selected = Boolean(transfer.selectedCandidateId);
+      ui.spinBtn.disabled = Boolean(state.spinning) || hasSpin;
+      ui.rerollBtn.disabled = Boolean(state.spinning) || !hasSpin || transfer.candidates.length > 0 || selected;
+      ui.rerollBtn.textContent = uiText("重新抽取", "Redraw");
+      return;
+    }
     const locked = Boolean(
       game
       && game.currentSpin
@@ -1115,6 +1359,10 @@
     const pending = game.candidates.find((p) => p.id === state.pendingDraftPlayerId) || null;
     const selectedSlot = state.selectedSlotIndex !== null ? game.slots[state.selectedSlotIndex] : null;
     const swapMode = Boolean(!pending && selectedSlot && selectedSlot.player);
+    const transfer = state.transfer;
+    const transferCandidate = transfer?.selectedCandidateId
+      ? transfer.candidates.find((p) => p.id === transfer.selectedCandidateId)
+      : null;
     game.slots.forEach((slot, index) => {
       const button = el("button", "slot", "");
       button.type = "button";
@@ -1122,7 +1370,12 @@
       button.style.top = `${slot.y}%`;
       button.classList.toggle("empty", !slot.player);
       button.classList.toggle("selected", state.selectedSlotIndex === index);
-      if (pending) {
+      if (transferCandidate) {
+        const canReplace = canTransferReplace(transferCandidate, slot, transfer);
+        button.classList.toggle("compatible", canReplace);
+        button.classList.toggle("incompatible", Boolean(slot.player) && !canReplace);
+        if (canReplace) button.appendChild(el("span", "slot-hint", uiText("可替换", "Replace")));
+      } else if (pending) {
         const normalFit = canPlaySlot(pending, slot.pos);
         const forcedFit = !normalFit && canForcePlace(pending, slot.pos);
         button.classList.toggle("compatible", !slot.player && normalFit);
@@ -1221,6 +1474,7 @@
       ["门将", profile.goalkeeper]
     ].forEach(([label, value]) => appendAbilityRating(bars, label, value));
     ui.resultLineupInfo.appendChild(bars);
+    renderResultTransferLog(run);
     const playerStats = Array.isArray(run.result?.playerStats) ? run.result.playerStats : [];
     if (playerStats.length) {
       const teamBest = playerStats[0];
@@ -1254,8 +1508,32 @@
     }
   }
 
+  function renderResultTransferLog(run) {
+    const entries = Array.isArray(run.transferLog) ? run.transferLog : [];
+    if (!entries.length && !run.transferSkipped) return;
+    const block = el("div", "lineup-transfer", "");
+    block.appendChild(el("strong", "", uiText("转会记录", "Transfer Log")));
+    if (entries.length) {
+      entries.forEach((entry) => {
+        const row = el("div", "lineup-transfer-row", "");
+        row.appendChild(el("span", "", uiText(`第 ${entry.step}/2 次转会`, `Transfer ${entry.step}/2`)));
+        row.appendChild(el("span", "transfer-log-mode", transferModeName(entry.mode)));
+        row.appendChild(el("strong", "", `${entry.outgoing || "--"} -> ${entry.incoming}`));
+        row.appendChild(el("span", "", entry.club || ""));
+        block.appendChild(row);
+      });
+    } else {
+      block.appendChild(el("span", "", uiText("未进行转会", "No transfers made")));
+    }
+    ui.resultLineupInfo.appendChild(block);
+  }
+
   function selectSlot(index) {
     const game = state.game;
+    if (state.transfer) {
+      selectTransferSlot(index);
+      return;
+    }
     if (!game) return;
     const slot = game.slots[index];
     const pendingId = state.pendingDraftPlayerId;
@@ -1392,16 +1670,24 @@
   }
 
   function renderSpinResult() {
+    if (state.transfer) {
+      renderTransferSpinResult();
+      return;
+    }
     const game = state.game;
     ui.spinResult.innerHTML = "";
+    if (state.spinning) {
+      ui.spinResult.appendChild(el("p", "slot-drawing-status", uiText("赛季与球队正在抽取中…", "Drawing season and club…")));
+      return;
+    }
     if (!game.currentSpin) {
-      ui.spinResult.appendChild(el("p", "", "转动转盘，抽取一支俱乐部。"));
+      ui.spinResult.appendChild(el("p", "", "启动老虎机，分别抽取赛季和球队。"));
       return;
     }
     const league = getLeague(game.currentSpin.leagueId);
     const club = getClub(game.currentSpin.clubId, game.currentSpin.season);
     if (!league || !club) {
-      ui.spinResult.appendChild(el("p", "history-empty", "没有抽到球队，请重新转动转盘。"));
+      ui.spinResult.appendChild(el("p", "history-empty", "没有抽到球队，请重新启动老虎机。"));
       return;
     }
     const box = el("div", "result-club", "");
@@ -1413,15 +1699,21 @@
     badge.style.background = club.colors?.[0] || league.color || "#0f766e";
     box.append(copy, badge);
     ui.spinResult.appendChild(box);
-    const hub = document.querySelector(".wheel-hub");
-    if (hub) hub.textContent = club.short.slice(0, 3).toUpperCase();
   }
 
   function renderCandidates() {
+    if (state.transfer) {
+      renderTransferCandidates();
+      return;
+    }
     const game = state.game;
     ui.candidates.innerHTML = "";
+    if (state.spinning) {
+      ui.candidates.appendChild(el("p", "history-empty", uiText("滚轴停止后将生成候选球员。", "Candidates will appear after both reels stop.")));
+      return;
+    }
     if (!game.currentSpin) {
-      ui.candidates.appendChild(el("p", "history-empty", "先转动转盘，再从这家俱乐部挑选球员。"));
+      ui.candidates.appendChild(el("p", "history-empty", "先启动老虎机，再从抽中的俱乐部挑选球员。"));
       return;
     }
     if (!game.candidates.length) {
@@ -1486,6 +1778,10 @@
       toast("请先开始一场选秀。");
       return;
     }
+    if (state.transfer) {
+      spinTransferWheel();
+      return;
+    }
     if (state.spinning) return;
     if (!state.selectedLeagues.size) {
       toast("请至少选择一个联赛。");
@@ -1504,8 +1800,8 @@
       return;
     }
     const club = pool[Math.floor(Math.random() * pool.length)];
-    const items = leagueIds.map((id) => getLeague(id));
-    const index = leagueIds.indexOf(leagueId);
+    const seasonOptions = seasonsInRange(game.seasonRange);
+    const clubOptions = leagueIds.flatMap((id) => clubsForLeague(id, season));
     game.currentSpin = {
       leagueId,
       clubId: club.id,
@@ -1514,51 +1810,111 @@
     };
     game.candidates = [];
     saveGame();
-    renderSpinResult();
-    renderCandidates();
-    updateSpinControls();
-    toast(`抽中 ${club.name}`);
-    ui.spinResult.scrollIntoView({ behavior: "smooth", block: "center" });
-    animateWheel(index, items, () => {
+    animateWheel(season, club, seasonOptions, clubOptions, () => {
       game.candidates = buildCandidates(club, game);
       saveGame();
+      renderSpinResult();
       renderCandidates();
       updateSpinControls();
+      toast(`抽中 ${season} · ${club.name}`);
+      ui.spinResult.scrollIntoView({ behavior: "smooth", block: "center" });
       if (state.autoSpinPending) {
         state.autoSpinPending = false;
         spinWheel();
       }
     });
+    renderSpinResult();
+    renderCandidates();
+    updateSpinControls();
   }
 
-  function animateWheel(targetIndex, items, done) {
+  function animateWheel(targetSeason, targetClub, seasonOptions, clubOptions, done) {
     state.spinning = true;
     ui.spinBtn.disabled = true;
-    const step = (Math.PI * 2) / items.length;
-    const desired = (((-(targetIndex + 0.5) * step) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    const current = ((state.wheelAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    let delta = desired - current;
-    if (delta <= 0) delta += Math.PI * 2;
-    const target = state.wheelAngle + Math.PI * 10 + delta;
-    const start = state.wheelAngle;
-    const duration = 2200;
-    const startTime = performance.now();
+    const seasons = seasonOptions.map((season) => ({
+      primary: season,
+      meta: uiText("赛季", "SEASON")
+    }));
+    const clubs = clubOptions.map((club) => ({
+      primary: club.name,
+      meta: `${getLeague(club.league)?.code || "CLB"} · ${club.short || "---"}`
+    }));
+    const seasonTarget = Math.max(0, seasonOptions.indexOf(targetSeason));
+    const clubTarget = Math.max(0, clubOptions.findIndex((club) => club.id === targetClub.id && club.league === targetClub.league));
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reducedMotion) {
+      renderSlotReel("season", seasons, seasonTarget, true);
+      renderSlotReel("club", clubs, clubTarget, true);
+      finishSlotAnimation(done);
+      return;
+    }
+    Promise.all([
+      animateSlotReel("season", seasons, seasonTarget, 1350),
+      animateSlotReel("club", clubs, clubTarget, 2250)
+    ]).then(() => finishSlotAnimation(done));
+  }
 
-    const frame = (now) => {
-      const t = clamp((now - startTime) / duration, 0, 1);
-      const eased = 1 - Math.pow(1 - t, 3);
-      state.wheelAngle = start + (target - start) * eased;
-      drawWheel(state.wheelAngle);
-      if (t < 1) {
-        requestAnimationFrame(frame);
-      } else {
-        state.spinning = false;
-        ui.spinBtn.disabled = false;
-        done();
-        updateSpinControls();
+  function animateSlotReel(type, items, targetIndex, duration) {
+    return new Promise((resolve) => {
+      if (!items.length) {
+        renderSlotReel(type, items, 0, true);
+        resolve();
+        return;
       }
-    };
-    requestAnimationFrame(frame);
+      const reel = $(`#${type}Reel`);
+      reel?.classList.remove("landed");
+      reel?.classList.add("spinning");
+      let index = Math.floor(Math.random() * items.length);
+      let lastStep = 0;
+      const startedAt = performance.now();
+      const frame = (now) => {
+        const elapsed = now - startedAt;
+        const progress = clamp(elapsed / duration, 0, 1);
+        const interval = 48 + Math.pow(progress, 2.6) * 190;
+        if (now - lastStep >= interval) {
+          index = (index + 1 + Math.floor(Math.random() * Math.min(3, items.length))) % items.length;
+          renderSlotReel(type, items, index, false);
+          lastStep = now;
+        }
+        if (progress < 1) {
+          requestAnimationFrame(frame);
+          return;
+        }
+        reel?.classList.remove("spinning");
+        renderSlotReel(type, items, targetIndex, true);
+        resolve();
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  function renderSlotReel(type, items, index, landed = false) {
+    const reel = $(`#${type}Reel`);
+    const value = $(`#${type}ReelValue`);
+    const previous = $(`#${type}ReelPrev`);
+    const next = $(`#${type}ReelNext`);
+    const meta = $(`#${type}ReelMeta`);
+    if (!reel || !value || !previous || !next || !meta) return;
+    const safeItems = items.length ? items : [{
+      primary: type === "season" ? "????-??" : uiText("等待抽取", "READY"),
+      meta: type === "season" ? "SEASON" : "CLUB"
+    }];
+    const safeIndex = ((index % safeItems.length) + safeItems.length) % safeItems.length;
+    const current = safeItems[safeIndex];
+    const before = safeItems[(safeIndex - 1 + safeItems.length) % safeItems.length];
+    const after = safeItems[(safeIndex + 1) % safeItems.length];
+    previous.textContent = before.primary;
+    value.textContent = current.primary;
+    next.textContent = after.primary;
+    meta.textContent = current.meta || (type === "season" ? "SEASON" : "CLUB");
+    reel.classList.toggle("landed", landed);
+  }
+
+  function finishSlotAnimation(done) {
+    state.spinning = false;
+    ui.spinBtn.disabled = false;
+    done();
+    updateSpinControls();
   }
 
   function buildCandidates(club, game) {
@@ -1591,6 +1947,10 @@
   }
 
   function reroll() {
+    if (state.transfer) {
+      spinWheel();
+      return;
+    }
     const game = state.game;
     if (!game || game.rerolls <= 0) {
       toast("没有可用重转次数。");
@@ -1601,6 +1961,583 @@
     ui.rerollBtn.disabled = true;
     saveGame();
     spinWheel();
+  }
+
+  function getWeakestUnit(game) {
+    const groups = { GK: [], DEF: [], MID: [], ATT: [] };
+    game.slots.forEach((slot) => {
+      if (!slot.player) return;
+      const unit = positionUnit(slot.pos);
+      groups[unit].push(Number(slot.player.rate || 0));
+    });
+    const avg = (list) => list.length ? list.reduce((sum, value) => sum + value, 0) / list.length : 99;
+    return Object.keys(groups).sort((a, b) => avg(groups[a]) - avg(groups[b]))[0];
+  }
+
+  function openTransferWindow(sim) {
+    if (sim.transferState?.resolved) return false;
+    const transfer = {
+      sim,
+      step: 1,
+      mode: "weak",
+      targetUnit: getWeakestUnit(sim.game),
+      currentSpin: null,
+      candidates: [],
+      selectedCandidateId: null,
+      revealedCandidateId: null,
+      completed: 0,
+      log: [],
+      resolved: false,
+      skipped: false
+    };
+    state.transfer = transfer;
+    sim.transferState = transfer;
+    ui.transferPanel.classList.remove("hidden");
+    ui.simulationPanel.classList.add("hidden");
+    document.querySelector(".game-layout")?.classList.add("hidden");
+    ui.transferIntro.classList.remove("hidden");
+    ui.transferContent.classList.add("hidden");
+    renderTransferIntro();
+    renderTransferHeader();
+    renderPitch();
+    renderSpinResult();
+    renderCandidates();
+    updateSpinControls();
+    return true;
+  }
+
+  function renderTransferIntro() {
+    if (!state.transfer) return;
+    renderTransferHalfSummary();
+    const unit = state.transfer.targetUnit || getWeakestUnit(state.game);
+    ui.transferWeakText.innerHTML = "";
+    ui.transferWeakText.appendChild(el("strong", "", uiText(`当前最弱位置：${unit}`, `Weakest area: ${unit}`)));
+    ui.transferWeakText.appendChild(el("span", "", uiText(
+      "第一次只会提供能够提升弱项位置评分的球员；第 2 次转会方式将随机抽取。",
+      "The first transfer only offers players who improve a weak-area slot; the second transfer method is randomized."
+    )));
+  }
+
+  function renderTransferHalfSummary() {
+    const transfer = state.transfer;
+    const container = ui.transferHalfSummary;
+    if (!transfer?.sim?.table || !container) return;
+    const sim = transfer.sim;
+    const table = Object.values(sim.table)
+      .sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor);
+    const positionIndex = table.findIndex((row) => row.name === "我的球队");
+    const row = positionIndex >= 0 ? table[positionIndex] : null;
+    if (!row) {
+      container.classList.add("hidden");
+      return;
+    }
+    container.classList.remove("hidden");
+    const position = positionIndex + 1;
+    const league = getLeague(sim.game.league);
+    const allocation = getEuropeanQualification(sim.game, position).allocation;
+    const uclCutoff = table[Math.min(allocation.ucl - 1, table.length - 1)];
+    const safetyCutoff = table[Math.max(0, table.length - 4)];
+    const leaderGap = Math.max(0, Number(table[0]?.points || 0) - row.points);
+    let situation;
+    if (position === 1) {
+      const second = table[1];
+      const lead = Math.max(0, row.points - Number(second?.points || row.points));
+      situation = uiText(`当前领跑${lead ? `，领先第 2 名 ${lead} 分` : "，榜首竞争激烈"}`, `Currently top${lead ? `, ${lead} pts clear of second` : ", with a tight title race"}`);
+    } else if (position <= allocation.ucl) {
+      situation = uiText(`目前位于欧冠区，距离榜首 ${leaderGap} 分`, `Currently in the Champions League places, ${leaderGap} pts off top`);
+    } else if (position > table.length - 3) {
+      const safetyGap = Math.max(0, Number(safetyCutoff?.points || 0) - row.points);
+      situation = uiText(`目前处于降级区，距离安全区 ${safetyGap} 分`, `Currently in the relegation zone, ${safetyGap} pts from safety`);
+    } else {
+      const uclGap = Math.max(0, Number(uclCutoff?.points || 0) - row.points);
+      situation = uiText(`距离欧冠区 ${uclGap} 分，距离榜首 ${leaderGap} 分`, `${uclGap} pts from the Champions League places and ${leaderGap} pts off top`);
+    }
+    container.innerHTML = "";
+    const head = el("div", "transfer-half-head", "");
+    const title = el("div", "", "");
+    title.appendChild(el("span", "eyebrow", uiText("前半程战绩", "First-Half Record")));
+    title.appendChild(el("strong", "", `${league?.name || ""} · ${uiText(`已赛 ${row.played} 场`, `${row.played} played`)}`));
+    head.appendChild(title);
+    head.appendChild(el("span", "transfer-rank-badge", uiText(`第 ${position}/${table.length} 名`, `#${position} of ${table.length}`)));
+    container.appendChild(head);
+    const goalDiff = Number(row.goalDiff || 0);
+    const stats = [
+      [row.points, uiText("积分", "Points")],
+      [`${row.wins}-${row.draws}-${row.losses}`, uiText("胜-平-负", "W-D-L")],
+      [`${row.goalsFor}-${row.goalsAgainst}`, uiText("进球-失球", "GF-GA")],
+      [goalDiff > 0 ? `+${goalDiff}` : String(goalDiff), uiText("净胜球", "Goal Diff")]
+    ];
+    const grid = el("div", "transfer-half-grid", "");
+    stats.forEach(([value, label]) => {
+      const card = el("div", "transfer-half-stat", "");
+      card.appendChild(el("strong", "", String(value)));
+      card.appendChild(el("span", "", label));
+      grid.appendChild(card);
+    });
+    container.appendChild(grid);
+    const context = el("div", "transfer-half-context", "");
+    context.appendChild(el("span", "", situation));
+    const form = el("div", "transfer-form", "");
+    form.appendChild(el("small", "", uiText("近 5 场", "Last 5")));
+    const recent = sim.matches.slice(-5);
+    if (!recent.length) {
+      form.appendChild(el("span", "transfer-form-empty", "--"));
+    } else {
+      recent.forEach((match) => {
+        const item = el("span", `transfer-form-result form-${match.result.toLowerCase()}`, match.result);
+        item.title = `${match.opponent} ${match.gf}-${match.ga}`;
+        form.appendChild(item);
+      });
+    }
+    context.appendChild(form);
+    container.appendChild(context);
+  }
+
+  function renderTransferHeader() {
+    if (!state.transfer) return;
+    renderTransferHalfSummary();
+    const transfer = state.transfer;
+    const stepText = transfer.step === 1
+      ? uiText("第 1/2 次转会 · 弱项补强", "Transfer 1/2 · Weak-Area")
+      : uiText(`第 2/2 次转会 · ${transferModeName(transfer.mode)}`, `Transfer 2/2 · ${transferModeName(transfer.mode)}`);
+    ui.transferProgress.textContent = `${transfer.completed}/2`;
+    ui.transferTitle.textContent = uiText("冬季转会窗", "Winter Transfer Window");
+    ui.transferModeText.innerHTML = "";
+    ui.transferModeText.appendChild(el("strong", "", stepText));
+    ui.transferStatus.innerHTML = "";
+    const target = transfer.mode === "weak" ? transfer.targetUnit || getWeakestUnit(state.game) : null;
+    if (target) ui.transferStatus.appendChild(el("span", "", uiText(`目标位置：${target}`, `Target area: ${target}`)));
+    const instruction = transfer.mode === "free"
+      ? uiText("从 5 名完全随机的候选人中选择一人，再点击球场上的兼容位置。", "Choose one of five fully random candidates, then click a compatible slot.")
+      : transfer.mode === "mystery"
+        ? transfer.revealedCandidateId
+          ? uiText("盲盒已经锁定，点击球场上的兼容位置完成签约。", "The box is locked in. Click a compatible slot to complete the signing.")
+          : uiText("三个盲盒只能打开一个；揭晓后必须签下这名球员。", "Only one of the three boxes can be opened; the revealed player must be signed.")
+        : uiText("候选球员必须比被替换球员评分更高；点击可补强的位置完成转会。", "The candidate must be rated higher than the outgoing player. Click an upgradeable slot to complete the transfer.");
+    ui.transferStatus.appendChild(el("span", "", instruction));
+    renderTransferLog();
+  }
+
+  function transferModeName(mode) {
+    return mode === "weak" ? uiText("弱项补强", "Weak-Area")
+      : mode === "free" ? uiText("自由签约", "Free Signing")
+      : mode === "mystery" ? uiText("盲盒签约", "Mystery Signing")
+      : mode === "random" ? uiText("随机引援", "Random Signing")
+      : mode === "swap" ? uiText("球员交换", "Player Swap")
+      : uiText("转会", "Transfer");
+  }
+
+  function renderTransferLog() {
+    const transfer = state.transfer;
+    if (!transfer) return;
+    ui.transferLog.innerHTML = "";
+    if (!transfer.log.length) {
+      ui.transferLog.appendChild(el("span", "", uiText("转会记录", "Transfer Log")));
+      return;
+    }
+    const head = el("strong", "", uiText("转会记录", "Transfer Log"));
+    ui.transferLog.appendChild(head);
+    transfer.log.forEach((entry, index) => {
+      const row = el("div", "transfer-log-row", "");
+      row.appendChild(el("span", "", uiText(`第 ${entry.step}/2 次转会`, `Transfer ${entry.step}/2`)));
+      row.appendChild(el("span", "transfer-log-mode", transferModeName(entry.mode)));
+      row.appendChild(el("strong", "", `${entry.incoming} ${entry.club}`));
+      row.appendChild(el("span", "", uiText(`转会将替换 ${entry.outgoing}`, `This transfer replaces ${entry.outgoing}`)));
+      ui.transferLog.appendChild(row);
+    });
+  }
+
+  function enterTransferWindow() {
+    const transfer = state.transfer;
+    if (!transfer) return;
+    ui.transferIntro.classList.add("hidden");
+    ui.transferContent.classList.remove("hidden");
+    document.querySelector(".game-layout")?.classList.remove("hidden");
+    ui.rerollBtn.classList.remove("hidden");
+    document.querySelector(".wheel-card")?.classList.remove("hidden");
+    prepareTransferStep(transfer);
+  }
+
+  function skipTransferWindow() {
+    const transfer = state.transfer;
+    if (!transfer) return;
+    transfer.skipped = true;
+    transfer.resolved = true;
+    transfer.log = [];
+    toast(uiText("本次转会窗已跳过。", "Transfer window skipped."));
+    resumeAfterTransfer(transfer.sim);
+  }
+
+  function prepareTransferStep(transfer) {
+    if (transfer.step === 2) {
+      transfer.mode = SECOND_TRANSFER_MODE_KEYS[Math.floor(Math.random() * SECOND_TRANSFER_MODE_KEYS.length)];
+    }
+    if (transfer.mode === "weak") transfer.targetUnit = getWeakestUnit(transfer.sim.game);
+    transfer.currentSpin = null;
+    transfer.candidates = [];
+    transfer.selectedCandidateId = null;
+    transfer.revealedCandidateId = null;
+    const directMode = transfer.mode === "free" || transfer.mode === "mystery";
+    document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
+    ui.rerollBtn.classList.toggle("hidden", directMode);
+    if (directMode) prepareDirectTransferCandidates(transfer);
+    renderTransferHeader();
+    renderPitch();
+    renderSpinResult();
+    renderCandidates();
+    updateSpinControls();
+  }
+
+  function buildDirectTransferPool(transfer, game) {
+    const seasons = seasonsInRange(game.seasonRange);
+    const leagueIds = game.leagues.length ? game.leagues : [...state.selectedLeagues];
+    const currentIds = new Set(game.slots.map((slot) => slot.player?.id).filter(Boolean));
+    return seasons.flatMap((season) => leagueIds.flatMap((leagueId) => (
+      allClubs(season)
+        .filter((club) => club.league === leagueId)
+        .flatMap((club) => (club.players || []).map((player) => ({
+          ...player,
+          id: `${season}|${club.id}|${player.name}`,
+          rate: clamp(calibrateRate(Number(player.rate || 80), season), 40, 99),
+          sourceClubId: club.id,
+          sourceClubName: club.name,
+          sourceSeason: season
+        })))
+    )))
+      .filter((player) => !currentIds.has(player.id))
+      .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)));
+  }
+
+  function prepareDirectTransferCandidates(transfer) {
+    const pool = buildDirectTransferPool(transfer, transfer.sim.game);
+    transfer.currentSpin = {
+      seasonRange: { ...transfer.sim.game.seasonRange },
+      direct: true,
+      drafted: false
+    };
+    if (transfer.mode === "free") {
+      transfer.candidates = shuffleWithRng(pool, Math.random).slice(0, 5);
+      return;
+    }
+    transfer.candidates = buildMysteryCandidates(pool);
+  }
+
+  function takeRandomCandidate(pool, excludedIds, fallbackPool = pool) {
+    const available = pool.filter((player) => !excludedIds.has(player.id));
+    const fallback = fallbackPool.filter((player) => !excludedIds.has(player.id));
+    const source = available.length ? available : fallback;
+    if (!source.length) return null;
+    const picked = source[Math.floor(Math.random() * source.length)];
+    excludedIds.add(picked.id);
+    return picked;
+  }
+
+  function buildMysteryCandidates(pool) {
+    if (!pool.length) return [];
+    const ordered = [...pool].sort((a, b) => a.rate - b.rate);
+    const band = (start, end) => ordered.slice(
+      Math.floor(ordered.length * start),
+      Math.max(Math.floor(ordered.length * start) + 1, Math.ceil(ordered.length * end))
+    );
+    const excludedIds = new Set();
+    const safe = takeRandomCandidate(band(0.45, 0.72), excludedIds);
+    const standard = takeRandomCandidate(pool, excludedIds);
+    const lowRiskPool = band(0, 0.28);
+    const highRewardPool = band(0.85, 1);
+    const riskyPool = Math.random() < 0.5 ? lowRiskPool : highRewardPool;
+    const risky = takeRandomCandidate(riskyPool, excludedIds);
+    return [
+      safe && { ...safe, mysteryRisk: "safe" },
+      standard && { ...standard, mysteryRisk: "standard" },
+      risky && { ...risky, mysteryRisk: "risky" }
+    ].filter(Boolean);
+  }
+
+  function spinTransferWheel() {
+    const transfer = state.transfer;
+    if (!transfer || state.spinning) return;
+    if (transfer.currentSpin && transfer.candidates.length) return;
+    const game = state.game;
+    const leagueIds = game.leagues.length ? game.leagues : [...state.selectedLeagues];
+    if (!leagueIds.length) {
+      toast(uiText("请至少选择一个联赛。", "Select at least one league."));
+      return;
+    }
+    const leagueId = leagueIds[Math.floor(Math.random() * leagueIds.length)];
+    const season = randomSeasonInRange(game.seasonRange);
+    const pool = allClubs(season).filter((club) => club.league === leagueId);
+    if (!pool.length) {
+      toast(uiText("没有可抽球队，请换一个赛季。", "No clubs available for this season."));
+      return;
+    }
+    const club = pool[Math.floor(Math.random() * pool.length)];
+    const seasonOptions = seasonsInRange(game.seasonRange);
+    const seasonClubs = allClubs(season);
+    const clubOptions = leagueIds.flatMap((id) => seasonClubs.filter((item) => item.league === id));
+    transfer.currentSpin = { leagueId, clubId: club.id, season, drafted: false };
+    transfer.candidates = [];
+    transfer.selectedCandidateId = null;
+    animateWheel(season, club, seasonOptions, clubOptions, () => {
+      transfer.candidates = buildTransferCandidates(club, transfer, game);
+      renderSpinResult();
+      renderCandidates();
+      updateSpinControls();
+    });
+    renderSpinResult();
+    renderCandidates();
+    updateSpinControls();
+  }
+
+  function buildTransferCandidates(club, transfer, game) {
+    const season = transfer.currentSpin?.season || simulationSeason(game);
+    const pool = getClub(club.id, season)?.players || club.players || [];
+    const allowedPositions = transfer.mode === "weak"
+      ? (TRANSFER_UNIT_POSITIONS[transfer.targetUnit] || [])
+      : null;
+    return pool
+      .map((player) => ({
+        ...player,
+        id: `${season}|${club.id}|${player.name}`,
+        rate: clamp(calibrateRate(Number(player.rate || 80), season) + Math.floor(Math.random() * 3) - 1, 40, 99)
+      }))
+      .filter((player) => !game.slots.some((slot) => slot.player?.id === player.id))
+      .filter((player) => !allowedPositions || player.pos.some((pos) => allowedPositions.includes(pos)))
+      .filter((player) => game.slots.some((slot) => canTransferReplace(player, slot, transfer)))
+      .sort((a, b) => b.rate - a.rate);
+  }
+
+  function transferRateForSlot(player, slotPos) {
+    const baseRate = Number(player?.baseRate || player?.rate || 0);
+    return clamp(baseRate + fitBonus(slotPos, player?.pos || []), 40, 99);
+  }
+
+  function canTransferReplace(candidate, slot, transfer) {
+    if (!candidate || !slot?.player || !canPlaySlot(candidate, slot.pos)) return false;
+    if (transfer?.mode !== "weak") return true;
+    if (positionUnit(slot.pos) !== transfer.targetUnit) return false;
+    return transferRateForSlot(candidate, slot.pos) > Number(slot.player.rate || 0);
+  }
+
+  function renderTransferSpinResult() {
+    const transfer = state.transfer;
+    ui.spinResult.innerHTML = "";
+    if (transfer?.mode === "free") {
+      const box = el("div", "direct-transfer-summary", "");
+      box.appendChild(el("strong", "", uiText("随机候选名单", "Random Candidate List")));
+      box.appendChild(el("span", "", uiText(
+        "以下球员从合格球员池中等概率随机产生，未按评分排序。",
+        "These players were drawn uniformly from the eligible pool and are not sorted by rating."
+      )));
+      ui.spinResult.appendChild(box);
+      return;
+    }
+    if (transfer?.mode === "mystery") {
+      const box = el("div", "direct-transfer-summary mystery-summary", "");
+      box.appendChild(el("strong", "", uiText("选择一个盲盒", "Choose One Mystery Box")));
+      box.appendChild(el("span", "", transfer.revealedCandidateId
+        ? uiText("球员已经揭晓并锁定，请在球场上选择替换位置。", "The player is revealed and locked in. Choose a replacement slot on the pitch.")
+        : uiText("每个盲盒都来自真实球员数据，打开后不能更换。", "Every box contains a real player and cannot be changed after opening.")));
+      ui.spinResult.appendChild(box);
+      return;
+    }
+    if (state.spinning) {
+      ui.spinResult.appendChild(el("p", "slot-drawing-status", uiText("赛季与转会目标正在抽取中…", "Drawing season and transfer target…")));
+      return;
+    }
+    if (!transfer?.currentSpin) {
+      ui.spinResult.appendChild(el("p", "", uiText("启动老虎机，抽取赛季与转会目标俱乐部。", "Spin the reels to draw a season and transfer club.")));
+      return;
+    }
+    const league = getLeague(transfer.currentSpin.leagueId);
+    const club = getClub(transfer.currentSpin.clubId, transfer.currentSpin.season);
+    if (!league || !club) {
+      ui.spinResult.appendChild(el("p", "history-empty", uiText("没有抽到球队，请重新抽取。", "No club drawn. Redraw.")));
+      return;
+    }
+    const box = el("div", "result-club", "");
+    const copy = el("div", "", "");
+    copy.appendChild(el("div", "result-league", `${league.name} · ${league.country}`));
+    copy.appendChild(el("strong", "", club.name));
+    copy.appendChild(el("span", "", transfer.currentSpin.season));
+    const badge = el("span", "league-code", club.short.slice(0, 3));
+    badge.style.background = club.colors?.[0] || league.color || "#0f766e";
+    box.append(copy, badge);
+    ui.spinResult.appendChild(box);
+  }
+
+  function renderTransferCandidates() {
+    const transfer = state.transfer;
+    ui.candidates.innerHTML = "";
+    if (state.spinning) {
+      ui.candidates.appendChild(el("p", "history-empty", uiText("滚轴停止后将生成候选球员。", "Candidates will appear after both reels stop.")));
+      return;
+    }
+    if (!transfer?.currentSpin) {
+      ui.candidates.appendChild(el("p", "history-empty", uiText("先启动老虎机，再选择要签入的球员。", "Spin the reels first, then choose a player to sign.")));
+      return;
+    }
+    if (!transfer.candidates.length) {
+      const message = transfer.mode === "free" || transfer.mode === "mystery"
+        ? uiText("没有足够的合格球员完成本次转会。", "Not enough eligible players for this transfer.")
+        : uiText("没有可签球员，请重新抽取。", "No eligible player. Redraw.");
+      ui.candidates.appendChild(el("p", "history-empty", message));
+      return;
+    }
+    if (transfer.mode === "mystery") {
+      renderMysteryCandidates(transfer);
+      return;
+    }
+    transfer.candidates.forEach((candidate) => {
+      const button = el("button", "candidate", "");
+      button.type = "button";
+      button.classList.toggle("pending", candidate.id === transfer.selectedCandidateId);
+      button.appendChild(el("strong", "", candidate.name));
+      const sourceBits = [candidate.sourceSeason, candidate.sourceClubName].filter(Boolean);
+      const clubLine = sourceBits.length ? `${sourceBits.join(" · ")} · ` : "";
+      button.appendChild(el("small", "", `${clubLine}${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}`));
+      button.appendChild(el("span", "rate", String(candidate.rate)));
+      button.addEventListener("click", () => {
+        transfer.selectedCandidateId = candidate.id;
+        renderPitch();
+        renderCandidates();
+        updateSpinControls();
+        document.querySelector(".pitch-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      ui.candidates.appendChild(button);
+    });
+  }
+
+  function mysteryRiskName(risk) {
+    return risk === "safe" ? uiText("稳健选择", "Safe Pick")
+      : risk === "risky" ? uiText("高风险目标", "High-Risk Target")
+      : uiText("未知新援", "Unknown Signing");
+  }
+
+  function transferUnitName(unit) {
+    return {
+      GK: uiText("门将", "Goalkeeper"),
+      DEF: uiText("后卫", "Defender"),
+      MID: uiText("中场", "Midfielder"),
+      ATT: uiText("前锋", "Forward")
+    }[unit] || unit;
+  }
+
+  function renderMysteryCandidates(transfer) {
+    const revealedId = transfer.revealedCandidateId;
+    transfer.candidates.forEach((candidate, index) => {
+      if (revealedId && candidate.id !== revealedId) return;
+      const revealed = candidate.id === revealedId;
+      const button = el("button", `candidate mystery-box${revealed ? " revealed pending" : ""}`, "");
+      button.type = "button";
+      if (revealed) {
+        button.appendChild(el("span", "mystery-risk", mysteryRiskName(candidate.mysteryRisk)));
+        button.appendChild(el("strong", "", candidate.name));
+        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName, candidate.nat].filter(Boolean).join(" · ")));
+        button.appendChild(el("small", "", candidate.pos.map((pos) => POSITION_NAMES[pos] || pos).join("/")));
+        button.appendChild(el("span", "rate", String(candidate.rate)));
+        button.appendChild(el("span", "mystery-locked", uiText("已锁定，必须签下这名球员", "Locked in — this player must be signed")));
+      } else {
+        const unit = positionUnit(candidate.pos[0]);
+        button.appendChild(el("span", "mystery-number", `0${index + 1}`));
+        button.appendChild(el("strong", "", mysteryRiskName(candidate.mysteryRisk)));
+        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName, candidate.nat].filter(Boolean).join(" · ")));
+        button.appendChild(el("span", "mystery-unit", transferUnitName(unit)));
+        button.appendChild(el("span", "mystery-open", uiText("打开盲盒", "Open Mystery Box")));
+      }
+      button.addEventListener("click", () => {
+        if (transfer.revealedCandidateId) return;
+        transfer.revealedCandidateId = candidate.id;
+        transfer.selectedCandidateId = candidate.id;
+        renderTransferHeader();
+        renderTransferSpinResult();
+        renderPitch();
+        renderCandidates();
+        updateSpinControls();
+        toast(uiText(`盲盒揭晓：${candidate.name}，请为他选择位置。`, `Revealed: ${candidate.name}. Choose his slot.`));
+        document.querySelector(".pitch-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      ui.candidates.appendChild(button);
+    });
+  }
+
+  function selectTransferSlot(index) {
+    const transfer = state.transfer;
+    const game = state.game;
+    if (!transfer?.selectedCandidateId) return;
+    const candidate = transfer.candidates.find((p) => p.id === transfer.selectedCandidateId);
+    const slot = game.slots[index];
+    if (!candidate || !slot?.player || !canTransferReplace(candidate, slot, transfer)) {
+      const message = transfer.mode === "weak"
+        ? uiText("这名球员无法提高该位置的评分，请选择标记为可补强的位置。", "This player would not improve that slot. Choose a slot marked as an upgrade.")
+        : uiText("这名球员不能放到这个位置。", "This player cannot replace that slot.");
+      toast(message);
+      return;
+    }
+    const outgoing = slot.player;
+    game.draftedPlayers = game.draftedPlayers.filter((p) => p.id !== outgoing.id);
+    const baseRate = Number(candidate.baseRate || candidate.rate);
+    const incoming = {
+      ...candidate,
+      baseRate,
+      forced: false,
+      rate: clamp(baseRate + fitBonus(slot.pos, candidate.pos), 40, 99)
+    };
+    slot.player = incoming;
+    game.draftedPlayers.push(incoming);
+    const club = candidate.sourceClubName
+      ? null
+      : getClub(transfer.currentSpin.clubId, transfer.currentSpin.season);
+    const clubName = candidate.sourceClubName || club?.name || "";
+    const transferSeason = candidate.sourceSeason || transfer.currentSpin.season;
+    transfer.log.push({
+      step: transfer.step,
+      mode: transfer.mode,
+      club: clubName,
+      season: transferSeason,
+      incoming: incoming.name,
+      outgoing: outgoing.name,
+      slot: slot.pos,
+      rate: incoming.rate
+    });
+    transfer.completed += 1;
+    transfer.currentSpin = null;
+    transfer.candidates = [];
+    transfer.selectedCandidateId = null;
+    renderPitch();
+    renderTeamRating();
+    if (transfer.completed >= 2) {
+      finishTransferWindow();
+      return;
+    }
+    transfer.step = 2;
+    prepareTransferStep(transfer);
+  }
+
+  function finishTransferWindow() {
+    const transfer = state.transfer;
+    if (!transfer) return;
+    transfer.resolved = true;
+    resumeAfterTransfer(transfer.sim);
+  }
+
+  function resumeAfterTransfer(sim) {
+    const transfer = state.transfer;
+    if (transfer && transfer.log?.length) {
+      sim.teamRating = calcTeamRating(sim.game);
+      sim.profile = calcTeamProfile(sim.game);
+      sim.profileMap["我的球队"] = sim.profile;
+      sim.eloMap["我的球队"] = 1000 + Math.round((teamStrength(sim.profile) - 75) * 25);
+    }
+    state.transfer = null;
+    ui.transferPanel.classList.add("hidden");
+    ui.transferIntro.classList.remove("hidden");
+    ui.transferContent.classList.add("hidden");
+    ui.rerollBtn.classList.add("hidden");
+    document.querySelector(".wheel-card")?.classList.remove("hidden");
+    document.querySelector(".game-layout")?.classList.add("hidden");
+    ui.simulationPanel.classList.remove("hidden");
+    renderSimulationStep(sim);
+    setTimeout(() => simulateNextMatch(sim), 450);
   }
 
   function draftPlayer(playerId) {
@@ -1913,7 +2850,6 @@
     const eloMap = createEloMap(profileMap);
     const seed = hashSeed(`${game.id}|${game.slots.map((s) => s.player.id).join(",")}`);
     const rng = makeRng(seed);
-    simulateAIMatches(schedule, profileMap, rng, table, eloMap);
     const userMatches = schedule.filter((match) => match.home === "我的球队" || match.away === "我的球队");
     if (userMatches.some((match) => match.home === match.away)) {
       toast("赛程生成异常，请刷新后重新开始模拟。");
@@ -1931,6 +2867,9 @@
       rng,
       matchCount: userMatches.length,
       index: 0,
+      allIndex: 0,
+      transferPoint: Math.floor(schedule.length / 2),
+      transferState: null,
       wins: 0,
       draws: 0,
       losses: 0,
@@ -1950,14 +2889,30 @@
   }
 
   function simulateNextMatch(sim) {
-    if (sim.index >= sim.matchCount) {
+    const transferResolved = Boolean(sim.transferState?.resolved);
+    while (
+      sim.allIndex < sim.schedule.length
+      && (transferResolved || sim.allIndex < sim.transferPoint)
+      && sim.schedule[sim.allIndex].home !== "我的球队"
+      && sim.schedule[sim.allIndex].away !== "我的球队"
+    ) {
+      simulateAIFixture(sim, sim.schedule[sim.allIndex]);
+      sim.allIndex += 1;
+    }
+
+    if (sim.allIndex >= sim.schedule.length) {
       finishSimulation(sim);
       return;
     }
-    const game = sim.game;
+
+    if (sim.allIndex >= sim.transferPoint && openTransferWindow(sim)) {
+      return;
+    }
+
+    const fixture = sim.schedule[sim.allIndex];
     const match = simulateOneMatch(sim);
-    const fixture = sim.userMatches[sim.index - 1];
-    if (fixture) applyLeagueResult(sim.table, fixture.home, fixture.away, match.homeGoals, match.awayGoals);
+    sim.allIndex += 1;
+    applyLeagueResult(sim.table, fixture.home, fixture.away, match.homeGoals, match.awayGoals);
     sim.matches.push(match);
     sim.wins += match.result === "W" ? 1 : 0;
     sim.draws += match.result === "D" ? 1 : 0;
@@ -1977,14 +2932,31 @@
       stat.assists += 1;
       sim.playerStats.set(assist.id, stat);
     });
-    game.slots.forEach((slot) => {
+    sim.game.slots.forEach((slot) => {
       if (!slot.player) return;
       const stat = sim.playerStats.get(slot.player.id) || { id: slot.player.id, name: slot.player.name, apps: 0, goals: 0, assists: 0 };
       stat.apps += 1;
       sim.playerStats.set(slot.player.id, stat);
     });
     renderSimulationStep(sim);
+    if (sim.allIndex >= sim.transferPoint && openTransferWindow(sim)) {
+      return;
+    }
     setTimeout(() => simulateNextMatch(sim), 600);
+  }
+
+  function simulateAIFixture(sim, fixture) {
+    const result = simulateLeagueResult(
+      sim.profileMap[fixture.home],
+      sim.profileMap[fixture.away],
+      sim.rng,
+      fixture.home,
+      sim.eloMap[fixture.home],
+      sim.eloMap[fixture.away]
+    );
+    sim.eloMap[fixture.home] = result.newEloHome;
+    sim.eloMap[fixture.away] = result.newEloAway;
+    applyLeagueResult(sim.table, fixture.home, fixture.away, result.gf, result.ga);
   }
 
   function simulateOneMatch(sim) {
@@ -2082,7 +3054,8 @@
       goalsAgainst: sim.goalsAgainst,
       points,
       finish,
-      teamRating: sim.teamRating
+      teamRating: sim.teamRating,
+      uclPlaces: europeQualification.allocation.ucl
     });
     game.result = {
       matches: sim.matches,
@@ -2100,8 +3073,12 @@
       achievements,
       playerStats,
       leagueTable,
-      europeQualification
+      europeQualification,
+      transferLog: sim.transferState?.log || [],
+      transferSkipped: Boolean(sim.transferState?.skipped)
     };
+    game.transferLog = sim.transferState?.log || [];
+    game.transferSkipped = Boolean(sim.transferState?.skipped);
     game.phase = "complete";
     game.simulation = null;
     saveGame();
@@ -2196,12 +3173,14 @@
   }
 
   function getEuropeanQualification(game, finish) {
-    const isBigFour = ["eng", "esp", "ita", "ger"].includes(game.league);
-    const allocation = {
-      ucl: isBigFour ? 5 : 4,
-      uel: 2,
-      uecl: 1
+    const allocations = {
+      eng: { ucl: 5, uel: 2, uecl: 1 },
+      esp: { ucl: 5, uel: 2, uecl: 1 },
+      ita: { ucl: 4, uel: 2, uecl: 1 },
+      ger: { ucl: 4, uel: 2, uecl: 1 },
+      fra: { ucl: 3, uel: 2, uecl: 1 }
     };
+    const allocation = allocations[game.league] || { ucl: 0, uel: 0, uecl: 0 };
     let competition = null;
     if (finish <= allocation.ucl) competition = "UCL";
     else if (finish <= allocation.ucl + allocation.uel) competition = "UEL";
@@ -2212,7 +3191,8 @@
       competition,
       competitionName: competition ? names[competition] : "未获得欧战资格",
       finish,
-      allocation
+      allocation,
+      allocationSeason: EUROPE_ALLOCATION_SEASON
     };
   }
 
@@ -2267,10 +3247,20 @@
   function buildLeagueProfileMap(game, names) {
     const season = simulationSeason(game);
     const clubs = clubsForLeague(game.league, season).filter((club) => names.includes(club.name));
-    const rows = clubs.map((club) => ({ club, profile: calcClubProfile(club) })).sort((a, b) => b.profile.overall - a.profile.overall);
+    const eliteStrength = (club) => ELITE_STRENGTH[club.id]
+      || (club.id === "paris-sg" ? ELITE_STRENGTH.psg : 0);
+    const rows = clubs.map((club) => ({ club, profile: calcClubProfile(getClub(club.id, season)) }))
+      .sort((a, b) => eliteStrength(b.club) - eliteStrength(a.club) || b.profile.overall - a.profile.overall);
     const count = rows.length;
     rows.forEach((item, index) => {
-      const normalized = count > 1 ? Math.round(82 - (index / (count - 1)) * 12) : 78;
+      const elite = eliteStrength(item.club);
+      const fallback = count > 1 ? Math.round(82 - (index / (count - 1)) * 12) : 78;
+      let normalized = elite
+        ? clamp(Math.round(elite * 0.65 + item.profile.overall * 0.35), 70, 94)
+        : fallback;
+      if (game.league === "fra" && item.club.id !== "paris-sg") {
+        normalized = clamp(normalized - 2, 68, 94);
+      }
       const delta = normalized - item.profile.overall;
       item.profile.attack = clamp(item.profile.attack + Math.round(delta * 0.35), 40, 99);
       item.profile.midfield = clamp(item.profile.midfield + Math.round(delta * 0.25), 40, 99);
@@ -2424,10 +3414,13 @@
 
   function collectAchievements(result) {
     const list = [];
-    if (result.wins === result.matches?.length) list.push("完美赛季");
-    if (result.losses === 0 && result.wins < result.matches?.length) list.push("不败赛季");
+    const played = Array.isArray(result.matches)
+      ? result.matches.length
+      : Number(result.wins || 0) + Number(result.draws || 0) + Number(result.losses || 0);
+    if (played > 0 && result.wins === played) list.push("完美赛季");
+    if (played > 0 && result.losses === 0 && result.wins < played) list.push("不败赛季");
     if (result.finish === 1) list.push("联赛冠军");
-    if (result.finish <= 4) list.push("进入欧冠区");
+    if (result.finish <= Number(result.uclPlaces || 4)) list.push("进入欧冠区");
     if (result.goalsFor >= 100) list.push("进球破百");
     if (result.goalsAgainst <= 20) list.push("钢铁防线");
     if (result.goalsAgainst <= 10) list.push("铁幕防守");
@@ -2468,12 +3461,27 @@
 
     const achievements = $("#achievements");
     achievements.innerHTML = "";
-    if (result.topScorer) achievements.appendChild(el("span", "achievement", `最佳射手：${result.topScorer[0]} ${result.topScorer[1]} 球`));
-    result.achievements.forEach((name) => achievements.appendChild(el("span", "achievement", name)));
-    if (!result.achievements.length && !result.topScorer) {
-      achievements.appendChild(el("span", "achievement", "完成赛季"));
+    const unlocked = Array.isArray(result.achievements) ? result.achievements : [];
+    const honorCount = unlocked.length;
+    const achievementCount = $("#achievementCount");
+    if (achievementCount) achievementCount.textContent = uiText(`${honorCount} 项解锁`, `${honorCount} unlocked`);
+    unlocked.forEach((name) => {
+      const detail = ACHIEVEMENT_DETAILS[name] || ["🎖️", "完成特殊赛季目标", "Complete a special season objective"];
+      const card = el("div", "achievement-card", "");
+      card.appendChild(el("span", "achievement-icon", detail[0]));
+      const copy = el("div", "achievement-copy", "");
+      copy.appendChild(el("strong", "", name));
+      copy.appendChild(el("small", "", uiText(detail[1], detail[2])));
+      card.appendChild(copy);
+      achievements.appendChild(card);
+    });
+    if (!honorCount) {
+      const empty = el("div", "achievement-empty", "");
+      empty.appendChild(el("strong", "", uiText("赛季已完成", "Season complete")));
+      empty.appendChild(el("small", "", uiText("继续挑战更高排名与特殊赛季目标。", "Aim for a higher finish and special season objectives next time.")));
+      achievements.appendChild(empty);
     }
-    renderLeagueTable(result, leagueName);
+    renderLeagueTable(result, leagueName, run.league);
     renderResultLineup(run);
     renderEurope(result, run);
 
@@ -2495,7 +3503,7 @@
     showView("result");
   }
 
-  function renderLeagueTable(result, leagueName) {
+  function renderLeagueTable(result, leagueName, leagueId) {
     if (!result.leagueTable || !result.leagueTable.length) {
       ui.resultTablePanel.classList.add("hidden");
       return;
@@ -2503,17 +3511,45 @@
     ui.resultTablePanel.classList.remove("hidden");
     ui.resultTableLeague.textContent = leagueName;
     ui.leagueTable.innerHTML = "";
-    const headers = ["排名", "球队", "场次", "胜", "平", "负", "进", "失", "净胜", "积分"];
-    const head = el("div", "table-row table-head", "");
-    headers.forEach((text) => head.appendChild(el("span", "", text)));
-    ui.leagueTable.appendChild(head);
-    result.leagueTable.forEach((row) => {
-      const tr = el("div", "table-row", "");
-      tr.classList.toggle("user-row", row.isUser);
-      [row.position, row.name, row.played, row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst, row.goalDiff, row.points]
-        .forEach((value) => tr.appendChild(el("span", "", String(value))));
-      ui.leagueTable.appendChild(tr);
+    const allocation = result.europeQualification?.allocation || { ucl: 0, uel: 0, uecl: 0 };
+    const legend = el("div", "league-table-legend", "");
+    [
+      ["zone-ucl", uiText(`前 ${allocation.ucl}：欧冠`, `Top ${allocation.ucl}: Champions League`), allocation.ucl > 0],
+      ["zone-uel", uiText(`接下来 ${allocation.uel} 席：欧联`, `Next ${allocation.uel}: Europa League`), allocation.uel > 0],
+      ["zone-uecl", uiText(`接下来 ${allocation.uecl} 席：欧协联`, `Next ${allocation.uecl}: Conference League`), allocation.uecl > 0],
+      ["zone-playoff", uiText("保级附加赛", "Relegation play-off"), leagueId === "ger"],
+      ["zone-relegation", uiText("降级区", "Relegation zone"), true]
+    ].filter(([, , visible]) => visible).forEach(([className, label]) => {
+      const item = el("span", "", "");
+      item.appendChild(el("i", className, ""));
+      item.appendChild(el("span", "", label));
+      legend.appendChild(item);
     });
+    ui.leagueTable.appendChild(legend);
+    const scroll = el("div", "league-table-scroll", "");
+    const body = el("div", "league-table-grid", "");
+    const headers = ["排名", "球队", "场次", "胜", "平", "负", "进", "失", "净胜", "积分"];
+    const head = el("div", "table-row table-head league-table-row", "");
+    headers.forEach((text) => head.appendChild(el("span", "", text)));
+    body.appendChild(head);
+    result.leagueTable.forEach((row) => {
+      const tr = el("div", "table-row league-table-row", "");
+      tr.classList.toggle("user-row", row.isUser);
+      const uelEnd = allocation.ucl + allocation.uel;
+      const ueclEnd = uelEnd + allocation.uecl;
+      const teamCount = result.leagueTable.length;
+      if (row.position <= allocation.ucl) tr.classList.add("league-zone-ucl");
+      else if (row.position <= uelEnd) tr.classList.add("league-zone-uel");
+      else if (row.position <= ueclEnd) tr.classList.add("league-zone-uecl");
+      else if (leagueId === "ger" && row.position === teamCount - 2) tr.classList.add("league-zone-playoff");
+      else if (row.position > teamCount - (leagueId === "ger" ? 2 : 3)) tr.classList.add("league-zone-relegation");
+      const goalDiff = Number(row.goalDiff || 0);
+      [row.position, row.name, row.played, row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst, goalDiff > 0 ? `+${goalDiff}` : goalDiff, row.points]
+        .forEach((value) => tr.appendChild(el("span", "", String(value))));
+      body.appendChild(tr);
+    });
+    scroll.appendChild(body);
+    ui.leagueTable.appendChild(scroll);
   }
 
   function renderAwards(result) {
@@ -2561,7 +3597,7 @@
     const status = el("div", "europe-status-text", "");
     status.appendChild(el("span", "", `联赛第 ${qual.finish} 名`));
     status.appendChild(el("strong", "", qual.competitionName));
-    status.appendChild(el("small", "", `名额分配：欧冠 ${qual.allocation.ucl} · 欧联 ${qual.allocation.uel} · 欧协联 ${qual.allocation.uecl}`));
+    status.appendChild(el("small", "", `${uiText(`${qual.allocationSeason || EUROPE_ALLOCATION_SEASON} 名额分配`, `${qual.allocationSeason || EUROPE_ALLOCATION_SEASON} allocation`)}：欧冠 ${qual.allocation.ucl} · 欧联 ${qual.allocation.uel} · 欧协联 ${qual.allocation.uecl}`));
     ui.europeStatus.appendChild(status);
     if (run.europeResult) {
       ui.europeStartBtn.classList.add("hidden");
@@ -2590,13 +3626,17 @@
   }
 
   function buildEuropeanTeam(entry, rng) {
-    const club = entry.id && typeof CLUBS !== "undefined" ? CLUBS[entry.id] : null;
+    const club = entry.id ? findClubInSeason(entry.id, CURRENT_DATA_SEASON) : null;
     if (club) {
       const profile = calcClubProfile(club);
       return {
         name: club.name,
         strength: teamStrength(profile),
         profile,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
         points: 0,
         goalsFor: 0,
         goalsAgainst: 0,
@@ -2612,6 +3652,10 @@
       name: entry.name,
       strength,
       profile,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
       points: 0,
       goalsFor: 0,
       goalsAgainst: 0,
@@ -2651,6 +3695,10 @@
           name,
           strength: teamStrength(profile),
           profile,
+          played: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
           points: 0,
           goalsFor: 0,
           goalsAgainst: 0,
@@ -2663,6 +3711,10 @@
       name: "\u6211\u7684\u7403\u961f",
       strength: teamStrength(userProfile),
       profile: userProfile,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
       points: 0,
       goalsFor: 0,
       goalsAgainst: 0,
@@ -2874,10 +3926,13 @@
         penalties: tie.penalties
       }))
     });
-    const winners = completedStage.ties.map((tie) => tie.winner);
-    if (completedStage.name === "决赛") {
-      sim.userStage = winners.some((team) => team?.isUser) ? "欧洲冠军" : "亚军";
-    } else if (!winners.some((team) => team?.isUser)) {
+    let winners = completedStage.ties.map((tie) => tie.winner);
+    const userTie = completedStage.ties.find((tie) => tie.teamA?.isUser || tie.teamB?.isUser);
+    if (userTie && completedStage.name === "决赛") {
+      const info = EUROPE_COMPETITIONS[sim.competition] || { champion: "欧洲冠军", runnerUp: "欧战亚军" };
+      sim.userStage = userTie.winner?.isUser ? info.champion : info.runnerUp;
+      sim.userAlive = Boolean(userTie.winner?.isUser);
+    } else if (userTie && !userTie.winner?.isUser) {
       sim.userAlive = false;
       sim.userStage = `${europeStageLabel(completedStage.name)}出局`;
     }
@@ -2885,12 +3940,12 @@
       const r16Ties = sim.leagueTable.slice(0, 8).map((team, index) => createEuropeanTie(team, winners[index], true));
       sim.currentStage = { name: "1/8决赛", ties: r16Ties, tieIndex: 0, twoLeg: true };
     } else if (completedStage.name === "1/8决赛") {
-      shuffleWithRng(winners, sim.rng);
+      winners = shuffleWithRng(winners, sim.rng);
       const qfTies = [];
       for (let index = 0; index < winners.length; index += 2) qfTies.push(createEuropeanTie(winners[index], winners[index + 1], true));
       sim.currentStage = { name: "1/4决赛", ties: qfTies, tieIndex: 0, twoLeg: true };
     } else if (completedStage.name === "1/4决赛") {
-      shuffleWithRng(winners, sim.rng);
+      winners = shuffleWithRng(winners, sim.rng);
       const sfTies = [];
       for (let index = 0; index < winners.length; index += 2) sfTies.push(createEuropeanTie(winners[index], winners[index + 1], true));
       sim.currentStage = { name: "半决赛", ties: sfTies, tieIndex: 0, twoLeg: true };
@@ -2929,6 +3984,8 @@
     sim.run.europeSim = null;
     sim.finished = true;
     if (sim.run === state.game) saveGame();
+    updateRun(sim.run);
+    renderHomeHistory();
     renderEuropeanResult(sim.run.europeResult);
   }
 
@@ -3010,6 +4067,10 @@
 
   function updateEuropeanStats(team, goalsFor, goalsAgainst) {
     if (!team) return;
+    team.played = Number(team.played || 0) + 1;
+    if (goalsFor > goalsAgainst) team.wins = Number(team.wins || 0) + 1;
+    else if (goalsFor === goalsAgainst) team.draws = Number(team.draws || 0) + 1;
+    else team.losses = Number(team.losses || 0) + 1;
     team.points += goalsFor > goalsAgainst ? 3 : goalsFor === goalsAgainst ? 1 : 0;
     team.goalsFor += goalsFor;
     team.goalsAgainst += goalsAgainst;
@@ -3025,19 +4086,51 @@
     ui.europeResults.appendChild(summary);
     if (europeResult.leagueTable) {
       const details = el("details", "europe-block europe-collapse", "");
+      details.open = true;
       const heading = el("summary", "europe-table-summary", "");
       heading.appendChild(el("h3", "", `${info.name} 36 队联赛阶段积分表`));
       details.appendChild(heading);
-      const body = el("div", "europe-table-body", "");
+      const legend = el("div", "europe-table-legend", "");
+      [
+        ["zone-direct", uiText("前 8：直接晋级 16 强", "Top 8: Round of 16")],
+        ["zone-playoff", uiText("第 9–24：淘汰赛附加赛", "9–24: Knockout play-offs")],
+        ["zone-out", uiText("第 25–36：出局", "25–36: Eliminated")]
+      ].forEach(([className, label]) => {
+        const item = el("span", "", "");
+        item.appendChild(el("i", className, ""));
+        item.appendChild(el("span", "", label));
+        legend.appendChild(item);
+      });
+      details.appendChild(legend);
+      const scroll = el("div", "europe-table-scroll", "");
+      const body = el("div", "europe-league-table", "");
+      const header = el("div", "table-row table-head europe-table-row", "");
+      ["排名", "球队", "场次", "胜", "平", "负", "进球", "失球", "净胜球", "积分"]
+        .forEach((label) => header.appendChild(el("span", "", label)));
+      body.appendChild(header);
       europeResult.leagueTable.forEach((team) => {
-        const row = el("div", "europe-team-row", "");
+        const row = el("div", "table-row europe-table-row", "");
         row.classList.toggle("user-row", Boolean(team.isUser));
         if (team.isUser) row.classList.add("europe-user-highlight");
-        row.appendChild(el("span", "", `${team.position}. ${team.name}`));
-        row.appendChild(el("span", "", `${team.points}分 ${team.goalsFor - team.goalsAgainst}净胜`));
+        row.classList.add(team.position <= 8 ? "europe-zone-direct" : team.position <= 24 ? "europe-zone-playoff" : "europe-zone-out");
+        const goalDiff = Number(team.goalsFor || 0) - Number(team.goalsAgainst || 0);
+        const values = [
+          team.position,
+          team.name,
+          team.played ?? "-",
+          team.wins ?? "-",
+          team.draws ?? "-",
+          team.losses ?? "-",
+          team.goalsFor,
+          team.goalsAgainst,
+          goalDiff > 0 ? `+${goalDiff}` : goalDiff,
+          team.points
+        ];
+        values.forEach((value) => row.appendChild(el("span", "", String(value))));
         body.appendChild(row);
       });
-      details.appendChild(body);
+      scroll.appendChild(body);
+      details.appendChild(scroll);
       ui.europeResults.appendChild(details);
     }
     const userLogs = (europeResult.logs || []).filter((log) => log.userMatch);
@@ -3056,6 +4149,15 @@
   function addRun(game) {
     const runs = loadRuns();
     runs.unshift({ ...game });
+    safeSet(STORAGE_RUNS, runs.slice(0, 20));
+  }
+
+  function updateRun(game) {
+    const runs = loadRuns();
+    const index = runs.findIndex((run) => run.id === game.id);
+    const saved = { ...game, europeSim: null };
+    if (index >= 0) runs[index] = saved;
+    else runs.unshift(saved);
     safeSet(STORAGE_RUNS, runs.slice(0, 20));
   }
 
@@ -3099,60 +4201,26 @@
     }
   }
 
-  function drawWheel(angle) {
-    const canvas = $("#wheelCanvas");
-    const ctx = canvas.getContext("2d");
-    const size = canvas.width;
-    const cx = size / 2;
-    const cy = size / 2;
-    const radius = size / 2 - 8;
-    ctx.clearRect(0, 0, size, size);
-    const leagues = [...state.selectedLeagues].map((id) => getLeague(id)).filter(Boolean);
-    if (!leagues.length) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.fillStyle = "#1a2a23";
-      ctx.fill();
-      ctx.fillStyle = "#9fb4aa";
-      ctx.font = "700 18px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("请选择联赛", cx, cy);
+  function drawWheel() {
+    const game = state.game;
+    const spin = state.transfer?.currentSpin || game?.currentSpin;
+    if (!spin) {
+      renderSlotReel("season", [], 0, false);
+      renderSlotReel("club", [], 0, false);
       return;
     }
-    const step = (Math.PI * 2) / leagues.length;
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(angle);
-    leagues.forEach((league, index) => {
-      const start = -Math.PI / 2 + index * step;
-      const end = start + step;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, radius, start, end);
-      ctx.closePath();
-      ctx.fillStyle = index % 2 === 0 ? league.color : league.accent;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.35)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.save();
-      ctx.rotate(start + step / 2);
-      ctx.textAlign = "right";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "#fff";
-      ctx.font = "900 17px sans-serif";
-      ctx.fillText(league.name, radius - 24, 0);
-      ctx.restore();
-    });
-    ctx.beginPath();
-    ctx.arc(0, 0, 62, 0, Math.PI * 2);
-    ctx.fillStyle = "#0b1512";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    ctx.restore();
+    const club = getClub(spin.clubId, spin.season);
+    const seasonOptions = seasonsInRange(game?.seasonRange).map((season) => ({
+      primary: season,
+      meta: uiText("赛季", "SEASON")
+    }));
+    const seasonIndex = Math.max(0, seasonOptions.findIndex((item) => item.primary === spin.season));
+    const clubItem = {
+      primary: club?.name || uiText("未知球队", "Unknown Club"),
+      meta: `${getLeague(spin.leagueId)?.code || "CLB"} · ${club?.short || "---"}`
+    };
+    renderSlotReel("season", seasonOptions, seasonIndex, true);
+    renderSlotReel("club", [clubItem], 0, true);
   }
 
   function hashSeed(value) {

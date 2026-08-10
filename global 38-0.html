@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-  <link rel="stylesheet" href="styles.css?v=20260810-06" />
+  <link rel="stylesheet" href="styles.css?v=20260810-12" />
 </head>
 <body>
   <header class="topbar">
@@ -161,6 +161,14 @@
         </div>
         <div class="league-choice-options" id="leagueChoiceOptions"></div>
         <div class="season-prediction" id="seasonPrediction"></div>
+        <div class="coach-choice" id="coachChoice">
+          <div class="coach-choice-head">
+            <div>
+              <p class="eyebrow" id="coachTrialEyebrow">教练试用</p>
+              <h3 id="coachTrialTitle">选择主教练</h3>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="panel simulation-panel hidden" id="simulationPanel">
@@ -250,7 +258,7 @@
                 <span></span><span></span><span></span>
               </div>
             </div>
-            <button class="btn btn-accent btn-lg" id="spinBtn" type="button">启动老虎机</button>
+            <button class="btn btn-accent btn-lg" id="spinBtn" type="button">开始抽取</button>
             <button class="btn btn-ghost" id="rerollBtn" type="button" disabled>使用 1 次重转</button>
           </div>
 
@@ -331,6 +339,21 @@
       </section>
 
 
+      <section class="panel domestic-cup-panel hidden collapsible-panel" id="domesticCupPanel">
+        <details open>
+          <summary class="panel-head">
+            <div>
+              <p class="eyebrow">国内杯赛</p>
+              <h2 id="domesticCupTitle">国内杯赛</h2>
+            </div>
+          </summary>
+          <div class="collapsible-body">
+            <div id="domesticCupStatus" class="domestic-cup-status"></div>
+            <div id="domesticCupResults" class="domestic-cup-results"></div>
+          </div>
+        </details>
+      </section>
+
             <section class="panel europe-panel hidden collapsible-panel" id="europePanel">
         <details open>
           <summary class="panel-head">
@@ -361,8 +384,8 @@
   <script src="big-five-germany.js?v=20260809-21"></script>
   <script src="big-five-france.js?v=20260809-21"></script>
   <script src="legacy-seasons.js?v=20260810-01"></script>
-  <script src="season-players.js?v=20260810-02"></script>
+  <script src="season-players.js?v=20260810-06"></script>
   <script src="european-clubs.js?v=20260809-21"></script>
-  <script src="app.js?v=20260810-12"></script>
+  <script src="app.js?v=20260810-24"></script>
 </body>
 </html>

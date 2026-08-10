@@ -654,6 +654,123 @@ button {
   font-size: 13px;
 }
 
+.coach-choice {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.coach-choice-head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.coach-choice-head .eyebrow {
+  margin-bottom: 2px;
+}
+
+.coach-choice-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.coach-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coach-card {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  width: 100%;
+  padding: 15px;
+  border: 1px solid rgba(56, 189, 248, 0.36);
+  border-radius: 10px;
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.13), rgba(255, 255, 255, 0.03));
+  text-align: left;
+}
+
+.coach-card:hover,
+.coach-card.selected {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.24), rgba(255, 255, 255, 0.06));
+}
+
+.coach-card strong {
+  font-size: 18px;
+}
+
+.coach-card small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.coach-style,
+.coach-action {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.coach-style {
+  color: #bae6fd;
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.coach-action {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.coach-card.selected .coach-action {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.coach-card-none {
+  border-color: rgba(148, 163, 184, 0.38);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.coach-card-none:hover,
+.coach-card-none.selected {
+  border-color: #94a3b8;
+  background: rgba(148, 163, 184, 0.13);
+}
+
+@media (max-width: 640px) {
+  .coach-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lineup-coach {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  background: rgba(14, 116, 144, 0.09);
+}
+
+.lineup-coach > span,
+.lineup-coach small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.lineup-coach strong {
+  color: #bae6fd;
+  font-size: 15px;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -1336,6 +1453,71 @@ button {
   color: var(--muted);
 }
 
+.cup-status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid rgba(168, 85, 247, 0.38);
+  border-radius: 999px;
+  color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.09);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.domestic-cup-status {
+  margin-bottom: 12px;
+}
+
+.domestic-cup-results {
+  display: grid;
+  gap: 10px;
+}
+
+.cup-summary,
+.cup-round {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.cup-summary {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: linear-gradient(145deg, rgba(88, 28, 135, 0.18), rgba(255, 255, 255, 0.025));
+}
+
+.cup-summary strong {
+  color: #d8b4fe;
+  font-size: 22px;
+}
+
+.cup-summary small {
+  color: var(--muted);
+}
+
+.cup-round {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cup-round summary {
+  padding: 11px 12px;
+  cursor: pointer;
+  color: #f5f3ff;
+  font-weight: 900;
+  background: rgba(168, 85, 247, 0.09);
+}
+
+.cup-team-row {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .simulation-latest {
   display: grid;
   gap: 6px;
@@ -1360,6 +1542,7 @@ button {
 
 .result-table-panel,
 .result-stars-panel,
+.domestic-cup-panel,
 .europe-panel {
   margin-top: 20px;
 }

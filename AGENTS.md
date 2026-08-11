@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a build-free browser football simulation. `global 38-0.html` is the only application entry point; do not rename it to `index.html`. `app.js` contains drafting, transfers, coaches, league and cup simulations, persistence, achievements, and i18n. `styles.css` owns presentation.
+This is a build-free browser football simulation. `global 38-0.html` is the only application entry point; do not rename it to `index.html`. `app.js` contains drafting, transfers, coaches, cups, persistence, achievements, and i18n. `simulation-core.js` contains shared seeded league simulation logic. `styles.css` owns presentation.
 
 Keep data separate from behavior:
 
@@ -31,6 +31,10 @@ node --check season-players.js
 ```
 
 Run `git diff --check` to catch whitespace errors. When data changes, verify league sizes remain `20/20/20/18/18` for ENG/ESP/ITA/GER/FRA and confirm club IDs remain unique.
+
+Run `node scripts/balance-test.js --runs=1000 --seed=review` to compare champion, European qualification, and relegation rates with reproducible results.
+Run `node scripts/random-test.js` after changing seeded random behavior.
+Run `node scripts/validate-data.js` after editing club or player data.
 
 ## Coding Style & Naming Conventions
 

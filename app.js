@@ -816,6 +816,29 @@
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   };
 
+  const createRandomSeed = (value = uid()) => {
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      return crypto.getRandomValues(new Uint32Array(1))[0] >>> 0;
+    }
+    return hashSeed(`${value}|${Date.now()}|${Math.random()}`);
+  };
+
+  function ensureGameRandomState(game) {
+    if (!game) return 0;
+    if (!Number.isInteger(game.randomSeed)) game.randomSeed = hashSeed(`game-rng|${game.id || game.createdAt || "legacy"}`);
+    if (!Number.isInteger(game.randomState)) game.randomState = game.randomSeed >>> 0;
+    return game.randomState >>> 0;
+  }
+
+  function nextGameRandom(game) {
+    const stateValue = ensureGameRandomState(game);
+    game.randomState = G38SimulationCore.nextRandomState(stateValue);
+    game.randomDraws = Number(game.randomDraws || 0) + 1;
+    return game.randomState / 4294967296;
+  }
+
+  const gameRng = (game) => () => nextGameRandom(game);
+
   const getLeague = (id) => LEAGUES.find((l) => l.id === id);
   const getSeasonData = (season) => {
     const targetSeason = season || CURRENT_DATA_SEASON;
@@ -882,14 +905,14 @@
   }
   const seasonIndexToKey = (index) => SEASON_KEYS[clamp(index, 0, SEASON_KEYS.length - 1)];
   const seasonKeyToIndex = (key) => Math.max(0, SEASON_KEYS.indexOf(key));
-  const randomSeasonInRange = (range) => {
+  const randomSeasonInRange = (range, rng) => {
     const start = range
       ? seasonKeyToIndex(range.start)
       : Number(ui.seasonRangeStart.value || 0);
     const end = range
       ? seasonKeyToIndex(range.end)
       : Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1);
-    return seasonIndexToKey(start + Math.floor(Math.random() * (Math.max(0, end - start) + 1)));
+    return seasonIndexToKey(start + Math.floor(rng() * (Math.max(0, end - start) + 1)));
   };
   const seasonsInRange = (range) => {
     const start = range ? seasonKeyToIndex(range.start) : 0;
@@ -1233,6 +1256,7 @@
       && saved.phase === "drafting"
       && getSeasonData(saved.season).clubs.length
     ) {
+      ensureGameRandomState(saved);
       if (!saved.seasonRange) {
         saved.seasonRange = { start: "1992-93", end: "2025-26" };
       }
@@ -1274,15 +1298,17 @@
       id: `slot-${index}`,
       player: null
     }));
+    const gameId = uid();
+    const randomSeed = createRandomSeed(gameId);
     state.game = {
-      id: uid(),
+      id: gameId,
       createdAt: Date.now(),
       leagues: [...state.selectedLeagues],
       seasonRange: {
         start: seasonIndexToKey(Number(ui.seasonRangeStart.value || 0)),
         end: seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1))
       },
-      season: randomSeasonInRange(),
+      season: null,
       league: null,
       difficulty: ui.difficultySelect.value,
       hideRatings: ui.hideRatingsSelect.value === "1",
@@ -1293,11 +1319,17 @@
       candidates: [],
       rerolls: REROLL_BUDGET[ui.difficultySelect.value],
       coachId: null,
-      coachCandidates: shuffleWithRng(Object.keys(COACHES), Math.random).slice(0, 3),
+      coachCandidates: [],
+      randomSeed,
+      randomState: randomSeed,
+      randomDraws: 0,
       selectedSlotIndex: null,
       phase: "drafting",
       result: null
     };
+    const rng = gameRng(state.game);
+    state.game.season = randomSeasonInRange(state.game.seasonRange, rng);
+    state.game.coachCandidates = shuffleWithRng(Object.keys(COACHES), rng).slice(0, 3);
     state.selectedSlotIndex = null;
     state.pendingDraftPlayerId = null;
     state.autoSpinPending = false;
@@ -1434,7 +1466,7 @@
       : [];
     if (existing.length === 3 && (!game.coachId || existing.includes(game.coachId))) return existing;
     const selected = game.coachId && validIds.includes(game.coachId) ? [game.coachId] : [];
-    const remaining = shuffleWithRng(validIds.filter((id) => !selected.includes(id)), Math.random);
+    const remaining = shuffleWithRng(validIds.filter((id) => !selected.includes(id)), gameRng(game));
     game.coachCandidates = [...selected, ...remaining].slice(0, 3);
     saveGame();
     return game.coachCandidates;
@@ -1953,15 +1985,16 @@
     state.pendingDraftPlayerId = null;
     state.selectedSlotIndex = null;
     const leagueIds = game.leagues.length ? game.leagues : [...state.selectedLeagues];
-    const leagueId = leagueIds[Math.floor(Math.random() * leagueIds.length)];
-    const season = randomSeasonInRange(game.seasonRange);
+    const rng = gameRng(game);
+    const leagueId = leagueIds[Math.floor(rng() * leagueIds.length)];
+    const season = randomSeasonInRange(game.seasonRange, rng);
     game.season = season;
     const pool = clubsForLeague(leagueId, season);
     if (!pool.length) {
       toast("这个赛季没有可抽球队，请换一个赛季。");
       return;
     }
-    const club = pool[Math.floor(Math.random() * pool.length)];
+    const club = pool[Math.floor(rng() * pool.length)];
     const seasonOptions = seasonsInRange(game.seasonRange);
     const clubOptions = leagueIds.flatMap((id) => clubsForLeague(id, season));
     game.currentSpin = {
@@ -2082,11 +2115,12 @@
   function buildCandidates(club, game) {
     const spinSeason = game.currentSpin?.season || game.season || "2025-26";
     const pool = getClub(club.id, spinSeason)?.players || club.players || [];
+    const rng = gameRng(game);
     const mapped = pool
       .map((player) => ({
         ...player,
         id: `${spinSeason}|${club.id}|${player.name}`,
-        rate: clamp(calibrateRate(Number(player.rate || 80), spinSeason) + Math.floor(Math.random() * 3) - 1, 40, 99)
+        rate: clamp(calibrateRate(Number(player.rate || 80), spinSeason) + Math.floor(rng() * 3) - 1, 40, 99)
       }))
       .filter((player) => !isDrafted(player.id));
     if (!game.hideRatings) {
@@ -2331,8 +2365,9 @@
   }
 
   function prepareTransferStep(transfer) {
+    const rng = gameRng(transfer.sim.game);
     if (transfer.step === 2) {
-      transfer.mode = SECOND_TRANSFER_MODE_KEYS[Math.floor(Math.random() * SECOND_TRANSFER_MODE_KEYS.length)];
+      transfer.mode = SECOND_TRANSFER_MODE_KEYS[Math.floor(rng() * SECOND_TRANSFER_MODE_KEYS.length)];
     }
     if (transfer.mode === "weak") transfer.targetUnit = getWeakestUnit(transfer.sim.game);
     transfer.currentSpin = null;
@@ -2343,6 +2378,7 @@
     document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
     ui.rerollBtn.classList.toggle("hidden", directMode);
     if (directMode) prepareDirectTransferCandidates(transfer);
+    saveGame();
     renderTransferHeader();
     renderPitch();
     renderSpinResult();
@@ -2371,30 +2407,32 @@
   }
 
   function prepareDirectTransferCandidates(transfer) {
-    const pool = buildDirectTransferPool(transfer, transfer.sim.game);
+    const game = transfer.sim.game;
+    const rng = gameRng(game);
+    const pool = buildDirectTransferPool(transfer, game);
     transfer.currentSpin = {
       seasonRange: { ...transfer.sim.game.seasonRange },
       direct: true,
       drafted: false
     };
     if (transfer.mode === "free") {
-      transfer.candidates = shuffleWithRng(pool, Math.random).slice(0, 5);
+      transfer.candidates = shuffleWithRng(pool, rng).slice(0, 5);
       return;
     }
-    transfer.candidates = buildMysteryCandidates(pool);
+    transfer.candidates = buildMysteryCandidates(pool, rng);
   }
 
-  function takeRandomCandidate(pool, excludedIds, fallbackPool = pool) {
+  function takeRandomCandidate(pool, excludedIds, fallbackPool, rng) {
     const available = pool.filter((player) => !excludedIds.has(player.id));
     const fallback = fallbackPool.filter((player) => !excludedIds.has(player.id));
     const source = available.length ? available : fallback;
     if (!source.length) return null;
-    const picked = source[Math.floor(Math.random() * source.length)];
+    const picked = source[Math.floor(rng() * source.length)];
     excludedIds.add(picked.id);
     return picked;
   }
 
-  function buildMysteryCandidates(pool) {
+  function buildMysteryCandidates(pool, rng) {
     if (!pool.length) return [];
     const ordered = [...pool].sort((a, b) => a.rate - b.rate);
     const band = (start, end) => ordered.slice(
@@ -2402,12 +2440,13 @@
       Math.max(Math.floor(ordered.length * start) + 1, Math.ceil(ordered.length * end))
     );
     const excludedIds = new Set();
-    const safe = takeRandomCandidate(band(0.45, 0.72), excludedIds);
-    const standard = takeRandomCandidate(pool, excludedIds);
+    const safePool = band(0.45, 0.72);
+    const safe = takeRandomCandidate(safePool, excludedIds, safePool, rng);
+    const standard = takeRandomCandidate(pool, excludedIds, pool, rng);
     const lowRiskPool = band(0, 0.28);
     const highRewardPool = band(0.85, 1);
-    const riskyPool = Math.random() < 0.5 ? lowRiskPool : highRewardPool;
-    const risky = takeRandomCandidate(riskyPool, excludedIds);
+    const riskyPool = rng() < 0.5 ? lowRiskPool : highRewardPool;
+    const risky = takeRandomCandidate(riskyPool, excludedIds, riskyPool, rng);
     return [
       safe && { ...safe, mysteryRisk: "safe" },
       standard && { ...standard, mysteryRisk: "standard" },
@@ -2425,14 +2464,15 @@
       toast(uiText("请至少选择一个联赛。", "Select at least one league."));
       return;
     }
-    const leagueId = leagueIds[Math.floor(Math.random() * leagueIds.length)];
-    const season = randomSeasonInRange(game.seasonRange);
+    const rng = gameRng(game);
+    const leagueId = leagueIds[Math.floor(rng() * leagueIds.length)];
+    const season = randomSeasonInRange(game.seasonRange, rng);
     const pool = allClubs(season).filter((club) => club.league === leagueId);
     if (!pool.length) {
       toast(uiText("没有可抽球队，请换一个赛季。", "No clubs available for this season."));
       return;
     }
-    const club = pool[Math.floor(Math.random() * pool.length)];
+    const club = pool[Math.floor(rng() * pool.length)];
     const seasonOptions = seasonsInRange(game.seasonRange);
     const seasonClubs = allClubs(season);
     const clubOptions = leagueIds.flatMap((id) => seasonClubs.filter((item) => item.league === id));
@@ -2441,6 +2481,7 @@
     transfer.selectedCandidateId = null;
     animateWheel(season, club, seasonOptions, clubOptions, () => {
       transfer.candidates = buildTransferCandidates(club, transfer, game);
+      saveGame();
       renderSpinResult();
       renderCandidates();
       updateSpinControls();
@@ -2456,11 +2497,12 @@
     const allowedPositions = transfer.mode === "weak"
       ? (TRANSFER_UNIT_POSITIONS[transfer.targetUnit] || [])
       : null;
+    const rng = gameRng(game);
     return pool
       .map((player) => ({
         ...player,
         id: `${season}|${club.id}|${player.name}`,
-        rate: clamp(calibrateRate(Number(player.rate || 80), season) + Math.floor(Math.random() * 3) - 1, 40, 99)
+        rate: clamp(calibrateRate(Number(player.rate || 80), season) + Math.floor(rng() * 3) - 1, 40, 99)
       }))
       .filter((player) => !game.slots.some((slot) => slot.player?.id === player.id))
       .filter((player) => !allowedPositions || player.pos.some((pos) => allowedPositions.includes(pos)))
@@ -2819,6 +2861,8 @@
   }
 
   function teamStrength(profile) {
+    return G38SimulationCore.teamStrength(profile);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const phases = [
       profile.attack || 78,
       profile.midfield || 78,
@@ -2863,6 +2907,8 @@
   }
 
   function createLeagueSchedule(names) {
+    return G38SimulationCore.createLeagueSchedule(names);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const order = names.slice();
     const size = order.length;
     const firstRounds = [];
@@ -2902,6 +2948,8 @@
   }
 
   function createLeagueTable(names) {
+    return G38SimulationCore.createLeagueTable(names);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const table = {};
     names.forEach((name) => {
       table[name] = {
@@ -2946,6 +2994,8 @@
   }
 
   function createEloMap(profileMap) {
+    return G38SimulationCore.createEloMap(profileMap);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const map = {};
     Object.entries(profileMap).forEach(([name, profile]) => {
       map[name] = 1000 + Math.round((teamStrength(profile) - 75) * 25);
@@ -2953,6 +3003,8 @@
     return map;
   }
   function simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway) {
+    return G38SimulationCore.simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const hasElo = Number.isFinite(eloHome) && Number.isFinite(eloAway);
     const homeStrength = teamStrength(homeProfile);
     const awayStrength = teamStrength(awayProfile);
@@ -3004,6 +3056,9 @@
   }
 
   function applyLeagueResult(table, homeName, awayName, gf, ga) {
+    G38SimulationCore.applyLeagueResult(table, homeName, awayName, gf, ga);
+    return;
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const home = table[homeName];
     const away = table[awayName];
     if (!home || !away) return;
@@ -4627,6 +4682,8 @@
   }
 
   function hashSeed(value) {
+    return G38SimulationCore.hashSeed(value);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     let hash = 0x811c9dc5;
     for (let i = 0; i < value.length; i += 1) {
       hash ^= value.charCodeAt(i);
@@ -4636,6 +4693,8 @@
   }
 
   function makeRng(seed) {
+    return G38SimulationCore.makeRng(seed);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     let value = seed >>> 0;
     return () => {
       value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
@@ -4644,6 +4703,8 @@
   }
 
   function shuffleWithRng(items, rng) {
+    return G38SimulationCore.shuffleWithRng(items, rng);
+    /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const copy = [...items];
     for (let i = copy.length - 1; i > 0; i -= 1) {
       const j = Math.floor(rng() * (i + 1));

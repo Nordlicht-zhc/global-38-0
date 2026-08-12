@@ -46,4 +46,4 @@ There is no test framework or coverage threshold. Name executable checks `script
 
 ## Commit & Pull Request Guidelines
 
-Use short imperative commit subjects matching repository history, such as `Optimize history loading and league simulation`. Keep commits focused and preserve unrelated worktree changes. Pull requests should explain what changed, why, and how it was verified; link relevant issues and include screenshots for visible UI changes.
+Use short imperative commit subjects matching repository history, such as `Add deadline day transfer mode`. Keep commits focused and preserve unrelated worktree changes. Pull requests should explain what changed, why, and how it was verified; link relevant issues and include screenshots for visible UI changes.

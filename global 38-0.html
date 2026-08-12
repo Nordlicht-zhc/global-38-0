@@ -25,7 +25,7 @@
       </button>
       <button class="btn btn-primary" id="newGameBtn" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        <span id="newGameBtnText">新选秀</span>
+        <span id="newGameBtnText">新游戏</span>
       </button>
     </div>
   </header>
@@ -90,6 +90,18 @@
               <h2>选秀设置</h2>
             </div>
           </div>
+          <div class="play-mode-switch" id="playModeSwitch" aria-label="游戏模式">
+            <button class="play-mode-option active" data-play-mode="classic" type="button">经典模式</button>
+            <button class="play-mode-option" data-play-mode="challenge" type="button">挑战模式</button>
+          </div>
+          <div class="challenge-picker hidden" id="challengePicker">
+            <div class="challenge-picker-head">
+              <strong>选择挑战</strong>
+              <span id="challengeBest">最佳：--</span>
+            </div>
+            <div class="challenge-cards" id="challengeCards"></div>
+            <div class="challenge-rules" id="challengeRules"></div>
+          </div>
           <label class="field">
             <span>赛季范围滑块</span>
             <div class="season-range" id="seasonRange">
@@ -138,7 +150,7 @@
               <option value="5-3-2">5-3-2</option>
             </select>
           </label>
-          <button class="btn btn-primary btn-lg" id="startBtn" type="button">开始全球选秀</button>
+          <button class="btn btn-primary btn-lg" id="startBtn" type="button">开始游戏</button>
           <p class="hint">开始后会生成一个本地存档，刷新页面不会丢失。</p>
         </aside>
       </div>
@@ -171,6 +183,8 @@
           <button class="btn btn-primary" id="simulateBtn" type="button" disabled>模拟 38 场赛季</button>
         </div>
       </div>
+
+      <section class="challenge-game-banner hidden" id="challengeGameBanner"></section>
 
       <section class="panel league-choice hidden" id="leagueChoice">
         <div class="panel-head">
@@ -305,6 +319,7 @@
         <section class="panel result-summary">
           <div class="summary-score" id="resultScore">--</div>
           <div class="summary-grid" id="resultStats"></div>
+          <div class="challenge-result hidden" id="challengeResult"></div>
           <div class="achievement-section">
             <div class="achievement-heading">
               <div>
@@ -409,6 +424,8 @@
   <script src="player-identity.js?v=20260813-01"></script>
   <script src="european-clubs.js?v=20260809-21"></script>
   <script src="simulation-core.js?v=20260813-02"></script>
-  <script src="app.js?v=20260813-05"></script>
+  <script src="position-fit.js?v=20260813-01"></script>
+  <script src="challenge-data.js?v=20260813-01"></script>
+  <script src="app.js?v=20260813-06"></script>
 </body>
 </html>

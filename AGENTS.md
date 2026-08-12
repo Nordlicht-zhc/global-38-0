@@ -9,6 +9,7 @@ Keep data separate from behavior:
 - `data.js` and `big-five*.js`: formations, leagues, and current club metadata. Do not re-enable the retired `big-five-squads.js` import.
 - `season-players.js`: active 2025-26 player pool. `season-data.js` lazily loads per-season JavaScript chunks from `history-data/`; regenerate them with `scripts/split-season-data.js`.
 - `player-identity.js`: cross-season duplicate-player detection.
+- `position-fit.js`: normal position compatibility and out-of-position midfielder penalties.
 - `european-clubs.js`: European competition entrants and profiles.
 - `scripts/`: validation, balance tests, and repeatable data-repair utilities.
 

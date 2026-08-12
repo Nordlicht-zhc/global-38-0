@@ -7,20 +7,13 @@
   const CURRENT_DATA_SEASON = "2025-26";
   const EUROPE_ALLOCATION_SEASON = "2026-27";
   const BIG_FIVE_IDS = new Set(["eng", "esp", "ita", "ger", "fra"]);
-  const WING_POSITIONS = ["LM", "RM", "LW", "RW"];
-  const MIDFIELD_CENTRE_POSITIONS = ["CM", "CDM", "CAM"];
-  const FORCED_FIT_PENALTY = 6;
-  const TRANSFER_UNIT_POSITIONS = {
-    GK: ["GK"],
-    DEF: ["RB", "CB", "LB", "RWB", "LWB"],
-    MID: ["CDM", "CM", "CAM", "RM", "LM"],
-    ATT: ["ST", "LW", "RW"]
-  };
+  const { canPlaySlot, isForceableMidfielder, midfielderForcedPenalty } = G38PositionFit;
   const SECOND_TRANSFER_MODE_KEYS = ["free", "mystery", "deadline"];
   const TRANSFER_CHEMISTRY_LOSS = 0.03;
   const TRANSFER_CHEMISTRY_RECOVERY = 0.01;
   const CHEMISTRY_RATING_FLOOR = 60;
   const HOME_ELO_ADVANTAGE = 45;
+  const CHALLENGES = Array.isArray(window.G38Challenges) ? window.G38Challenges : [];
   const COACHES = {
     highPress: {
       id: "highPress",
@@ -103,7 +96,7 @@
 
   const STATIC_TRANSLATIONS = [
     { sel: "#historyBtnText", en: "History" },
-    { sel: "#newGameBtnText", en: "New Draft" },
+    { sel: "#newGameBtnText", en: "New Game" },
     { sel: ".brand-text strong", en: "Global All-Stars" },
     { sel: ".hero-copy .eyebrow", en: "1992-93 to 2025-26 seasons" },
     { sel: ".hero-copy h1", en: "All Five Leagues. Build Your Ultimate XI." },
@@ -113,6 +106,9 @@
     { sel: "#toggleAllLeagues", en: "All / Clear" },
     { sel: ".setup-panel .eyebrow", en: "New Season" },
     { sel: ".setup-panel h2", en: "Draft Setup" },
+    { sel: "#playModeSwitch [data-play-mode='classic']", en: "Classic" },
+    { sel: "#playModeSwitch [data-play-mode='challenge']", en: "Challenges" },
+    { sel: ".challenge-picker-head strong", en: "Choose a Challenge" },
     { sel: ".setup-panel label.field:nth-of-type(1) > span", en: "Season Range" },
     { sel: ".setup-panel label.field:nth-of-type(2) > span", en: "Difficulty" },
     { sel: "#difficultySelect option[value='easy']", en: "Easy: 3 rerolls" },
@@ -122,7 +118,7 @@
     { sel: "#hideRatingsSelect option[value='0']", en: "Show ratings" },
     { sel: "#hideRatingsSelect option[value='1']", en: "Hide ratings" },
     { sel: ".setup-panel label.field:nth-of-type(4) > span", en: "Formation" },
-    { sel: "#startBtn", en: "Start Global Draft" },
+    { sel: "#startBtn", en: "Start Game" },
     { sel: ".hint", en: "Your save is stored locally and survives a page refresh." },
     { sel: ".history-home .eyebrow", en: "Recent Results" },
     { sel: ".history-home h2", en: "Local Season History" },
@@ -704,6 +700,9 @@
   };
   const state = {
     selectedLeagues: new Set(["eng", "esp", "ita", "ger", "fra"]),
+    setupMode: "classic",
+    selectedChallengeId: CHALLENGES[0]?.id || null,
+    difficultyBeforeIron: null,
     game: null,
     viewingRun: null,
     selectedSlotIndex: null,
@@ -726,6 +725,13 @@
     langToggle: $("#langToggle"),
     hideRatingsSelect: $("#hideRatingsSelect"),
     formationSelect: $("#formationSelect"),
+    playModeSwitch: $("#playModeSwitch"),
+    challengePicker: $("#challengePicker"),
+    challengeCards: $("#challengeCards"),
+    challengeRules: $("#challengeRules"),
+    challengeBest: $("#challengeBest"),
+    challengeResult: $("#challengeResult"),
+    challengeGameBanner: $("#challengeGameBanner"),
     leagueChoice: $("#leagueChoice"),
     leagueChoiceOptions: $("#leagueChoiceOptions"),
     seasonPrediction: $("#seasonPrediction"),
@@ -971,6 +977,75 @@
     toast._timer = setTimeout(() => ui.toast.classList.remove("show"), 2600);
   };
 
+  const getChallenge = (id) => CHALLENGES.find((challenge) => challenge.id === id) || null;
+  const activeSetupChallenge = () => state.setupMode === "challenge"
+    ? getChallenge(state.selectedChallengeId)
+    : null;
+
+  function challengeName(challenge) {
+    return challenge ? uiText(challenge.name, challenge.nameEn) : uiText("经典模式", "Classic");
+  }
+
+  function renderChallengeSetup() {
+    if (!ui.playModeSwitch || !ui.challengePicker) return;
+    ui.playModeSwitch.querySelectorAll("[data-play-mode]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.playMode === state.setupMode);
+    });
+    const challengeMode = state.setupMode === "challenge";
+    const challenge = challengeMode ? activeSetupChallenge() : null;
+    const ironManager = challenge?.id === "iron-manager";
+    if (!ironManager && ui.difficultySelect.disabled) {
+      ui.difficultySelect.value = state.difficultyBeforeIron || "normal";
+      state.difficultyBeforeIron = null;
+    }
+    ui.challengePicker.classList.toggle("hidden", !challengeMode);
+    ui.challengeCards.innerHTML = "";
+    if (!challengeMode) {
+      ui.difficultySelect.disabled = false;
+      return;
+    }
+    CHALLENGES.forEach((challenge) => {
+      const button = el("button", "challenge-card", "");
+      button.type = "button";
+      button.classList.toggle("selected", challenge.id === state.selectedChallengeId);
+      button.appendChild(el("span", "challenge-card-icon", challenge.icon));
+      const copy = el("span", "challenge-card-copy", "");
+      copy.appendChild(el("strong", "", challengeName(challenge)));
+      copy.appendChild(el("small", "", uiText(challenge.description, challenge.descriptionEn)));
+      button.appendChild(copy);
+      button.addEventListener("click", () => {
+        state.selectedChallengeId = challenge.id;
+        renderChallengeSetup();
+      });
+      ui.challengeCards.appendChild(button);
+    });
+    ui.challengeRules.innerHTML = "";
+    if (!challenge) return;
+    const best = loadRuns()
+      .filter((run) => run.challengeId === challenge.id)
+      .reduce((max, run) => Math.max(max, Number(run.result?.challenge?.stars || 0)), 0);
+    ui.challengeBest.textContent = uiText(`最佳：${"★".repeat(best) || "--"}`, `Best: ${"★".repeat(best) || "--"}`);
+    const description = el("p", "challenge-description", uiText(challenge.description, challenge.descriptionEn));
+    const rules = el("ul", "challenge-rule-list", "");
+    const ruleTexts = currentLang === "en" ? challenge.rulesEn : challenge.rules;
+    ruleTexts.forEach((rule) => rules.appendChild(el("li", "", rule)));
+    const goals = el("ol", "challenge-objective-list", "");
+    challenge.objectives.forEach((objective) => {
+      goals.appendChild(el("li", "", uiText(objective.text, objective.textEn)));
+    });
+    ui.challengeRules.append(description, rules, goals);
+    if (ironManager && !ui.difficultySelect.disabled) {
+      state.difficultyBeforeIron = ui.difficultySelect.value;
+      ui.difficultySelect.value = "hard";
+    }
+    ui.difficultySelect.disabled = ironManager;
+  }
+
+  function setSetupMode(mode) {
+    state.setupMode = mode === "challenge" ? "challenge" : "classic";
+    renderChallengeSetup();
+  }
+
 
   function toggleLanguage() {
     const activeView = ["setup", "game", "result"].find((name) => (
@@ -982,6 +1057,7 @@
     renderLeagueGrid();
     renderHeroStats();
     renderHomeHistory();
+    renderChallengeSetup();
     if (state.game) {
       renderGame();
       renderPitch();
@@ -1010,6 +1086,7 @@
     renderLeagueGrid();
     renderHeroStats();
     renderHomeHistory();
+    renderChallengeSetup();
     applyLanguage();
     if (typeof MutationObserver !== "undefined") {
       new MutationObserver(() => {
@@ -1027,6 +1104,12 @@
 
   function bindEvents() {
     ui.langToggle.addEventListener("click", toggleLanguage);
+    window.addEventListener("scroll", updateBackHomeButtonFloating, { passive: true });
+    window.addEventListener("resize", updateBackHomeButtonFloating);
+    ui.playModeSwitch?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-play-mode]");
+      if (button) setSetupMode(button.dataset.playMode);
+    });
     $("#startBtn").addEventListener("click", startGame);
     $("#newGameBtn").addEventListener("click", showNewGameSetup);
     $("#historyBtn").addEventListener("click", showHomeHistory);
@@ -1134,7 +1217,11 @@
     runs.slice(0, 8).forEach((run) => {
       const card = el("button", "history-card", "");
       card.type = "button";
-      card.appendChild(el("strong", "", run.formation));
+      const challenge = getChallenge(run.challengeId);
+      const stars = Number(run.result?.challenge?.stars || 0);
+      card.appendChild(el("strong", "", challenge
+        ? `${challenge.icon} ${challengeName(challenge)} · ${"★".repeat(stars)}${"☆".repeat(3 - stars)}`
+        : `${uiText("经典模式", "Classic")} · ${run.formation}`));
       const res = run.result || {};
       card.appendChild(el("span", "record-line", `${res.wins ?? 0}-${res.draws ?? 0}-${res.losses ?? 0} · ${res.points ?? 0} 分`));
       card.appendChild(el("span", "", `第 ${res.finish ?? "-"} 名 · 评分 ${res.teamRating ?? "--"}`));
@@ -1221,6 +1308,8 @@
     }));
     const gameId = uid();
     const randomSeed = createRandomSeed(gameId);
+    const challenge = activeSetupChallenge();
+    const ironManager = challenge?.id === "iron-manager";
     state.game = {
       id: gameId,
       createdAt: Date.now(),
@@ -1231,7 +1320,9 @@
       },
       season: null,
       league: null,
-      difficulty: ui.difficultySelect.value,
+      mode: challenge ? "challenge" : "classic",
+      challengeId: challenge?.id || null,
+      difficulty: ironManager ? "hard" : ui.difficultySelect.value,
       hideRatings: ui.hideRatingsSelect.value === "1",
       formation,
       slots,
@@ -1239,7 +1330,7 @@
       playerIdentityHistory: [],
       currentSpin: null,
       candidates: [],
-      rerolls: REROLL_BUDGET[ui.difficultySelect.value],
+      rerolls: ironManager ? 0 : REROLL_BUDGET[ui.difficultySelect.value],
       coachId: null,
       coachCandidates: [],
       randomSeed,
@@ -1259,7 +1350,9 @@
     state.transfer = null;
     saveGame();
     renderGame();
-    toast("新选秀已开始，请抽取赛季和球队。");
+    toast(challenge
+      ? uiText(`${challenge.name}挑战已开始。`, `${challenge.nameEn} challenge started.`)
+      : uiText("新选秀已开始，请抽取赛季和球队。", "New draft started. Draw a season and club."));
   }
 
   function rebuildGameSlots() {
@@ -1289,6 +1382,19 @@
     if (options.scroll !== false) {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    requestAnimationFrame(updateBackHomeButtonFloating);
+  }
+
+  function updateBackHomeButtonFloating() {
+    const button = document.getElementById("backGameBtn");
+    const toolbar = document.querySelector("#resultView .result-toolbar");
+    const resultView = document.getElementById("resultView");
+    if (!button || !toolbar || !resultView || resultView.classList.contains("hidden")) {
+      button?.classList.remove("is-floating");
+      return;
+    }
+    const topbarBottom = document.querySelector(".topbar")?.getBoundingClientRect().bottom || 0;
+    button.classList.toggle("is-floating", toolbar.getBoundingClientRect().bottom <= topbarBottom);
   }
 
   function renderGame() {
@@ -1299,9 +1405,14 @@
     const rangeText = game.seasonRange
       ? `${game.seasonRange.start} - ${game.seasonRange.end}`
       : game.season;
-    ui.gameLeagueLabel.textContent = game.leagues.length === LEAGUES.length
+    const scopeText = game.leagues.length === LEAGUES.length
       ? `五大联赛 · ${rangeText}`
       : `${game.leagues.map((id) => getLeague(id)?.name).filter(Boolean).join(" / ")} · ${rangeText}`;
+    const challenge = getChallenge(game.challengeId);
+    ui.gameLeagueLabel.textContent = challenge
+      ? `${challengeName(challenge)} · ${scopeText}`
+      : scopeText;
+    renderChallengeGameBanner(game);
     document.querySelector(".game-layout")?.classList.remove("hidden");
     ui.rerollChip.textContent = `重转 ${game.rerolls} 次`;
     ui.simulateBtn.disabled = game.draftedPlayers.length < 11 || !game.league;
@@ -1323,6 +1434,23 @@
     renderCandidates();
     renderTeamRating();
     showView("game");
+  }
+
+  function renderChallengeGameBanner(game) {
+    if (!ui.challengeGameBanner) return;
+    const challenge = getChallenge(game?.challengeId);
+    ui.challengeGameBanner.innerHTML = "";
+    ui.challengeGameBanner.classList.toggle("hidden", !challenge);
+    if (!challenge) return;
+    const title = el("div", "challenge-game-title", "");
+    title.appendChild(el("span", "", challenge.icon));
+    const copy = el("div", "", "");
+    copy.appendChild(el("strong", "", challengeName(challenge)));
+    copy.appendChild(el("small", "", uiText(challenge.description, challenge.descriptionEn)));
+    title.appendChild(copy);
+    ui.challengeGameBanner.appendChild(title);
+    const rules = currentLang === "en" ? challenge.rulesEn : challenge.rules;
+    ui.challengeGameBanner.appendChild(el("span", "challenge-game-rules", rules.join(" · ")));
   }
 
   function updateSpinControls() {
@@ -1408,6 +1536,14 @@
       ui.coachChoice.appendChild(el("p", "coach-choice-note", uiText("请先选择参赛联赛，再聘请试用教练。", "Choose a league before appointing the trial coach.")));
       return;
     }
+    if (game.challengeId === "iron-manager") {
+      game.coachId = null;
+      const locked = el("div", "coach-challenge-lock", "");
+      locked.appendChild(el("strong", "", uiText("铁血经理规则：不聘请教练", "Iron Manager rule: No coach")));
+      locked.appendChild(el("small", "", uiText("本赛季将以原始阵容直接开始。", "The season starts with the original squad.")));
+      ui.coachChoice.appendChild(locked);
+      return;
+    }
     const cards = el("div", "coach-cards", "");
     const selectCoach = (coachId) => {
       game.coachId = coachId;
@@ -1488,7 +1624,7 @@
         if (canReplace) button.appendChild(el("span", "slot-hint", uiText("可替换", "Replace")));
       } else if (pending) {
         const normalFit = canPlaySlot(pending, slot.pos);
-        const forcedFit = !normalFit && canForcePlace(pending, slot.pos);
+        const forcedFit = !normalFit && canForcePlace(pending, slot);
         button.classList.toggle("compatible", !slot.player && normalFit);
         button.classList.toggle("forced-compatible", !slot.player && forcedFit);
         button.classList.toggle("incompatible", !slot.player && !normalFit && !forcedFit);
@@ -1504,11 +1640,14 @@
         button.appendChild(el("span", "slot-rate", hidden ? "?" : String(slot.player.rate)));
       } else if (pending) {
         const normalFit = canPlaySlot(pending, slot.pos);
-        const forcedFit = !normalFit && canForcePlace(pending, slot.pos);
+        const forcedFit = !normalFit && canForcePlace(pending, slot);
         if (normalFit) {
           button.appendChild(el("span", "slot-hint", "可放这里"));
         } else if (forcedFit) {
-          button.appendChild(el("span", "slot-hint", "强放 -" + FORCED_FIT_PENALTY));
+          button.appendChild(el("span", "slot-hint", uiText(
+            `强放 -${midfielderForcedPenalty(pending.pos, slot.pos)}`,
+            `Out of position -${midfielderForcedPenalty(pending.pos, slot.pos)}`
+          )));
         }
       }
       button.addEventListener("click", () => selectSlot(index));
@@ -1685,7 +1824,7 @@
         toast("这个位置已经有球员，请先选择空位。");
         return;
       }
-      if (!canPlaySlot(pending, slot.pos) && !canForcePlace(pending, slot.pos)) {
+      if (!canPlaySlot(pending, slot.pos) && !canForcePlace(pending, slot)) {
         toast(`${pending.name} 不能踢 ${POSITION_NAMES[slot.pos]}。`);
         return;
       }
@@ -1708,31 +1847,15 @@
     renderPitch();
   }
 
-  function canPlaySlot(player, slotPos) {
-    if (!player || !Array.isArray(player.pos)) return false;
-    if (player.pos.includes(slotPos)) return true;
-    if ((slotPos === "LM" || slotPos === "LW") && player.pos.some((pos) => pos === "LM" || pos === "LW")) return true;
-    if ((slotPos === "RM" || slotPos === "RW") && player.pos.some((pos) => pos === "RM" || pos === "RW")) return true;
-    if (slotPos === "CM" && player.pos.some((pos) => MIDFIELD_CENTRE_POSITIONS.includes(pos))) return true;
-    if (player.pos.includes("CM") && (slotPos === "CDM" || slotPos === "CAM")) return true;
-    return false;
-  }
-
-  function isForceableMidfielder(player) {
-    return Boolean(player && Array.isArray(player.pos) && player.pos.some((pos) => MIDFIELD_CENTRE_POSITIONS.includes(pos) || pos === "LM" || pos === "RM"));
-  }
-
   function hasNormalPlacement() {
     const game = state.game;
     if (!game) return false;
     return game.candidates.some((candidate) => !isDrafted(candidate.id) && game.slots.some((slot) => !slot.player && canPlaySlot(candidate, slot.pos)));
   }
 
-  function canForcePlace(player, slotPos) {
+  function canForcePlace(player, slot) {
     const game = state.game;
-    if (!game || !player || !slotPos) return false;
-    const slot = game.slots.find((item) => item.pos === slotPos);
-    if (!slot || slot.player) return false;
+    if (!game || !player || !slot?.pos || slot.player) return false;
     if (!isForceableMidfielder(player)) return false;
     return !hasNormalPlacement();
   }
@@ -1768,13 +1891,13 @@
       toast("这个位置已经有球员，请先选择空位。");
       return;
     }
-    const forced = !canPlaySlot(candidate, slot.pos) && canForcePlace(candidate, slot.pos);
+    const forced = !canPlaySlot(candidate, slot.pos) && canForcePlace(candidate, slot);
     const baseRate = Number(candidate.baseRate || candidate.rate);
     const drafted = {
       ...candidate,
       baseRate,
       forced,
-      rate: clamp(baseRate + fitBonus(slot.pos, candidate.pos, forced), 40, 99)
+      rate: clamp(baseRate + fitBonus(slot.pos, candidate.pos, forced), forced ? 1 : 40, 99)
     };
     slot.player = drafted;
     game.draftedPlayers.push(drafted);
@@ -1872,7 +1995,7 @@
     }
     const hidden = isRatingsHidden(game);
     const canPlace = (candidate) => game.slots.some((slot) => !slot.player && canPlaySlot(candidate, slot.pos));
-    const canForce = (candidate) => game.slots.some((slot) => !slot.player && canForcePlace(candidate, slot.pos));
+    const canForce = (candidate) => game.slots.some((slot) => !slot.player && canForcePlace(candidate, slot));
     const sortFn = hidden ? () => 0 : (a, b) => b.rate - a.rate;
     const ordered = [
       ...game.candidates.filter((candidate) => canPlace(candidate)).sort(sortFn),
@@ -1888,7 +2011,8 @@
       button.classList.toggle("unavailable", !canPlace(candidate) && !canForce(candidate));
       button.appendChild(el("strong", "", candidate.name));
       const forced = canForce(candidate) && !canPlace(candidate);
-      button.appendChild(el("small", "", `${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}${forced ? " · 强放 -" + FORCED_FIT_PENALTY : ""}`));
+      const forcedPenalty = forced ? minimumForcedPenalty(candidate, game) : null;
+      button.appendChild(el("small", "", `${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}${forcedPenalty ? uiText(` · 强放 -${forcedPenalty}`, ` · Out of position -${forcedPenalty}`) : ""}`));
       button.appendChild(el("span", "rate", hidden ? "?" : String(candidate.rate)));
       button.addEventListener("click", () => {
         if (isDrafted(candidate.id)) {
@@ -2101,6 +2225,7 @@
         ...player,
         id: `${spinSeason}|${club.id}|${player.name}`,
         sourceClubId: club.id,
+        sourceLeagueId: club.league,
         sourceSeason: spinSeason,
         rate: clamp(calibrateRate(Number(player.rate || 80), spinSeason) + Math.floor(rng() * 3) - 1, 40, 99)
       }))
@@ -2154,6 +2279,17 @@
 
   function openTransferWindow(sim) {
     if (sim.transferState?.resolved) return false;
+    if (sim.game.challengeId === "iron-manager") {
+      sim.transferState = {
+        completed: 0,
+        log: [],
+        resolved: true,
+        skipped: true,
+        challengeLocked: true
+      };
+      toast(uiText("铁血经理挑战：已自动跳过转会窗。", "Iron Manager: Transfer window skipped."));
+      return false;
+    }
     const transfer = {
       sim,
       step: 1,
@@ -2399,6 +2535,7 @@
           rate: clamp(calibrateRate(Number(player.rate || 80), season), 40, 99),
           sourceClubId: club.id,
           sourceClubName: club.name,
+          sourceLeagueId: club.league,
           sourceSeason: season
         })))
     )))
@@ -2585,9 +2722,6 @@
   function buildTransferCandidates(club, transfer, game) {
     const season = transfer.currentSpin?.season || simulationSeason(game);
     const pool = getClub(club.id, season)?.players || club.players || [];
-    const allowedPositions = transfer.mode === "weak"
-      ? (TRANSFER_UNIT_POSITIONS[transfer.targetUnit] || [])
-      : null;
     const rng = transfer.mode === "weak" ? null : gameRng(game);
     return pool
       .map((player) => ({
@@ -2595,6 +2729,7 @@
         id: `${season}|${club.id}|${player.name}`,
         sourceClubId: club.id,
         sourceClubName: club.name,
+        sourceLeagueId: club.league,
         sourceSeason: season,
         rate: clamp(
           calibrateRate(Number(player.rate || 80), season) + (rng ? Math.floor(rng() * 3) - 1 : 0),
@@ -2603,7 +2738,6 @@
         )
       }))
       .filter((player) => !isOwnedPlayer(player, game))
-      .filter((player) => !allowedPositions || player.pos.some((pos) => allowedPositions.includes(pos)))
       .filter((player) => game.slots.some((slot) => canTransferReplace(player, slot, transfer)))
       .sort((a, b) => transferUpgradeValue(b, game, transfer) - transferUpgradeValue(a, game, transfer) || b.rate - a.rate);
   }
@@ -2951,7 +3085,7 @@
       toast("这名球员已经不能被选中。");
       return;
     }
-    const compatible = game.slots.some((slot) => !slot.player && (canPlaySlot(candidate, slot.pos) || canForcePlace(candidate, slot.pos)));
+    const compatible = game.slots.some((slot) => !slot.player && (canPlaySlot(candidate, slot.pos) || canForcePlace(candidate, slot)));
     if (!compatible) {
       toast("这名球员没有可踢的空位，请先腾出兼容位置。");
       return;
@@ -2964,14 +3098,14 @@
 
   function fitBonus(slotPos, playerPositions, forced) {
     if (canPlaySlot({ pos: playerPositions }, slotPos)) return 0;
-    const unit = (p) => {
-      if (p === "GK") return "gk";
-      if (["RB", "CB", "LB", "RWB", "LWB"].includes(p)) return "def";
-      if (["CDM", "CM", "CAM", "RM", "LM"].includes(p)) return "mid";
-      return "att";
-    };
-    const base = unit(slotPos) === unit(playerPositions[0]) ? -1 : -4;
-    return forced ? base - FORCED_FIT_PENALTY : base;
+    return forced ? -midfielderForcedPenalty(playerPositions, slotPos) : 0;
+  }
+
+  function minimumForcedPenalty(player, game) {
+    return game.slots.reduce((best, slot) => {
+      if (!canForcePlace(player, slot)) return best;
+      return Math.min(best, midfielderForcedPenalty(player.pos, slot.pos));
+    }, Infinity);
   }
 
   function renderTeamRating() {
@@ -3566,6 +3700,7 @@
         ? { startFactor: sim.transferState.chemistryStart }
         : null
     };
+    game.result.challenge = evaluateChallenge(game, game.result);
     game.transferLog = sim.transferState?.log || [];
     game.transferSkipped = Boolean(sim.transferState?.skipped);
     game.phase = "complete";
@@ -3923,14 +4058,116 @@
     return list;
   }
 
+  function challengeSquadMetrics(game) {
+    const players = (game.slots || []).map((slot) => slot.player).filter(Boolean);
+    const seasons = new Set(players.map((player) => player.sourceSeason).filter(Boolean));
+    const nationalities = new Set(players.map((player) => String(player.nat || "").trim()).filter(Boolean));
+    const leagues = new Set(players.map((player) => {
+      if (player.sourceLeagueId) return player.sourceLeagueId;
+      return getClub(player.sourceClubId, player.sourceSeason)?.league || null;
+    }).filter((leagueId) => BIG_FIVE_IDS.has(leagueId)));
+    return {
+      seasons: seasons.size,
+      nationalities: nationalities.size,
+      leagues: leagues.size
+    };
+  }
+
+  function evaluateChallenge(game, result) {
+    const challenge = getChallenge(game.challengeId);
+    if (!challenge) return null;
+    const metrics = challengeSquadMetrics(game);
+    const domesticChampion = result.domesticCup?.champion === "我的球队";
+    const leagueChampion = result.finish === 1;
+    const uclPlaces = Number(result.europeQualification?.allocation?.ucl || 4);
+    let valid = true;
+    let completedIds = [];
+    if (challenge.id === "underdog") {
+      valid = result.teamRating <= 84;
+      completedIds = [
+        valid && result.finish <= 6 ? "top6" : null,
+        valid && result.finish <= 4 ? "top4" : null,
+        valid && leagueChampion ? "champion" : null
+      ];
+    } else if (challenge.id === "iron-manager") {
+      valid = game.rerolls === 0 && !game.coachId && result.transferSkipped;
+      completedIds = [
+        valid && result.finish <= 4 ? "top4" : null,
+        valid && result.points >= 80 ? "points80" : null,
+        valid && leagueChampion ? "champion" : null
+      ];
+    } else if (challenge.id === "time-traveller") {
+      valid = metrics.seasons >= 8;
+      completedIds = [
+        valid ? "valid-lineup" : null,
+        valid && result.finish <= uclPlaces ? "ucl" : null,
+        valid && (leagueChampion || domesticChampion) ? "title" : null
+      ];
+    } else if (challenge.id === "global-dressing-room") {
+      valid = metrics.nationalities >= 8 && metrics.leagues === BIG_FIVE_IDS.size;
+      completedIds = [
+        valid && result.finish <= 6 ? "top6" : null,
+        valid && result.finish <= 4 ? "top4" : null,
+        valid && (leagueChampion || domesticChampion) ? "title" : null
+      ];
+    } else if (challenge.id === "defensive-master") {
+      completedIds = [
+        result.goalsAgainst <= 30 ? "concede30" : null,
+        result.goalsAgainst <= 20 ? "concede20" : null,
+        result.goalsAgainst <= 10 && leagueChampion ? "concede10-champion" : null
+      ];
+    }
+    completedIds = completedIds.filter(Boolean);
+    return {
+      id: challenge.id,
+      valid,
+      stars: completedIds.length,
+      completedIds,
+      metrics
+    };
+  }
+
+  function renderChallengeResult(run) {
+    const challenge = getChallenge(run.challengeId);
+    const evaluation = run.result?.challenge;
+    ui.challengeResult.innerHTML = "";
+    ui.challengeResult.classList.toggle("hidden", !challenge || !evaluation);
+    if (!challenge || !evaluation) return;
+    const head = el("div", "challenge-result-head", "");
+    const title = el("div", "", "");
+    title.appendChild(el("p", "eyebrow", uiText("挑战结算", "Challenge Result")));
+    title.appendChild(el("h3", "", `${challenge.icon} ${challengeName(challenge)}`));
+    head.appendChild(title);
+    head.appendChild(el("strong", "challenge-stars", `${"★".repeat(evaluation.stars)}${"☆".repeat(3 - evaluation.stars)}`));
+    ui.challengeResult.appendChild(head);
+    if (!evaluation.valid) {
+      ui.challengeResult.appendChild(el("p", "challenge-invalid", uiText(
+        "核心阵容条件未满足，本次排名目标不计星。",
+        "The core squad rule was not met, so placement objectives award no stars."
+      )));
+    }
+    const list = el("div", "challenge-result-objectives", "");
+    challenge.objectives.forEach((objective, index) => {
+      const completed = evaluation.completedIds.includes(objective.id);
+      const row = el("div", `challenge-objective${completed ? " completed" : ""}`, "");
+      row.appendChild(el("span", "", completed ? "★" : "☆"));
+      row.appendChild(el("strong", "", `${index + 1}. ${uiText(objective.text, objective.textEn)}`));
+      list.appendChild(row);
+    });
+    ui.challengeResult.appendChild(list);
+  }
+
   function renderResult(game) {
     const run = game || state.game;
     if (!run || !run.result) return;
     const result = run.result;
     const leagueName = getLeague(run.league)?.name || run.league || "";
     const seasonText = run.season || run.seasonRange?.end || "";
+    const challenge = getChallenge(run.challengeId);
     $("#resultMatchEyebrow").textContent = `${result.matches.length} 场比赛`;
-    $("#resultBadge").textContent = `${run.formation} · ${leagueName || seasonText}`;
+    $("#resultBadge").textContent = challenge
+      ? `${challengeName(challenge)} · ${run.formation}`
+      : `${run.formation} · ${leagueName || seasonText}`;
     $("#resultRecord").textContent = `${result.wins}-${result.draws}-${result.losses}`;
     $("#resultPoints").textContent = `${result.points} 分`;
     $("#resultScore").textContent = `${result.points} 分 · 第 ${result.finish} 名`;
@@ -3952,6 +4189,7 @@
       item.appendChild(el("span", "", label));
       statsBox.appendChild(item);
     });
+    renderChallengeResult(run);
 
     const achievements = $("#achievements");
     achievements.innerHTML = "";
@@ -4605,7 +4843,7 @@
         penalties: tie.penalties
       }))
     });
-    let winners = completedStage.ties.map((tie) => tie.winner);
+    const winners = completedStage.ties.map((tie) => tie.winner);
     const userTie = completedStage.ties.find((tie) => tie.teamA?.isUser || tie.teamB?.isUser);
     if (userTie && completedStage.name === "决赛") {
       const info = EUROPE_COMPETITIONS[sim.competition] || { champion: "欧洲冠军", runnerUp: "欧战亚军" };
@@ -4619,12 +4857,10 @@
       const r16Ties = sim.leagueTable.slice(0, 8).map((team, index) => createEuropeanTie(team, winners[index], true));
       sim.currentStage = { name: "1/8决赛", ties: r16Ties, tieIndex: 0, twoLeg: true };
     } else if (completedStage.name === "1/8决赛") {
-      winners = shuffleWithRng(winners, sim.rng);
       const qfTies = [];
       for (let index = 0; index < winners.length; index += 2) qfTies.push(createEuropeanTie(winners[index], winners[index + 1], true));
       sim.currentStage = { name: "1/4决赛", ties: qfTies, tieIndex: 0, twoLeg: true };
     } else if (completedStage.name === "1/4决赛") {
-      winners = shuffleWithRng(winners, sim.rng);
       const sfTies = [];
       for (let index = 0; index < winners.length; index += 2) sfTies.push(createEuropeanTie(winners[index], winners[index + 1], true));
       sim.currentStage = { name: "半决赛", ties: sfTies, tieIndex: 0, twoLeg: true };
@@ -4665,6 +4901,7 @@
     if (sim.run === state.game) saveGame();
     updateRun(sim.run);
     renderHomeHistory();
+    renderChallengeSetup();
     renderEuropeanResult(sim.run.europeResult);
   }
 
@@ -4937,6 +5174,119 @@
     team.goalsAgainst += goalsAgainst;
   }
 
+  function renderEuropeanBracket(rounds) {
+    if (!Array.isArray(rounds) || !rounds.length) return null;
+    const orderedRounds = orderEuropeanBracketRounds(rounds);
+    const block = el("section", "europe-bracket-block", "");
+    block.appendChild(el("h3", "", uiText("淘汰赛晋级图", "Knockout Bracket")));
+    const scroll = el("div", "europe-bracket-scroll", "");
+    const bracket = el("div", "europe-bracket", "");
+    const connectorLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    connectorLayer.classList.add("europe-bracket-connectors");
+    connectorLayer.setAttribute("aria-hidden", "true");
+    bracket.appendChild(connectorLayer);
+    const roundCards = [];
+    orderedRounds.forEach((round) => {
+      const column = el("section", "europe-bracket-round", "");
+      column.appendChild(el("h4", "", europeanStageText(round.name)));
+      const matches = el("div", "europe-bracket-matches", "");
+      const cards = [];
+      (round.ties || []).forEach((tie) => {
+        const home = tie.home || {};
+        const away = tie.away || {};
+        const winner = tie.winner || {};
+        const userTie = Boolean(home.isUser || away.isUser);
+        const card = el("article", "europe-bracket-match", "");
+        card.classList.toggle("user-match", userTie);
+        [
+          [home, tie.homeGoals],
+          [away, tie.awayGoals]
+        ].forEach(([team, goals]) => {
+          const row = el("div", "europe-bracket-team", "");
+          row.classList.toggle("winner", Boolean(winner.name && winner.name === team.name));
+          row.classList.toggle("user-team", Boolean(team.isUser));
+          row.appendChild(el("span", "", uiText(team.name || "--", team.isUser ? "My Team" : (team.name || "--"))));
+          row.appendChild(el("strong", "", String(goals ?? "-")));
+          card.appendChild(row);
+        });
+        if (tie.extraTime || tie.penalties) {
+          const detail = tie.penalties
+            ? uiText(`点球 ${tie.penalties.home}-${tie.penalties.away}`, `Pens ${tie.penalties.home}-${tie.penalties.away}`)
+            : uiText(`加时 ${tie.extraTime.homeGoals}-${tie.extraTime.awayGoals}`, `AET ${tie.extraTime.homeGoals}-${tie.extraTime.awayGoals}`);
+          card.appendChild(el("small", "europe-bracket-detail", detail));
+        }
+        matches.appendChild(card);
+        cards.push({ tie, card, userTie });
+      });
+      column.appendChild(matches);
+      bracket.appendChild(column);
+      roundCards.push(cards);
+    });
+    scroll.appendChild(bracket);
+    block.appendChild(scroll);
+    const drawConnectors = () => drawEuropeanBracketConnectors(bracket, connectorLayer, roundCards);
+    requestAnimationFrame(drawConnectors);
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(drawConnectors);
+      observer.observe(bracket);
+    }
+    return block;
+  }
+
+  function orderEuropeanBracketRounds(rounds) {
+    const ordered = rounds.map((round) => ({
+      ...round,
+      ties: [...(round.ties || [])]
+    }));
+    for (let roundIndex = ordered.length - 2; roundIndex >= 0; roundIndex -= 1) {
+      const nextTeamOrder = new Map();
+      ordered[roundIndex + 1].ties.forEach((tie, tieIndex) => {
+        [tie.home?.name, tie.away?.name].forEach((name, teamIndex) => {
+          if (name) nextTeamOrder.set(name, tieIndex * 2 + teamIndex);
+        });
+      });
+      ordered[roundIndex].ties.sort((left, right) => {
+        const leftOrder = nextTeamOrder.get(left.winner?.name) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = nextTeamOrder.get(right.winner?.name) ?? Number.MAX_SAFE_INTEGER;
+        return leftOrder - rightOrder;
+      });
+    }
+    return ordered;
+  }
+
+  function drawEuropeanBracketConnectors(bracket, connectorLayer, roundCards) {
+    if (!bracket.isConnected) return;
+    const bracketRect = bracket.getBoundingClientRect();
+    const width = bracket.scrollWidth;
+    const height = bracket.scrollHeight;
+    connectorLayer.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    connectorLayer.setAttribute("width", String(width));
+    connectorLayer.setAttribute("height", String(height));
+    connectorLayer.replaceChildren();
+    for (let roundIndex = 1; roundIndex < roundCards.length; roundIndex += 1) {
+      const previousCards = roundCards[roundIndex - 1];
+      roundCards[roundIndex].forEach((target) => {
+        const targetTeams = [target.tie.home?.name, target.tie.away?.name].filter(Boolean);
+        targetTeams.forEach((teamName) => {
+          const source = previousCards.find((entry) => entry.tie.winner?.name === teamName);
+          if (!source) return;
+          const sourceRect = source.card.getBoundingClientRect();
+          const targetRect = target.card.getBoundingClientRect();
+          const startX = sourceRect.right - bracketRect.left;
+          const startY = sourceRect.top + sourceRect.height / 2 - bracketRect.top;
+          const endX = targetRect.left - bracketRect.left;
+          const endY = targetRect.top + targetRect.height / 2 - bracketRect.top;
+          const bendX = startX + (endX - startX) / 2;
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${startX} ${startY} H ${bendX} V ${endY} H ${endX}`);
+          path.classList.add("europe-bracket-connector");
+          if (source.tie.winner?.isUser) path.classList.add("user-path");
+          connectorLayer.appendChild(path);
+        });
+      });
+    }
+  }
+
   function renderEuropeanResult(europeResult) {
     ui.europeResults.innerHTML = "";
     const info = EUROPE_COMPETITIONS[europeResult.competition] || { name: europeResult.competitionName || "欧洲赛事", champion: "欧洲冠军", runnerUp: "欧战结束" };
@@ -4994,17 +5344,8 @@
       details.appendChild(scroll);
       ui.europeResults.appendChild(details);
     }
-    const userLogs = (europeResult.logs || []).filter((log) => log.userMatch);
-    if (userLogs.length) {
-      const block = el("div", "europe-round", "");
-      block.appendChild(el("h3", "", "我的赛果"));
-      userLogs.forEach((log) => {
-        const row = el("div", "europe-team-row", "");
-        row.appendChild(el("span", "", `${log.stage} · ${log.text}`));
-        block.appendChild(row);
-      });
-      ui.europeResults.appendChild(block);
-    }
+    const bracket = renderEuropeanBracket(europeResult.rounds);
+    if (bracket) ui.europeResults.appendChild(bracket);
   }
 
   function addRun(game) {
@@ -5048,13 +5389,18 @@
     state.viewingRun = null;
     showView("setup");
     renderHomeHistory();
+    renderChallengeSetup();
   }
 
   function shareResult() {
     const run = state.viewingRun || state.game;
     if (!run?.result) return;
     const result = run.result;
-    const text = `Global 38-0：我用了 ${run.formation} 阵容，${result.wins}-${result.draws}-${result.losses}，${result.points} 分，第 ${result.finish} 名。敢来挑战吗？`;
+    const challenge = getChallenge(run.challengeId);
+    const challengeText = challenge
+      ? `，完成${challenge.name}挑战 ${result.challenge?.stars || 0}/3 星`
+      : "";
+    const text = `Global 38-0：我用了 ${run.formation} 阵容，${result.wins}-${result.draws}-${result.losses}，${result.points} 分，第 ${result.finish} 名${challengeText}。敢来挑战吗？`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => toast("战报已复制")).catch(() => toast("复制失败，可以手动复制。"));
     } else {

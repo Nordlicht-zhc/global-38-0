@@ -110,6 +110,21 @@
     ]));
   }
 
+  function advanceAiFixtures(schedule, startIndex, simulateFixture, options = {}) {
+    const userName = options.userName || "我的球队";
+    const endIndex = Math.min(schedule.length, Number.isFinite(options.endIndex)
+      ? options.endIndex
+      : schedule.length);
+    let index = startIndex;
+    while (index < endIndex) {
+      const fixture = schedule[index];
+      if (fixture.home === userName || fixture.away === userName) break;
+      simulateFixture(fixture);
+      index += 1;
+    }
+    return index;
+  }
+
   function poisson(lambda, rng) {
     if (lambda <= 0) return 0;
     const limit = Math.exp(-lambda);
@@ -122,24 +137,34 @@
     return count - 1;
   }
 
-  function simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway) {
+  function simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway, options = {}) {
     const hasElo = Number.isFinite(eloHome) && Number.isFinite(eloAway);
+    const neutral = Boolean(options.neutral);
     const homeStrength = teamStrength(homeProfile);
     const awayStrength = teamStrength(awayProfile);
-    const baseDiff = homeStrength - awayStrength + 1;
+    const baseDiff = homeStrength - awayStrength + (neutral ? 0 : 1);
     const strengthExpected = clamp(1 / (1 + Math.pow(10, -baseDiff / 8)), 0.06, 0.88);
     const expectedHome = hasElo
-      ? clamp(eloExpected(eloHome + HOME_ELO_ADVANTAGE, eloAway) * 0.7 + strengthExpected * 0.3, 0.06, 0.94)
+      ? clamp(eloExpected(eloHome + (neutral ? 0 : HOME_ELO_ADVANTAGE), eloAway) * 0.7
+        + strengthExpected * 0.3, 0.06, 0.94)
       : strengthExpected;
     const diff = hasElo ? eloHome - eloAway : baseDiff;
     const drawChance = clamp(0.3 - Math.abs(diff) * 0.00035, 0.19, 0.3);
     const isDraw = rng() < drawChance;
     const result = isDraw ? "D" : rng() < expectedHome ? "H" : "A";
-    const expectedFor = clamp(0.85 + (homeProfile.attack - awayProfile.defense) * 0.055
-      + (homeProfile.midfield - awayProfile.midfield) * 0.02, 0.4, 2.8);
-    const expectedAgainst = clamp(0.8 + (awayProfile.attack - homeProfile.defense) * 0.05
-      + (awayProfile.midfield - homeProfile.midfield) * 0.02
-      - (homeProfile.goalkeeper - 80) * 0.018, 0.35, 2.6);
+    const expectedFor = neutral
+      ? clamp(0.825 + (homeProfile.attack - awayProfile.defense) * 0.0525
+        + (homeProfile.midfield - awayProfile.midfield) * 0.02
+        - (awayProfile.goalkeeper - 80) * 0.018, 0.35, 2.7)
+      : clamp(0.85 + (homeProfile.attack - awayProfile.defense) * 0.055
+        + (homeProfile.midfield - awayProfile.midfield) * 0.02, 0.4, 2.8);
+    const expectedAgainst = neutral
+      ? clamp(0.825 + (awayProfile.attack - homeProfile.defense) * 0.0525
+        + (awayProfile.midfield - homeProfile.midfield) * 0.02
+        - (homeProfile.goalkeeper - 80) * 0.018, 0.35, 2.7)
+      : clamp(0.8 + (awayProfile.attack - homeProfile.defense) * 0.05
+        + (awayProfile.midfield - homeProfile.midfield) * 0.02
+        - (homeProfile.goalkeeper - 80) * 0.018, 0.35, 2.6);
     let gf = clamp(poisson(expectedFor, rng), 0, 7);
     let ga = clamp(poisson(expectedAgainst, rng), 0, 7);
     if (result === "D") {
@@ -157,6 +182,142 @@
       newEloAway = eloAway + k * ((1 - actualHome) - (1 - expectedHome));
     }
     return { homeName, gf, ga, result, newEloHome, newEloAway };
+  }
+
+  function buildLeaguePhaseSchedule(teams, matchdays, rng) {
+    const pairings = [];
+    const order = shuffleWithRng(teams, rng);
+    for (let round = 0; round < matchdays; round += 1) {
+      const matches = [];
+      for (let index = 0; index < order.length / 2; index += 1) {
+        matches.push({
+          teamA: order[index],
+          teamB: order[order.length - 1 - index],
+          edgeId: pairings.length * (order.length / 2) + index
+        });
+      }
+      pairings.push({ round: round + 1, matches });
+      const last = order.pop();
+      order.splice(1, 0, last);
+    }
+    const edges = pairings.flatMap((round) => round.matches);
+    const adjacency = new Map(teams.map((team) => [team, []]));
+    edges.forEach((edge) => {
+      adjacency.get(edge.teamA).push(edge);
+      adjacency.get(edge.teamB).push(edge);
+    });
+    const unused = new Set(edges.map((edge) => edge.edgeId));
+    const orientation = new Map();
+    teams.forEach((start) => {
+      while (adjacency.get(start).some((edge) => unused.has(edge.edgeId))) {
+        let current = start;
+        do {
+          const edge = adjacency.get(current).find((candidate) => unused.has(candidate.edgeId));
+          if (!edge) break;
+          unused.delete(edge.edgeId);
+          const next = edge.teamA === current ? edge.teamB : edge.teamA;
+          orientation.set(edge.edgeId, { home: current, away: next });
+          current = next;
+        } while (current !== start);
+      }
+    });
+    return pairings.map((round) => ({
+      round: round.round,
+      matches: round.matches.map((match) => orientation.get(match.edgeId))
+    }));
+  }
+
+  function europeanOpponentTotals(teams, matches) {
+    const teamByName = new Map(teams.map((team) => [team.name, team]));
+    const totals = new Map(teams.map((team) => [team.name, { points: 0, goalDiff: 0, goalsFor: 0 }]));
+    const teamName = (value) => typeof value === "string" ? value : value?.name;
+    (matches || []).forEach((match) => {
+      const homeName = teamName(match.home);
+      const awayName = teamName(match.away);
+      const home = teamByName.get(homeName);
+      const away = teamByName.get(awayName);
+      if (!home || !away) return;
+      const homeTotals = totals.get(homeName);
+      const awayTotals = totals.get(awayName);
+      homeTotals.points += Number(away.points || 0);
+      homeTotals.goalDiff += Number(away.goalsFor || 0) - Number(away.goalsAgainst || 0);
+      homeTotals.goalsFor += Number(away.goalsFor || 0);
+      awayTotals.points += Number(home.points || 0);
+      awayTotals.goalDiff += Number(home.goalsFor || 0) - Number(home.goalsAgainst || 0);
+      awayTotals.goalsFor += Number(home.goalsFor || 0);
+    });
+    return totals;
+  }
+
+  function sortEuropeanLeaguePhase(teams, matches = []) {
+    const opponentTotals = europeanOpponentTotals(teams, matches);
+    const value = (team, key) => Number(team?.[key] || 0);
+    return [...teams].sort((a, b) => {
+      const aOpponents = opponentTotals.get(a.name) || {};
+      const bOpponents = opponentTotals.get(b.name) || {};
+      return value(b, "points") - value(a, "points")
+        || (value(b, "goalsFor") - value(b, "goalsAgainst"))
+          - (value(a, "goalsFor") - value(a, "goalsAgainst"))
+        || value(b, "goalsFor") - value(a, "goalsFor")
+        || value(b, "awayGoals") - value(a, "awayGoals")
+        || value(b, "wins") - value(a, "wins")
+        || value(b, "awayWins") - value(a, "awayWins")
+        || Number(bOpponents.points || 0) - Number(aOpponents.points || 0)
+        || Number(bOpponents.goalDiff || 0) - Number(aOpponents.goalDiff || 0)
+        || Number(bOpponents.goalsFor || 0) - Number(aOpponents.goalsFor || 0)
+        || value(a, "disciplinaryPoints") - value(b, "disciplinaryPoints")
+        || value(b, "clubCoefficient") - value(a, "clubCoefficient")
+        || String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }
+
+  function nextKnockoutLegTeams(tie) {
+    if (!tie.twoLeg) return { home: tie.teamA, away: tie.teamB };
+    return tie.legs.length === 0
+      ? { home: tie.teamB, away: tie.teamA }
+      : { home: tie.teamA, away: tie.teamB };
+  }
+
+  function aggregateKnockoutTie(tie) {
+    let aggregateA = 0;
+    let aggregateB = 0;
+    tie.legs.forEach((leg) => {
+      aggregateA += leg.home === tie.teamA ? leg.homeGoals : leg.awayGoals;
+      aggregateB += leg.home === tie.teamB ? leg.homeGoals : leg.awayGoals;
+    });
+    return { aggregateA, aggregateB };
+  }
+
+  function simulateKnockoutExtraTime(home, away, rng, options = {}) {
+    const ratingDiff = home.strength - away.strength;
+    const neutral = Boolean(options.neutral);
+    return {
+      homeGoals: clamp(poisson(Math.max(neutral ? 0.12 : 0.15,
+        (neutral ? 0.275 : 0.3) + ratingDiff * (neutral ? 0.0225 : 0.025)), rng), 0, 3),
+      awayGoals: clamp(poisson(Math.max(0.12,
+        (neutral ? 0.275 : 0.25) - ratingDiff * (neutral ? 0.0225 : 0.02)), rng), 0, 3)
+    };
+  }
+
+  function simulateKnockoutPenalties(home, away, rng, options = {}) {
+    const neutral = Boolean(options.neutral);
+    const homeChance = neutral ? 0.74 : 0.76;
+    const awayChance = neutral ? 0.74 : 0.72;
+    let homeScore = 0;
+    let awayScore = 0;
+    for (let index = 0; index < 5; index += 1) {
+      homeScore += rng() < homeChance ? 1 : 0;
+      awayScore += rng() < awayChance ? 1 : 0;
+    }
+    while (homeScore === awayScore) {
+      homeScore += rng() < homeChance ? 1 : 0;
+      awayScore += rng() < awayChance ? 1 : 0;
+    }
+    return {
+      home: homeScore,
+      away: awayScore,
+      winner: homeScore > awayScore ? home : away
+    };
   }
 
   function applyLeagueResult(table, homeName, awayName, gf, ga) {
@@ -199,7 +360,14 @@
     createLeagueSchedule,
     createLeagueTable,
     createEloMap,
+    advanceAiFixtures,
     simulateLeagueResult,
+    buildLeaguePhaseSchedule,
+    sortEuropeanLeaguePhase,
+    nextKnockoutLegTeams,
+    aggregateKnockoutTie,
+    simulateKnockoutExtraTime,
+    simulateKnockoutPenalties,
     applyLeagueResult,
     sortLeagueRows
   };

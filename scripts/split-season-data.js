@@ -41,10 +41,14 @@ for (const [season, data] of Object.entries(seasons)) {
   fs.writeFileSync(path.join(outputDir, `${season}.js`), output, "utf8");
   historicalCount += 1;
 }
+for (const file of fs.readdirSync(outputDir).filter((name) => name.endsWith(".js"))) {
+  const season = path.basename(file, ".js");
+  if (!seasons[season] || season === currentSeason) fs.unlinkSync(path.join(outputDir, file));
+}
 for (const file of fs.readdirSync(outputDir).filter((name) => name.endsWith(".json"))) {
   fs.unlinkSync(path.join(outputDir, file));
 }
 
-const currentOutput = `// Active 2025-26 player pool. Historical seasons are loaded on demand from history-data/.\nconst SEASON_PLAYERS = ${JSON.stringify({ [currentSeason]: seasons[currentSeason] })};\n`;
+const currentOutput = `// 2004-05 through 2025-26 player pools. Active 2025-26 squads use FC 26 launch ratings with documented season additions.\nconst SEASON_PLAYERS = ${JSON.stringify({ [currentSeason]: seasons[currentSeason] })};\n`;
 fs.writeFileSync(path.join(root, "season-players.js"), currentOutput, "utf8");
 console.log(`Wrote ${historicalCount} local-file-compatible history chunks and retained ${currentSeason} as the active bundle.`);

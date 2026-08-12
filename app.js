@@ -84,8 +84,8 @@
     ger: { name: "德国杯", nameEn: "DFB-Pokal", champion: "德国杯冠军", championEn: "DFB-Pokal Champion", lowerTeams: ["波鸿", "杜塞尔多夫", "汉诺威96", "柏林赫塔", "荷尔斯泰因基尔", "凯泽斯劳滕", "卡尔斯鲁厄", "马格德堡", "纽伦堡", "帕德博恩", "普鲁士明斯特", "沙尔克04", "艾禾斯堡", "布伦瑞克"] },
     fra: { name: "法国杯", nameEn: "Coupe de France", champion: "法国杯冠军", championEn: "Coupe de France Champion", lowerTeams: ["亚眠", "阿讷西", "巴斯蒂亚", "卡昂", "克莱蒙", "敦刻尔克", "格勒诺布尔", "甘冈", "拉瓦勒", "蒙彼利埃", "波城", "红星", "罗德兹", "特鲁瓦"] }
   };
-  const EUROPE_LIST_VERSION = "2025-26-v3";
-  const SIM_VERSION = "2026-v4";
+  const EUROPE_LIST_VERSION = "2025-26-v4";
+  const SIM_VERSION = "2026-v5";
   const LANG_KEY = "g38-lang";
   let currentLang = "zh";
   try {
@@ -98,7 +98,7 @@
     { sel: "#historyBtnText", en: "History" },
     { sel: "#newGameBtnText", en: "New Game" },
     { sel: ".brand-text strong", en: "Global All-Stars" },
-    { sel: ".hero-copy .eyebrow", en: "1992-93 to 2025-26 seasons" },
+    { sel: ".hero-copy .eyebrow", en: "1994-95 to 2025-26 seasons" },
     { sel: ".hero-copy h1", en: "All Five Leagues. Build Your Ultimate XI." },
     { sel: ".hero-sub", en: "Spin separate season and club reels, pick players from that real squad, assign positions, then test your team over a full league season. Covers England, Spain, Italy, Germany and France." },
     { sel: ".league-panel .eyebrow", en: "Database" },
@@ -884,7 +884,7 @@
   };
 
   const SEASON_KEYS = [];
-  for (let start = 1992; start <= 2025; start += 1) {
+  for (let start = 1994; start <= 2025; start += 1) {
     const end = start + 1;
     SEASON_KEYS.push(`${start}-${String(end % 100).padStart(2, "0")}`);
   }
@@ -1266,7 +1266,7 @@
         ...(saved.draftedPlayers || []).map((player) => G38PlayerIdentity.key(player, HISTORICAL_CLUB_IDS))
       ])];
       if (!saved.seasonRange) {
-        saved.seasonRange = { start: "1992-93", end: "2025-26" };
+        saved.seasonRange = { start: "1994-95", end: "2025-26" };
       }
       if (isBadRun(saved)) {
         saved.result = null;
@@ -3320,8 +3320,8 @@
     });
     return map;
   }
-  function simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway) {
-    return G38SimulationCore.simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway);
+  function simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway, options) {
+    return G38SimulationCore.simulateLeagueResult(homeProfile, awayProfile, rng, homeName, eloHome, eloAway, options);
     /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const hasElo = Number.isFinite(eloHome) && Number.isFinite(eloAway);
     const homeStrength = teamStrength(homeProfile);
@@ -3499,16 +3499,7 @@
       }
       return;
     }
-    const transferResolved = Boolean(sim.transferState?.resolved);
-    while (
-      sim.allIndex < sim.schedule.length
-      && (transferResolved || sim.allIndex < sim.transferPoint)
-      && sim.schedule[sim.allIndex].home !== "我的球队"
-      && sim.schedule[sim.allIndex].away !== "我的球队"
-    ) {
-      simulateAIFixture(sim, sim.schedule[sim.allIndex]);
-      sim.allIndex += 1;
-    }
+    advanceAiFixtures(sim, sim.transferState?.resolved ? sim.schedule.length : sim.transferPoint);
 
     if (sim.allIndex >= sim.schedule.length) {
       finishSimulation(sim);
@@ -3516,6 +3507,13 @@
     }
 
     if (sim.allIndex >= sim.transferPoint && openTransferWindow(sim)) {
+      return;
+    }
+
+    advanceAiFixtures(sim);
+
+    if (sim.allIndex >= sim.schedule.length) {
+      finishSimulation(sim);
       return;
     }
 
@@ -3554,6 +3552,15 @@
       return;
     }
     setTimeout(() => simulateNextMatch(sim), 600);
+  }
+
+  function advanceAiFixtures(sim, endIndex = sim.schedule.length) {
+    sim.allIndex = G38SimulationCore.advanceAiFixtures(
+      sim.schedule,
+      sim.allIndex,
+      (fixture) => simulateAIFixture(sim, fixture),
+      { endIndex }
+    );
   }
 
   function simulateAIFixture(sim, fixture) {
@@ -3616,18 +3623,37 @@
     };
   }
 
+  function renderLeagueSimulationResultRow(match, current = false) {
+    const row = renderEuropeanLeagueResultRow({
+      stage: uiText(`第 ${match.round} 轮`, `Round ${match.round}`),
+      home: match.home ? "我的球队" : match.opponent,
+      away: match.home ? match.opponent : "我的球队",
+      homeGoals: match.homeGoals,
+      awayGoals: match.awayGoals,
+      homeIsUser: match.home,
+      awayIsUser: !match.home,
+      userMatch: true
+    }, current);
+    if (current) {
+      row.classList.add("league-simulation-current");
+      row.appendChild(el(
+        "small",
+        "league-simulation-scorers",
+        match.scorers.length
+          ? uiText(`进球：${match.scorers.join("、")}`, `Goals: ${match.scorers.join(", ")}`)
+          : uiText("无进球", "No goals")
+      ));
+    }
+    return row;
+  }
+
   function renderSimulationStep(sim) {
     ui.simulationProgress.textContent = `${sim.matches.length}/${sim.matchCount}`;
     ui.simulationCurrent.innerHTML = "";
+    ui.simulationCurrent.classList.toggle("league-simulation-shell", sim.matches.length > 0);
     if (sim.matches.length) {
       const match = sim.matches[sim.matches.length - 1];
-      const box = el("div", "sim-match-current", "");
-      box.classList.add(match.result === "W" ? "result-win" : match.result === "D" ? "result-draw" : "result-loss");
-      box.appendChild(el("span", "match-round", `R${match.round}`));
-      box.appendChild(el("strong", "", `${match.home ? "主队" : "客队"} vs ${match.opponent}`));
-      box.appendChild(el("span", "match-score", `${match.gf}-${match.ga}`));
-      box.appendChild(el("small", "", match.scorers.length ? `进球：${match.scorers.join("、")}` : "无进球"));
-      ui.simulationCurrent.appendChild(box);
+      ui.simulationCurrent.appendChild(renderLeagueSimulationResultRow(match, true));
     }
     const cup = sim.domesticCup;
     const userStillInCup = cup?.currentTeams?.some((team) => team.isUser);
@@ -3637,11 +3663,7 @@
     }
     ui.simulationLatest.innerHTML = "";
     sim.matches.slice(-8).reverse().forEach((match) => {
-      const row = el("div", "sim-match-row", "");
-      row.classList.add(match.result === "W" ? "result-win" : match.result === "D" ? "result-draw" : "result-loss");
-      row.appendChild(el("span", "match-round", `R${match.round}`));
-      row.appendChild(el("span", "", `${match.home ? "主" : "客"} ${match.gf}-${match.ga} ${match.opponent}`));
-      ui.simulationLatest.appendChild(row);
+      ui.simulationLatest.appendChild(renderLeagueSimulationResultRow(match));
     });
   }
 
@@ -4351,8 +4373,9 @@
     for (let index = 0; index < shuffled.length; index += 2) {
       const home = shuffled[index];
       const away = shuffled[index + 1];
-      const tie = createEuropeanTie(home, away, false);
-      const played = simulateEuropeanTie(home, away, sim.rng, stage === "决赛");
+      const neutral = stage === "决赛";
+      const tie = createEuropeanTie(home, away, false, neutral);
+      const played = simulateEuropeanTie(home, away, sim.rng, neutral);
       tie.legs.push(played);
       finalizeEuropeanTie(tie, sim.rng);
       const result = {
@@ -4529,9 +4552,10 @@
     const club = entry.id ? findClubInSeason(entry.id, CURRENT_DATA_SEASON) : null;
     if (club) {
       const profile = calcClubProfile(club);
+      const strength = teamStrength(profile);
       return {
         name: club.name,
-        strength: teamStrength(profile),
+        strength,
         profile,
         played: 0,
         wins: 0,
@@ -4540,6 +4564,10 @@
         points: 0,
         goalsFor: 0,
         goalsAgainst: 0,
+        awayGoals: 0,
+        awayWins: 0,
+        disciplinaryPoints: 0,
+        clubCoefficient: strength,
         isUser: false
       };
     }
@@ -4559,6 +4587,10 @@
       points: 0,
       goalsFor: 0,
       goalsAgainst: 0,
+      awayGoals: 0,
+      awayWins: 0,
+      disciplinaryPoints: 0,
+      clubCoefficient: strength,
       isUser: false
     };
   }
@@ -4602,11 +4634,15 @@
           points: 0,
           goalsFor: 0,
           goalsAgainst: 0,
+          awayGoals: 0,
+          awayWins: 0,
+          disciplinaryPoints: 0,
+          clubCoefficient: teamStrength(profile),
           isUser: false
         });
       });
     }
-    const userProfile = calcTeamProfile(run);
+    const userProfile = applyCoachToProfile(calcTeamProfile(run), getCoach(run));
     teams.push({
       name: "\u6211\u7684\u7403\u961f",
       strength: teamStrength(userProfile),
@@ -4618,6 +4654,10 @@
       points: 0,
       goalsFor: 0,
       goalsAgainst: 0,
+      awayGoals: 0,
+      awayWins: 0,
+      disciplinaryPoints: 0,
+      clubCoefficient: teamStrength(userProfile),
       isUser: true
     });
     const matchdays = competition === "UECL" ? 6 : 8;
@@ -4627,7 +4667,7 @@
       rng,
       teams,
       matchdays,
-      leagueRounds: buildEuropeanLeagueRounds(teams, matchdays),
+      leagueRounds: buildEuropeanLeagueRounds(teams, matchdays, rng),
       roundIndex: 0,
       matchIndex: 0,
       phase: "league",
@@ -4641,22 +4681,8 @@
     };
   }
 
-  function buildEuropeanLeagueRounds(teams, matchdays) {
-    const rounds = [];
-    const order = teams.slice();
-    for (let round = 0; round < matchdays; round += 1) {
-      const matches = [];
-      for (let index = 0; index < order.length / 2; index += 1) {
-        matches.push({
-          home: order[index],
-          away: order[order.length - 1 - index]
-        });
-      }
-      rounds.push({ round: round + 1, matches });
-      const last = order.pop();
-      order.splice(1, 0, last);
-    }
-    return rounds;
+  function buildEuropeanLeagueRounds(teams, matchdays, rng) {
+    return G38SimulationCore.buildLeaguePhaseSchedule(teams, matchdays, rng);
   }
 
   function simulateNextEuropeanStep(sim) {
@@ -4666,11 +4692,17 @@
       const round = sim.leagueRounds[sim.roundIndex];
       const match = round.matches[sim.matchIndex];
       const played = simulateEuropeanTie(match.home, match.away, sim.rng, false);
-      updateEuropeanStats(match.home, played.homeGoals, played.awayGoals);
-      updateEuropeanStats(match.away, played.awayGoals, played.homeGoals);
+      updateEuropeanStats(match.home, played.homeGoals, played.awayGoals, false);
+      updateEuropeanStats(match.away, played.awayGoals, played.homeGoals, true);
       const log = {
         stage: `联赛阶段第 ${round.round} 轮`,
         text: `${match.home.name} ${played.homeGoals}-${played.awayGoals} ${match.away.name}`,
+        home: match.home.name,
+        away: match.away.name,
+        homeGoals: played.homeGoals,
+        awayGoals: played.awayGoals,
+        homeIsUser: Boolean(match.home.isUser),
+        awayIsUser: Boolean(match.away.isUser),
         userMatch: match.home.isUser || match.away.isUser
       };
       sim.logs.push(log);
@@ -4702,9 +4734,8 @@
           advanceEuropeanStage(sim, stage);
         }
       } else {
-        const home = tie.legs.length === 0 ? tie.teamA : tie.teamB;
-        const away = tie.legs.length === 0 ? tie.teamB : tie.teamA;
-        const played = simulateEuropeanTie(home, away, sim.rng, false);
+        const { home, away } = G38SimulationCore.nextKnockoutLegTeams(tie);
+        const played = simulateEuropeanTie(home, away, sim.rng, tie.neutral);
         tie.legs.push(played);
         const log = {
           stage: stage.name,
@@ -4742,7 +4773,7 @@
   }
 
   function prepareEuropeanKnockout(sim) {
-    const table = [...sim.teams].sort((a, b) => b.points - a.points || (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) || b.goalsFor - a.goalsFor);
+    const table = G38SimulationCore.sortEuropeanLeaguePhase(sim.teams, sim.logs);
     table.forEach((team, index) => { team.position = index + 1; });
     sim.leagueTable = table;
     const user = table.find((team) => team.isUser);
@@ -4762,59 +4793,38 @@
     sim.phase = "knockout";
   }
 
-  function createEuropeanTie(teamA, teamB, twoLeg) {
-    return { teamA, teamB, legs: [], winner: null, twoLeg, aggregateA: 0, aggregateB: 0 };
+  function createEuropeanTie(teamA, teamB, twoLeg, neutral = false) {
+    return { teamA, teamB, legs: [], winner: null, twoLeg, neutral, aggregateA: 0, aggregateB: 0 };
   }
 
   function finalizeEuropeanTie(tie, rng) {
-    if (tie.twoLeg) {
-      tie.aggregateA = tie.legs[0].homeGoals + tie.legs[1].awayGoals;
-      tie.aggregateB = tie.legs[0].awayGoals + tie.legs[1].homeGoals;
-    } else {
-      tie.aggregateA = tie.legs[0].homeGoals;
-      tie.aggregateB = tie.legs[0].awayGoals;
-    }
+    const aggregate = G38SimulationCore.aggregateKnockoutTie(tie);
+    tie.aggregateA = aggregate.aggregateA;
+    tie.aggregateB = aggregate.aggregateB;
     if (tie.aggregateA !== tie.aggregateB) {
       tie.winner = tie.aggregateA > tie.aggregateB ? tie.teamA : tie.teamB;
       return;
     }
-    const home = tie.twoLeg ? tie.teamB : tie.teamA;
-    const away = tie.twoLeg ? tie.teamA : tie.teamB;
-    const extraTime = simulateEuropeanExtraTime(home, away, rng);
+    const lastLeg = tie.legs[tie.legs.length - 1];
+    const home = lastLeg.home;
+    const away = lastLeg.away;
+    const extraTime = simulateEuropeanExtraTime(home, away, rng, tie.neutral);
     tie.extraTime = extraTime;
     if (extraTime.homeGoals !== extraTime.awayGoals) {
       tie.winner = extraTime.homeGoals > extraTime.awayGoals ? home : away;
       return;
     }
-    const penalties = simulateEuropeanPenalties(home, away, rng);
+    const penalties = simulateEuropeanPenalties(home, away, rng, tie.neutral);
     tie.penalties = penalties;
     tie.winner = penalties.winner;
   }
 
-  function simulateEuropeanExtraTime(teamA, teamB, rng) {
-    const ratingDiff = teamA.strength - teamB.strength;
-    return {
-      homeGoals: clamp(poisson(Math.max(0.15, 0.3 + ratingDiff * 0.025), rng), 0, 3),
-      awayGoals: clamp(poisson(Math.max(0.12, 0.25 - ratingDiff * 0.02), rng), 0, 3)
-    };
+  function simulateEuropeanExtraTime(teamA, teamB, rng, neutral = false) {
+    return G38SimulationCore.simulateKnockoutExtraTime(teamA, teamB, rng, { neutral });
   }
 
-  function simulateEuropeanPenalties(teamA, teamB, rng) {
-    let home = 0;
-    let away = 0;
-    for (let index = 0; index < 5; index += 1) {
-      home += rng() < 0.76 ? 1 : 0;
-      away += rng() < 0.72 ? 1 : 0;
-    }
-    while (home === away) {
-      home += rng() < 0.76 ? 1 : 0;
-      away += rng() < 0.72 ? 1 : 0;
-    }
-    return {
-      home,
-      away,
-      winner: home > away ? teamA : teamB
-    };
+  function simulateEuropeanPenalties(teamA, teamB, rng, neutral = false) {
+    return G38SimulationCore.simulateKnockoutPenalties(teamA, teamB, rng, { neutral });
   }
 
   function logEuropeanTieResolution(sim, stage, tie) {
@@ -4865,7 +4875,7 @@
       for (let index = 0; index < winners.length; index += 2) sfTies.push(createEuropeanTie(winners[index], winners[index + 1], true));
       sim.currentStage = { name: "半决赛", ties: sfTies, tieIndex: 0, twoLeg: true };
     } else if (completedStage.name === "半决赛") {
-      sim.currentStage = { name: "决赛", ties: [createEuropeanTie(winners[0], winners[1], false)], tieIndex: 0, twoLeg: false };
+      sim.currentStage = { name: "决赛", ties: [createEuropeanTie(winners[0], winners[1], false, true)], tieIndex: 0, twoLeg: false };
     } else if (completedStage.name === "决赛") {
       sim.currentStage = null;
       finishEuropeanSimulation(sim);
@@ -4917,20 +4927,54 @@
 
   function renderEuropeanStep(sim, step) {
     ui.europeResults.innerHTML = "";
-    const current = el("div", "europe-summary", "");
-    current.appendChild(el("strong", "", step.stage));
-    current.appendChild(el("span", "", step.text));
-    ui.europeResults.appendChild(current);
-    const latest = el("div", "simulation-latest", "");
+    ui.europeResults.appendChild(renderEuropeanLeagueResultRow(step, true));
+    const latest = el("div", "europe-league-results-list", "");
     const visibleLogs = sim.logs.filter((log) => log.userMatch);
     visibleLogs.slice(-14).reverse().forEach((log) => {
-      const row = el("div", "sim-match-row", "");
-      row.classList.toggle("user-row", Boolean(log.userMatch));
-      row.appendChild(el("span", "", log.stage));
-      row.appendChild(el("span", "", log.text));
-      latest.appendChild(row);
+      latest.appendChild(renderEuropeanLeagueResultRow(log));
     });
     ui.europeResults.appendChild(latest);
+  }
+
+  function europeanMatchFromLog(log) {
+    if (log?.home && log?.away) {
+      return {
+        home: log.home,
+        away: log.away,
+        homeGoals: log.homeGoals,
+        awayGoals: log.awayGoals,
+        homeIsUser: Boolean(log.homeIsUser),
+        awayIsUser: Boolean(log.awayIsUser)
+      };
+    }
+    const match = String(log?.text || "").match(/^(.*?)\s+(\d+)-(\d+)\s+(.*?)$/);
+    if (!match) return null;
+    return {
+      home: match[1],
+      away: match[4],
+      homeGoals: Number(match[2]),
+      awayGoals: Number(match[3]),
+      homeIsUser: match[1] === "我的球队",
+      awayIsUser: match[4] === "我的球队"
+    };
+  }
+
+  function renderEuropeanLeagueResultRow(log, current = false) {
+    const match = europeanMatchFromLog(log);
+    const row = el("div", current ? "europe-league-current" : "europe-league-result-row", "");
+    row.classList.toggle("user-row", Boolean(log?.userMatch));
+    row.appendChild(el("span", "europe-league-round", log?.stage || ""));
+    if (!match) {
+      row.appendChild(el("span", "europe-league-matchup", log?.text || ""));
+      return row;
+    }
+    row.appendChild(el("strong", "europe-league-score", `${match.homeGoals}-${match.awayGoals}`));
+    const teams = el("div", "europe-league-matchup", "");
+    teams.appendChild(el("span", match.homeIsUser ? "user-team" : "", uiText(match.home, match.homeIsUser ? "My Team" : match.home)));
+    teams.appendChild(el("small", "", "vs"));
+    teams.appendChild(el("span", match.awayIsUser ? "user-team" : "", uiText(match.away, match.awayIsUser ? "My Team" : match.away)));
+    row.appendChild(teams);
+    return row;
   }
 
   function europeanStageText(stage) {
@@ -4988,6 +5032,7 @@
   }
 
   function playDomesticCupMatch(sim, match, onComplete) {
+    ui.simulationCurrent.classList.remove("league-simulation-shell");
     ui.simulationProgress.textContent = uiText(
       `${sim.matches.length}/${sim.matchCount} · 国内杯赛`,
       `${sim.matches.length}/${sim.matchCount} · Domestic cup`
@@ -5123,7 +5168,7 @@
   function simulateEuropeanTie(teamA, teamB, rng, neutral) {
     const homeProfile = teamA.profile || europeProfileFromStrength(teamA.strength);
     const awayProfile = teamB.profile || europeProfileFromStrength(teamB.strength);
-    const result = simulateLeagueResult(homeProfile, awayProfile, rng, teamA.name);
+    const result = simulateLeagueResult(homeProfile, awayProfile, rng, teamA.name, undefined, undefined, { neutral });
     return {
       home: teamA,
       away: teamB,
@@ -5145,33 +5190,37 @@
   }
 
   function simulateTwoLegTie(teamA, teamB, rng) {
-    const first = simulateEuropeanTie(teamA, teamB, rng, false);
-    const second = simulateEuropeanTie(teamB, teamA, rng, false);
-    const aggregateA = first.homeGoals + second.awayGoals;
-    const aggregateB = first.awayGoals + second.homeGoals;
-    let winner = null;
-    if (aggregateA > aggregateB) winner = teamA;
-    else if (aggregateB > aggregateA) winner = teamB;
-    else winner = rng() < 0.5 ? teamA : teamB;
+    const tie = createEuropeanTie(teamA, teamB, true);
+    for (let legIndex = 0; legIndex < 2; legIndex += 1) {
+      const { home, away } = G38SimulationCore.nextKnockoutLegTeams(tie);
+      tie.legs.push(simulateEuropeanTie(home, away, rng, false));
+    }
+    finalizeEuropeanTie(tie, rng);
     return {
       home: teamA,
       away: teamB,
-      homeGoals: aggregateA,
-      awayGoals: aggregateB,
-      winner,
-      legs: [first, second]
+      homeGoals: tie.aggregateA,
+      awayGoals: tie.aggregateB,
+      winner: tie.winner,
+      legs: tie.legs,
+      extraTime: tie.extraTime,
+      penalties: tie.penalties
     };
   }
 
-  function updateEuropeanStats(team, goalsFor, goalsAgainst) {
+  function updateEuropeanStats(team, goalsFor, goalsAgainst, isAway = false) {
     if (!team) return;
     team.played = Number(team.played || 0) + 1;
-    if (goalsFor > goalsAgainst) team.wins = Number(team.wins || 0) + 1;
+    if (goalsFor > goalsAgainst) {
+      team.wins = Number(team.wins || 0) + 1;
+      if (isAway) team.awayWins = Number(team.awayWins || 0) + 1;
+    }
     else if (goalsFor === goalsAgainst) team.draws = Number(team.draws || 0) + 1;
     else team.losses = Number(team.losses || 0) + 1;
     team.points += goalsFor > goalsAgainst ? 3 : goalsFor === goalsAgainst ? 1 : 0;
     team.goalsFor += goalsFor;
     team.goalsAgainst += goalsAgainst;
+    if (isAway) team.awayGoals = Number(team.awayGoals || 0) + goalsFor;
   }
 
   function renderEuropeanBracket(rounds) {
@@ -5343,6 +5392,17 @@
       scroll.appendChild(body);
       details.appendChild(scroll);
       ui.europeResults.appendChild(details);
+    }
+    const leaguePhaseLogs = (europeResult.logs || []).filter((log) => (
+      log.userMatch && String(log.stage || "").startsWith("联赛阶段")
+    ));
+    if (leaguePhaseLogs.length) {
+      const leagueResults = el("section", "europe-league-phase-results", "");
+      leagueResults.appendChild(el("h3", "", uiText("联赛阶段赛果", "League Phase Results")));
+      const list = el("div", "europe-league-results-list", "");
+      leaguePhaseLogs.forEach((log) => list.appendChild(renderEuropeanLeagueResultRow(log)));
+      leagueResults.appendChild(list);
+      ui.europeResults.appendChild(leagueResults);
     }
     const bracket = renderEuropeanBracket(europeResult.rounds);
     if (bracket) ui.europeResults.appendChild(bracket);

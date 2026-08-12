@@ -1828,11 +1828,26 @@ button {
   background: rgba(34, 197, 94, 0.08);
 }
 
+.simulation-current.league-simulation-shell {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .sim-match-current {
   display: grid;
   gap: 6px;
   align-items: center;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr;
+}
+
+.sim-match-current .match-score {
+  min-width: 48px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 18px;
+  text-align: center;
 }
 
 .sim-match-current strong {
@@ -1916,12 +1931,18 @@ button {
 
 .sim-match-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 46px minmax(0, 1fr);
   gap: 10px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 13px;
+}
+
+.sim-list-score {
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
 }
 
 .match-score small {
@@ -2159,6 +2180,95 @@ button {
   display: grid;
   gap: 14px;
   margin-top: 14px;
+}
+
+.europe-league-current,
+.europe-league-result-row {
+  display: grid;
+  grid-template-columns: minmax(118px, auto) 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.europe-league-current {
+  padding: 14px;
+  border: 1px solid rgba(74, 222, 128, 0.42);
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.europe-league-results-list {
+  display: grid;
+  gap: 6px;
+}
+
+.europe-league-result-row {
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.europe-league-result-row.user-row {
+  border-left: 3px solid rgba(74, 222, 128, 0.72);
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.europe-league-round {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.europe-league-score {
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 17px;
+  text-align: center;
+}
+
+.europe-league-matchup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.europe-league-matchup span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.europe-league-matchup span:last-child {
+  text-align: right;
+}
+
+.europe-league-matchup small {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.europe-league-matchup .user-team {
+  color: #86efac;
+  font-weight: 900;
+}
+
+.league-simulation-scorers {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
+.europe-league-phase-results {
+  display: grid;
+  gap: 10px;
+}
+
+.europe-league-phase-results > h3 {
+  margin: 8px 0 0;
+  font-size: 16px;
 }
 
 .europe-live-match {
@@ -2951,6 +3061,26 @@ button {
   .europe-live-match {
     gap: 14px;
     padding: 14px 12px;
+  }
+
+  .europe-league-current,
+  .europe-league-result-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 7px 9px;
+  }
+
+  .europe-league-round {
+    grid-column: 1 / -1;
+  }
+
+  .europe-league-score {
+    padding-inline: 5px;
+    font-size: 15px;
+  }
+
+  .europe-league-matchup {
+    gap: 5px;
+    font-size: 11px;
   }
 
   .europe-live-scoreboard {

@@ -37,20 +37,20 @@ async function run() {
   if (requests.length) throw new Error("Loader requested history during startup");
 
   const [first, duplicate] = await Promise.all([
-    loader.loadSeasonData("1992-93"),
-    loader.loadSeasonData("1992-93")
+    loader.loadSeasonData("1994-95"),
+    loader.loadSeasonData("1994-95")
   ]);
   if (first !== duplicate) throw new Error("Concurrent requests did not share the cached result");
   if (requests.length !== 1) throw new Error(`Expected one history request, received ${requests.length}`);
-  if (!first.clubs.length || loader.getSeasonData("1992-93") !== first) throw new Error("History cache is invalid");
+  if (!first.clubs.length || loader.getSeasonData("1994-95") !== first) throw new Error("History cache is invalid");
 
-  await loader.loadSeasonRange(["1992-93", "1993-94", "1994-95"], 2);
+  await loader.loadSeasonRange(["1994-95", "1995-96", "1996-97"], 2);
   if (requests.length !== 3) throw new Error(`Range loading made an unexpected number of requests: ${requests.length}`);
-  if (!loader.hasSeasonData("1993-94") || !loader.hasSeasonData("1994-95")) throw new Error("Range cache is incomplete");
+  if (!loader.hasSeasonData("1995-96") || !loader.hasSeasonData("1996-97")) throw new Error("Range cache is incomplete");
 
   let rejected = false;
   try {
-    await loader.loadSeasonData("1900-01");
+    await loader.loadSeasonData("1992-93");
   } catch {
     rejected = true;
   }

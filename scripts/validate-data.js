@@ -92,6 +92,12 @@ for (const season of seasonNames) {
     clubCount += 1;
     playerCount += club.players.length;
   }
+  if (season !== "2025-26" && clubs.length) {
+    const incomplete = clubs.filter((club) => Array.isArray(club.players) && club.players.length < 11).length;
+    if (incomplete / clubs.length > 0.5) {
+      errors.push(`${season}: ${incomplete}/${clubs.length} clubs have fewer than 11 players`);
+    }
+  }
 }
 
 const current = seasons["2025-26"] && seasons["2025-26"].clubs;

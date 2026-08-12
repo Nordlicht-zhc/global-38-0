@@ -32,6 +32,7 @@ node scripts/random-test.js
 node scripts/player-identity-test.js
 node scripts/season-loader-test.js
 node scripts/balance-test.js --runs=1000 --seed=review
+node scripts/cup-europe-balance-test.js --runs=1000 --seed=review
 git diff --check
 ```
 

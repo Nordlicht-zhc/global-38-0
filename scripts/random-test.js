@@ -23,6 +23,37 @@ buckets.forEach((count, index) => {
   assert(Math.abs(count - 10000) < 500, `Bucket ${index} is unexpectedly imbalanced: ${count}.`);
 });
 
+const challengeSchedule = [
+  { home: "AI A", away: "AI B" },
+  { home: "AI C", away: "AI D" },
+  { home: "AI A", away: "我的球队" },
+  { home: "AI B", away: "AI C" },
+  { home: "我的球队", away: "AI D" }
+];
+const simulatedAiFixtures = [];
+let scheduleIndex = core.advanceAiFixtures(
+  challengeSchedule,
+  0,
+  (fixture) => simulatedAiFixtures.push(fixture),
+  { endIndex: 2 }
+);
+assert.strictEqual(scheduleIndex, 2, "The transfer checkpoint must stop AI fixture advancement.");
+scheduleIndex = core.advanceAiFixtures(
+  challengeSchedule,
+  scheduleIndex,
+  (fixture) => simulatedAiFixtures.push(fixture)
+);
+assert.strictEqual(scheduleIndex, 2, "After an automatic transfer skip, advancement must stop at the next user fixture.");
+scheduleIndex += 1;
+scheduleIndex = core.advanceAiFixtures(
+  challengeSchedule,
+  scheduleIndex,
+  (fixture) => simulatedAiFixtures.push(fixture)
+);
+assert.strictEqual(scheduleIndex, 4, "AI fixtures after the checkpoint must not consume a user match.");
+assert.strictEqual(simulatedAiFixtures.length, 3, "Every AI-only fixture before the next user match must be simulated exactly once.");
+
 console.log("Seed replay: PASS");
 console.log("Persisted-state resume: PASS");
+console.log("Challenge transfer resume: PASS");
 console.log(`Distribution buckets: ${buckets.join(", ")}`);

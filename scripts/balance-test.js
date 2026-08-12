@@ -105,6 +105,7 @@ function simulateLeague(league, profiles, iteration) {
   const schedule = core.createLeagueSchedule(names, "__no_user__");
   const table = core.createLeagueTable(names, "__no_user__");
   const elo = core.createEloMap(profiles);
+  const outcomes = { homeWins: 0, draws: 0, awayWins: 0, goals: 0, matches: 0 };
   schedule.forEach((match) => {
     const result = core.simulateLeagueResult(
       profiles[match.home], profiles[match.away], rng, match.home, elo[match.home], elo[match.away]
@@ -112,8 +113,11 @@ function simulateLeague(league, profiles, iteration) {
     elo[match.home] = result.newEloHome;
     elo[match.away] = result.newEloAway;
     core.applyLeagueResult(table, match.home, match.away, result.gf, result.ga);
+    outcomes[result.result === "H" ? "homeWins" : result.result === "D" ? "draws" : "awayWins"] += 1;
+    outcomes.goals += result.gf + result.ga;
+    outcomes.matches += 1;
   });
-  return core.sortLeagueRows(table);
+  return { rows: core.sortLeagueRows(table), outcomes };
 }
 
 const season = loadSeasonPlayers();
@@ -132,8 +136,11 @@ Object.keys(leagueNames).forEach((league) => {
     positions: 0,
     strength: profiles[club.name].overall
   }]));
+  const outcomes = { homeWins: 0, draws: 0, awayWins: 0, goals: 0, matches: 0 };
   for (let iteration = 0; iteration < runs; iteration += 1) {
-    simulateLeague(league, profiles, iteration).forEach((row, index, rows) => {
+    const simulation = simulateLeague(league, profiles, iteration);
+    Object.keys(outcomes).forEach((key) => { outcomes[key] += simulation.outcomes[key]; });
+    simulation.rows.forEach((row, index, rows) => {
       const entry = stats[row.name];
       entry.champion += index === 0 ? 1 : 0;
       entry.ucl += index < uclPlaces[league] ? 1 : 0;
@@ -151,6 +158,12 @@ Object.keys(leagueNames).forEach((league) => {
     averagePoints: Number((entry.points / runs).toFixed(1)),
     averagePosition: Number((entry.positions / runs).toFixed(2))
   })).sort((a, b) => b.championPct - a.championPct || a.averagePosition - b.averagePosition);
+  report.leagues[league].outcomes = {
+    homeWinPct: Number((outcomes.homeWins * 100 / outcomes.matches).toFixed(1)),
+    drawPct: Number((outcomes.draws * 100 / outcomes.matches).toFixed(1)),
+    awayWinPct: Number((outcomes.awayWins * 100 / outcomes.matches).toFixed(1)),
+    goalsPerMatch: Number((outcomes.goals / outcomes.matches).toFixed(2))
+  };
   const leaders = report.leagues[league];
   if (leaders[0].championPct >= 65) {
     report.warnings.push(`${leagueNames[league]}: ${leaders[0].name} wins ${leaders[0].championPct}% of titles.`);
@@ -166,6 +179,7 @@ if (outputJson) {
   console.log(`Global 38-0 balance test | runs=${runs} per league | seed=${baseSeed}`);
   Object.entries(report.leagues).forEach(([league, rows]) => {
     console.log(`\n${leagueNames[league]} | top 8`);
+    console.log(`Outcomes | H ${rows.outcomes.homeWinPct}% | D ${rows.outcomes.drawPct}% | A ${rows.outcomes.awayWinPct}% | Goals ${rows.outcomes.goalsPerMatch}`);
     console.table(rows.slice(0, 8).map((row) => ({
       Team: row.name,
       OVR: row.strength,

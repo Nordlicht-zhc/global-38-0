@@ -20,6 +20,7 @@
   const TRANSFER_CHEMISTRY_LOSS = 0.03;
   const TRANSFER_CHEMISTRY_RECOVERY = 0.01;
   const CHEMISTRY_RATING_FLOOR = 60;
+  const HOME_ELO_ADVANTAGE = 45;
   const COACHES = {
     highPress: {
       id: "highPress",
@@ -91,7 +92,7 @@
     fra: { name: "法国杯", nameEn: "Coupe de France", champion: "法国杯冠军", championEn: "Coupe de France Champion", lowerTeams: ["亚眠", "阿讷西", "巴斯蒂亚", "卡昂", "克莱蒙", "敦刻尔克", "格勒诺布尔", "甘冈", "拉瓦勒", "蒙彼利埃", "波城", "红星", "罗德兹", "特鲁瓦"] }
   };
   const EUROPE_LIST_VERSION = "2025-26-v3";
-  const SIM_VERSION = "2026-v3";
+  const SIM_VERSION = "2026-v4";
   const LANG_KEY = "g38-lang";
   let currentLang = "zh";
   try {
@@ -840,13 +841,10 @@
   const gameRng = (game) => () => nextGameRandom(game);
 
   const getLeague = (id) => LEAGUES.find((l) => l.id === id);
-  const getSeasonData = (season) => {
-    const targetSeason = season || CURRENT_DATA_SEASON;
-    if (typeof SEASON_PLAYERS !== "undefined" && SEASON_PLAYERS[targetSeason]) return SEASON_PLAYERS[targetSeason];
-    if (typeof LEGACY_SEASONS !== "undefined" && LEGACY_SEASONS[targetSeason]) return LEGACY_SEASONS[targetSeason];
-    if (typeof SEASON_PLAYERS !== "undefined" && SEASON_PLAYERS[CURRENT_DATA_SEASON]) return SEASON_PLAYERS[CURRENT_DATA_SEASON];
-    return { source: `${CURRENT_DATA_SEASON} 五大联赛球员数据`, clubs: Object.values(CLUBS) };
-  };
+  const getSeasonData = (season) => G38SeasonData.getSeasonData(season || CURRENT_DATA_SEASON);
+  const loadSeasonData = (season) => G38SeasonData.loadSeasonData(season || CURRENT_DATA_SEASON);
+  const loadSeasonRange = (seasons) => G38SeasonData.loadSeasonRange(seasons);
+  const hasSeasonData = (season) => G38SeasonData.hasSeasonData(season || CURRENT_DATA_SEASON);
   const findClubInSeason = (id, season) => {
     const data = getSeasonData(season);
     const direct = data.clubs.find((club) => club.id === id);
@@ -865,26 +863,7 @@
     const data = getSeasonData(season);
     const seasonal = findClubInSeason(id, season);
     if (seasonal) return seasonal;
-    const current = CLUBS[id];
-    const aliases = HISTORICAL_CLUB_IDS[id] || [];
-    if (season && season !== CURRENT_DATA_SEASON) {
-      const targetYear = Number(String(season).slice(0, 4)) || 0;
-      const ids = new Set([id, ...aliases]);
-      const matches = [];
-      const sources = [];
-      if (typeof LEGACY_SEASONS !== "undefined") sources.push(LEGACY_SEASONS);
-      if (typeof SEASON_PLAYERS !== "undefined") sources.push(SEASON_PLAYERS);
-      sources.forEach((source) => {
-        Object.entries(source).forEach(([key, entry]) => {
-          if (key === CURRENT_DATA_SEASON || !entry?.clubs) return;
-          const club = entry.clubs.find((c) => ids.has(c.id));
-          if (club) matches.push({ year: Number(String(key).slice(0, 4)) || 0, club });
-        });
-      });
-      matches.sort((a, b) => Math.abs(a.year - targetYear) - Math.abs(b.year - targetYear) || a.year - b.year);
-      if (matches.length) return matches[0].club;
-    }
-    return current || data.clubs[0];
+    return CLUBS[id] || data.clubs[0];
   };
   const clubsForLeague = (id, season = CURRENT_DATA_SEASON) => getSeasonData(season).clubs.filter((c) => c.league === id);
   const allClubs = (season) => getSeasonData(season).clubs;
@@ -954,80 +933,9 @@
     renderHeroStats();
   };
 
-  let memoryStore = {};
-  let dbPromise = null;
-
-  function openStorageDB() {
-    if (!('indexedDB' in window)) return Promise.reject(new Error('no indexedDB'));
-    if (dbPromise) return dbPromise;
-    dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open('g38-storage', 1);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    return dbPromise;
-  }
-
-  function persistValue(key, value) {
-    openStorageDB()
-      .then((db) => new Promise((resolve, reject) => {
-        const tx = db.transaction('kv', 'readwrite');
-        tx.objectStore('kv').put(value, key);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      }))
-      .catch(() => {
-        try {
-          localStorage.setItem(key, JSON.stringify(value));
-        } catch {
-          // Ignore localStorage quota errors; IndexedDB is the primary store.
-        }
-      });
-  }
-
-  async function loadStorage() {
-    try {
-      const db = await openStorageDB();
-      const tx = db.transaction('kv', 'readonly');
-      const store = tx.objectStore('kv');
-      const keysRequest = store.getAllKeys();
-      const valuesRequest = store.getAll();
-      const keys = await new Promise((resolve, reject) => {
-        keysRequest.onsuccess = () => resolve(keysRequest.result || []);
-        keysRequest.onerror = () => reject(keysRequest.error);
-      });
-      const values = await new Promise((resolve, reject) => {
-        valuesRequest.onsuccess = () => resolve(valuesRequest.result || []);
-        valuesRequest.onerror = () => reject(valuesRequest.error);
-      });
-      keys.forEach((key, index) => {
-        if (index < values.length) memoryStore[key] = values[index];
-      });
-    } catch {
-      // IndexedDB unavailable: fall back to old localStorage data below.
-    }
-    [STORAGE_GAME, STORAGE_RUNS].forEach((key) => {
-      if (key in memoryStore) return;
-      try {
-        const value = localStorage.getItem(key);
-        if (value) memoryStore[key] = JSON.parse(value);
-      } catch {
-        // Ignore missing or corrupt legacy entries.
-      }
-    });
-  }
-
-  const safeGet = (key) => (key in memoryStore ? memoryStore[key] : null);
-
-  const safeSet = (key, value) => {
-    memoryStore[key] = value;
-    persistValue(key, value);
-    return true;
-  };
+  const loadStorage = () => G38Storage.load([STORAGE_GAME, STORAGE_RUNS]);
+  const safeGet = (key) => G38Storage.get(key);
+  const safeSet = (key, value) => G38Storage.set(key, value);
 
   function isSelfMatch(match) {
     if (!match) return false;
@@ -1108,7 +1016,7 @@
       }).observe(document.body, { childList: true, subtree: true, characterData: true });
     }
     bindEvents();
-    loadSavedGame();
+    await loadSavedGame();
     if (state.game) renderGame();
     drawWheel();
   }
@@ -1248,15 +1156,24 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function loadSavedGame() {
+  async function loadSavedGame() {
     const saved = safeGet(STORAGE_GAME);
+    if (saved?.phase === "drafting") {
+      await loadSeasonData(saved.currentSpin?.season || saved.season || CURRENT_DATA_SEASON).catch((error) => {
+        console.error(error);
+      });
+    }
     if (
       saved
       && saved.slots
       && saved.phase === "drafting"
-      && getSeasonData(saved.season).clubs.length
+      && hasSeasonData(saved.currentSpin?.season || saved.season || CURRENT_DATA_SEASON)
     ) {
       ensureGameRandomState(saved);
+      saved.playerIdentityHistory = [...new Set([
+        ...(saved.playerIdentityHistory || []),
+        ...(saved.draftedPlayers || []).map((player) => G38PlayerIdentity.key(player, HISTORICAL_CLUB_IDS))
+      ])];
       if (!saved.seasonRange) {
         saved.seasonRange = { start: "1992-93", end: "2025-26" };
       }
@@ -1315,6 +1232,7 @@
       formation,
       slots,
       draftedPlayers: [],
+      playerIdentityHistory: [],
       currentSpin: null,
       candidates: [],
       rerolls: REROLL_BUDGET[ui.difficultySelect.value],
@@ -1831,6 +1749,7 @@
     };
     slot.player = drafted;
     game.draftedPlayers.push(drafted);
+    rememberPlayerIdentity(game, drafted);
     game.candidates = [];
     if (game.currentSpin) game.currentSpin.drafted = true;
     state.pendingDraftPlayerId = null;
@@ -1962,11 +1881,31 @@
     });
   }
 
-  function isDrafted(playerId) {
-    return (state.game?.draftedPlayers || []).some((p) => p.id === playerId);
+  function playerIdentity(player) {
+    return G38PlayerIdentity.key(player, HISTORICAL_CLUB_IDS);
   }
 
-  function spinWheel() {
+  function rememberPlayerIdentity(game, player) {
+    game.playerIdentityHistory = game.playerIdentityHistory || [];
+    const identity = playerIdentity(player);
+    if (!game.playerIdentityHistory.includes(identity)) game.playerIdentityHistory.push(identity);
+  }
+
+  function isOwnedPlayer(player, game = state.game) {
+    if (!game || !player) return false;
+    const identity = playerIdentity(player);
+    return (game.playerIdentityHistory || []).includes(identity)
+      || (game.draftedPlayers || []).some((drafted) => playerIdentity(drafted) === identity);
+  }
+
+  function isDrafted(playerOrId) {
+    const candidate = typeof playerOrId === "string"
+      ? state.game?.candidates?.find((player) => player.id === playerOrId) || { id: playerOrId }
+      : playerOrId;
+    return isOwnedPlayer(candidate);
+  }
+
+  async function spinWheel() {
     const game = state.game;
     if (!game) {
       toast("请先开始一场选秀。");
@@ -1989,6 +1928,18 @@
     const leagueId = leagueIds[Math.floor(rng() * leagueIds.length)];
     const season = randomSeasonInRange(game.seasonRange, rng);
     game.season = season;
+    state.spinning = true;
+    ui.spinBtn.disabled = true;
+    try {
+      await loadSeasonData(season);
+    } catch (error) {
+      state.spinning = false;
+      ui.spinBtn.disabled = false;
+      toast(uiText("历史赛季数据加载失败，请重试。", "Could not load the historical season. Please retry."));
+      console.error(error);
+      return;
+    }
+    state.spinning = false;
     const pool = clubsForLeague(leagueId, season);
     if (!pool.length) {
       toast("这个赛季没有可抽球队，请换一个赛季。");
@@ -2120,9 +2071,11 @@
       .map((player) => ({
         ...player,
         id: `${spinSeason}|${club.id}|${player.name}`,
+        sourceClubId: club.id,
+        sourceSeason: spinSeason,
         rate: clamp(calibrateRate(Number(player.rate || 80), spinSeason) + Math.floor(rng() * 3) - 1, 40, 99)
       }))
-      .filter((player) => !isDrafted(player.id));
+      .filter((player) => !isOwnedPlayer(player, game));
     if (!game.hideRatings) {
       return mapped.sort((a, b) => b.rate - a.rate);
     }
@@ -2136,7 +2089,7 @@
       if (rate >= 76) return rate - 3;
       return rate - 2;
     }
-    if (typeof LEGACY_SEASONS !== "undefined" && LEGACY_SEASONS[season]) {
+    if (season !== CURRENT_DATA_SEASON) {
       return rate + 2;
     }
     return rate;
@@ -2364,7 +2317,7 @@
     resumeAfterTransfer(transfer.sim);
   }
 
-  function prepareTransferStep(transfer) {
+  async function prepareTransferStep(transfer) {
     const rng = gameRng(transfer.sim.game);
     if (transfer.step === 2) {
       transfer.mode = SECOND_TRANSFER_MODE_KEYS[Math.floor(rng() * SECOND_TRANSFER_MODE_KEYS.length)];
@@ -2377,7 +2330,19 @@
     const directMode = transfer.mode === "free" || transfer.mode === "mystery";
     document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
     ui.rerollBtn.classList.toggle("hidden", directMode);
-    if (directMode) prepareDirectTransferCandidates(transfer);
+    if (directMode) {
+      state.spinning = true;
+      ui.transferStatus.textContent = uiText("正在加载历史球员数据…", "Loading historical player data…");
+      try {
+        await loadSeasonRange(seasonsInRange(transfer.sim.game.seasonRange));
+        prepareDirectTransferCandidates(transfer);
+      } catch (error) {
+        toast(uiText("历史球员数据加载失败，请重试。", "Could not load historical players. Please retry."));
+        console.error(error);
+      } finally {
+        state.spinning = false;
+      }
+    }
     saveGame();
     renderTransferHeader();
     renderPitch();
@@ -2389,7 +2354,7 @@
   function buildDirectTransferPool(transfer, game) {
     const seasons = seasonsInRange(game.seasonRange);
     const leagueIds = game.leagues.length ? game.leagues : [...state.selectedLeagues];
-    const currentIds = new Set(game.slots.map((slot) => slot.player?.id).filter(Boolean));
+    const identities = new Set();
     return seasons.flatMap((season) => leagueIds.flatMap((leagueId) => (
       allClubs(season)
         .filter((club) => club.league === leagueId)
@@ -2402,7 +2367,13 @@
           sourceSeason: season
         })))
     )))
-      .filter((player) => !currentIds.has(player.id))
+      .filter((player) => !isOwnedPlayer(player, game))
+      .filter((player) => {
+        const identity = playerIdentity(player);
+        if (identities.has(identity)) return false;
+        identities.add(identity);
+        return true;
+      })
       .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)));
   }
 
@@ -2454,7 +2425,7 @@
     ].filter(Boolean);
   }
 
-  function spinTransferWheel() {
+  async function spinTransferWheel() {
     const transfer = state.transfer;
     if (!transfer || state.spinning) return;
     if (transfer.currentSpin && transfer.candidates.length) return;
@@ -2467,6 +2438,18 @@
     const rng = gameRng(game);
     const leagueId = leagueIds[Math.floor(rng() * leagueIds.length)];
     const season = randomSeasonInRange(game.seasonRange, rng);
+    state.spinning = true;
+    ui.spinBtn.disabled = true;
+    try {
+      await loadSeasonData(season);
+    } catch (error) {
+      state.spinning = false;
+      ui.spinBtn.disabled = false;
+      toast(uiText("历史赛季数据加载失败，请重试。", "Could not load the historical season. Please retry."));
+      console.error(error);
+      return;
+    }
+    state.spinning = false;
     const pool = allClubs(season).filter((club) => club.league === leagueId);
     if (!pool.length) {
       toast(uiText("没有可抽球队，请换一个赛季。", "No clubs available for this season."));
@@ -2502,9 +2485,11 @@
       .map((player) => ({
         ...player,
         id: `${season}|${club.id}|${player.name}`,
+        sourceClubId: club.id,
+        sourceSeason: season,
         rate: clamp(calibrateRate(Number(player.rate || 80), season) + Math.floor(rng() * 3) - 1, 40, 99)
       }))
-      .filter((player) => !game.slots.some((slot) => slot.player?.id === player.id))
+      .filter((player) => !isOwnedPlayer(player, game))
       .filter((player) => !allowedPositions || player.pos.some((pos) => allowedPositions.includes(pos)))
       .filter((player) => game.slots.some((slot) => canTransferReplace(player, slot, transfer)))
       .sort((a, b) => b.rate - a.rate);
@@ -2688,6 +2673,7 @@
     };
     slot.player = incoming;
     game.draftedPlayers.push(incoming);
+    rememberPlayerIdentity(game, incoming);
     const club = candidate.sourceClubName
       ? null
       : getClub(transfer.currentSpin.clubId, transfer.currentSpin.season);
@@ -3011,13 +2997,12 @@
     const baseDiff = homeStrength - awayStrength + 1;
     const strengthExpected = clamp(1 / (1 + Math.pow(10, -baseDiff / 8)), 0.06, 0.88);
     const expectedHome = hasElo
-      ? clamp(eloExpected(eloHome, eloAway) * 0.7 + strengthExpected * 0.3, 0.06, 0.94)
+      ? clamp(eloExpected(eloHome + HOME_ELO_ADVANTAGE, eloAway) * 0.7 + strengthExpected * 0.3, 0.06, 0.94)
       : strengthExpected;
     const diff = hasElo ? eloHome - eloAway : baseDiff;
-    const winChance = clamp(expectedHome, 0.06, 0.88);
-    const drawChance = clamp(0.3 - Math.abs(diff) * 0.008, 0.15, 0.34);
-    const roll = (rng() + rng()) / 2;
-    const result = roll < winChance ? "H" : roll < winChance + drawChance ? "D" : "A";
+    const drawChance = clamp(0.285 - Math.abs(diff) * 0.00035, 0.19, 0.3);
+    const isDraw = rng() < drawChance;
+    const result = isDraw ? "D" : rng() < expectedHome ? "H" : "A";
     const expectedFor = clamp(
       0.85
         + (homeProfile.attack - awayProfile.defense) * 0.055

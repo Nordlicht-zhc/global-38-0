@@ -1667,6 +1667,38 @@ button {
   border-color: rgba(74, 222, 128, 0.45);
 }
 
+.league-table-row.user-row {
+  background: rgba(255, 255, 255, 0.055);
+  border-bottom-color: var(--line);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+  font-weight: 800;
+}
+
+.league-table-row.user-row.league-zone-ucl {
+  border-left-color: #22c55e;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.league-table-row.user-row.league-zone-uel {
+  border-left-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.league-table-row.user-row.league-zone-uecl {
+  border-left-color: #a78bfa;
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.league-table-row.user-row.league-zone-playoff {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.league-table-row.user-row.league-zone-relegation {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+}
+
 .award-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2138,11 +2170,27 @@ button {
   opacity: 0.82;
 }
 
-.europe-team-row.user-row,
-.europe-user-highlight {
+.europe-team-row.user-row {
   border-color: rgba(74, 222, 128, 0.5);
   background: rgba(74, 222, 128, 0.13);
   font-weight: 800;
+}
+
+.europe-user-highlight {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+  font-weight: 800;
+}
+
+.europe-user-highlight.europe-zone-direct {
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.europe-user-highlight.europe-zone-playoff {
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.europe-user-highlight.europe-zone-out {
+  background: rgba(239, 68, 68, 0.14);
 }
 
 @media (max-width: 900px) {

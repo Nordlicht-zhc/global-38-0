@@ -27,6 +27,7 @@ function checkPlayer(player, label) {
     return;
   }
   if (!String(player.name || "").trim()) errors.push(`${label}: missing player name`);
+  if (String(player.name || "").includes("?")) errors.push(`${label}: corrupted player name ${player.name}`);
   if (!String(player.nat || "").trim()) errors.push(`${label}: missing nationality`);
   if (!Number.isInteger(player.rate) || player.rate < 40 || player.rate > 99) {
     errors.push(`${label}/${player.name || "unknown"}: invalid rating ${player.rate}`);
@@ -42,6 +43,18 @@ function checkPlayer(player, label) {
 
 vm.createContext(sandbox);
 const seasons = loadGlobal("season-players.js", "SEASON_PLAYERS");
+const historyDir = path.join(root, "history-data");
+if (fs.existsSync(historyDir)) {
+  for (const file of fs.readdirSync(historyDir).filter((name) => name.endsWith(".js"))) {
+    const historySandbox = { window: {} };
+    vm.createContext(historySandbox);
+    vm.runInContext(fs.readFileSync(path.join(historyDir, file), "utf8"), historySandbox, { filename: file });
+    for (const [season, data] of Object.entries(historySandbox.window.G38_HISTORY_DATA || {})) {
+      if (seasons[season]) errors.push(`${season}: duplicated in active and historical data`);
+      seasons[season] = data;
+    }
+  }
+}
 const seasonNames = Object.keys(seasons);
 let clubCount = 0;
 let playerCount = 0;
@@ -63,6 +76,7 @@ for (const season of seasonNames) {
     if (ids.has(club.id)) errors.push(`${season}: duplicate club id ${club.id}`);
     ids.add(club.id);
     if (!String(club.name || "").trim()) errors.push(`${label}: missing club name`);
+    if (String(club.name || "").includes("?")) errors.push(`${label}: corrupted club name ${club.name}`);
     if (!validLeagues.has(club.league)) errors.push(`${label}: invalid league ${club.league}`);
     if (!Array.isArray(club.players)) {
       errors.push(`${label}: players must be an array`);

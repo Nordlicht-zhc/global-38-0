@@ -54,12 +54,28 @@ const additions = {
   ]
 };
 
+const clubNameRepairs = {
+  "atletico-de-madrid": "Atlético de Madrid",
+  "d-alaves": "D. Alavés",
+  "1-fc-koln": "1. FC Köln",
+  "fc-bayern-munchen": "FC Bayern München"
+};
+
 const current = sandbox.data["2025-26"];
 if (!current || !Array.isArray(current.clubs)) {
   throw new Error("2025-26 club data is missing");
 }
 
 let added = 0;
+let renamed = 0;
+for (const [clubId, name] of Object.entries(clubNameRepairs)) {
+  const club = current.clubs.find((entry) => entry.id === clubId);
+  if (!club) throw new Error(`Unknown club id: ${clubId}`);
+  if (club.name !== name) {
+    club.name = name;
+    renamed += 1;
+  }
+}
 for (const [clubId, players] of Object.entries(additions)) {
   const club = current.clubs.find((entry) => entry.id === clubId);
   if (!club) throw new Error(`Unknown club id: ${clubId}`);
@@ -72,4 +88,4 @@ for (const [clubId, players] of Object.entries(additions)) {
 
 const output = `// 2004-05 through 2025-26 player pools. Active 2025-26 squads use FC 26 launch ratings with documented season additions.\nconst SEASON_PLAYERS = ${JSON.stringify(sandbox.data)};\n`;
 fs.writeFileSync(dataPath, output, "utf8");
-console.log(`Added ${added} player records to the 2025-26 squads.`);
+console.log(`Added ${added} player records and repaired ${renamed} club names in the 2025-26 squads.`);

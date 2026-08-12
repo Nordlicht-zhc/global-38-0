@@ -2,16 +2,16 @@
 
 ## Project Structure & Module Organization
 
-This is a build-free browser football simulation. `global 38-0.html` is the only application entry point; do not rename it to `index.html`. `app.js` contains drafting, transfers, coaches, cups, persistence, achievements, and i18n. `simulation-core.js` contains shared seeded league simulation logic. `styles.css` owns presentation.
+This is a build-free browser football simulation. `global 38-0.html` is the only entry point. `app.js` coordinates UI and game flows; `simulation-core.js`, `season-data.js`, and `storage.js` own simulation, lazy data access, and persistence. `styles.css` owns presentation.
 
 Keep data separate from behavior:
 
 - `data.js` and `big-five*.js`: leagues, formations, and base club metadata. `big-five-squads.js` is a retired 2026-27 import and must not be re-enabled.
-- `season-players.js`, `legacy-seasons.js`, and `legacy-capture.js`: active 2025-26 and historical player pools.
+- `season-players.js`: active 2025-26 player pool. `season-data.js` lazily loads per-season JavaScript chunks from `history-data/`; regenerate them with `scripts/split-season-data.js`.
 - `european-clubs.js`: European competition entrants and profiles.
 - `scripts/`: one-off or repeatable data-repair utilities.
 
-There is currently no dedicated test directory or asset pipeline.
+There is no dedicated test directory or asset pipeline.
 
 ## Build, Test, and Development Commands
 
@@ -35,6 +35,7 @@ Run `git diff --check` to catch whitespace errors. When data changes, verify lea
 Run `node scripts/balance-test.js --runs=1000 --seed=review` to compare champion, European qualification, and relegation rates with reproducible results.
 Run `node scripts/random-test.js` after changing seeded random behavior.
 Run `node scripts/validate-data.js` after editing club or player data.
+Run `node scripts/season-loader-test.js` after changing lazy history loading.
 
 ## Coding Style & Naming Conventions
 

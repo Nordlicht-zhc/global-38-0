@@ -16,7 +16,7 @@
     MID: ["CDM", "CM", "CAM", "RM", "LM"],
     ATT: ["ST", "LW", "RW"]
   };
-  const SECOND_TRANSFER_MODE_KEYS = ["free", "mystery"];
+  const SECOND_TRANSFER_MODE_KEYS = ["free", "mystery", "deadline"];
   const TRANSFER_CHEMISTRY_LOSS = 0.03;
   const TRANSFER_CHEMISTRY_RECOVERY = 0.01;
   const CHEMISTRY_RATING_FLOOR = 60;
@@ -988,7 +988,7 @@
       renderCandidates();
       renderTeamRating();
       if (state.transfer) {
-        const directMode = state.transfer.mode === "free" || state.transfer.mode === "mystery";
+        const directMode = ["free", "mystery", "deadline"].includes(state.transfer.mode);
         ui.transferPanel.classList.remove("hidden");
         ui.simulationPanel.classList.add("hidden");
         document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
@@ -1329,7 +1329,7 @@
     const game = state.game;
     if (state.transfer) {
       const transfer = state.transfer;
-      if (transfer.mode === "free" || transfer.mode === "mystery") {
+      if (["free", "mystery", "deadline"].includes(transfer.mode)) {
         ui.spinBtn.disabled = true;
         ui.rerollBtn.disabled = true;
         return;
@@ -2291,6 +2291,10 @@
         ? transfer.revealedCandidateId
           ? uiText("盲盒已经锁定，点击球场上的兼容位置完成签约。", "The box is locked in. Click a compatible slot to complete the signing.")
           : uiText("三个盲盒只能打开一个；揭晓后必须签下这名球员。", "Only one of the three boxes can be opened; the revealed player must be signed.")
+        : transfer.mode === "deadline"
+          ? transfer.selectedCandidateId
+            ? uiText("报价已经锁定，点击球场上的兼容位置完成签约。", "The offer is locked in. Click a compatible slot to complete the signing.")
+            : uiText("前两份报价可以放弃且不可撤回；第三份报价必须签约。", "The first two offers may be rejected and cannot be recalled; the third offer must be signed.")
         : uiText("系统会先筛出拥有合格补强球员的球队，再从中抽取；点击可补强的位置完成转会。", "The game first filters for clubs with a valid upgrade, then draws from them. Click an upgradeable slot to complete the transfer.");
     ui.transferStatus.appendChild(el("span", "", instruction));
     renderTransferLog();
@@ -2300,6 +2304,7 @@
     return mode === "weak" ? uiText("弱项补强", "Weak-Area")
       : mode === "free" ? uiText("自由签约", "Free Signing")
       : mode === "mystery" ? uiText("盲盒签约", "Mystery Signing")
+      : mode === "deadline" ? uiText("截止日抉择", "Deadline Day")
       : mode === "random" ? uiText("随机引援", "Random Signing")
       : mode === "swap" ? uiText("球员交换", "Player Swap")
       : uiText("转会", "Transfer");
@@ -2356,7 +2361,8 @@
     transfer.candidates = [];
     transfer.selectedCandidateId = null;
     transfer.revealedCandidateId = null;
-    const directMode = transfer.mode === "free" || transfer.mode === "mystery";
+    transfer.deadlineOfferIndex = 0;
+    const directMode = ["free", "mystery", "deadline"].includes(transfer.mode);
     document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
     ui.rerollBtn.classList.toggle("hidden", directMode);
     if (directMode) {
@@ -2435,6 +2441,11 @@
     };
     if (transfer.mode === "free") {
       transfer.candidates = shuffleWithRng(pool, rng).slice(0, 5);
+      return;
+    }
+    if (transfer.mode === "deadline") {
+      transfer.candidates = shuffleWithRng(pool, rng).slice(0, 3);
+      transfer.deadlineOfferIndex = 0;
       return;
     }
     transfer.candidates = buildMysteryCandidates(pool, rng);
@@ -2638,6 +2649,16 @@
       ui.spinResult.appendChild(box);
       return;
     }
+    if (transfer?.mode === "deadline") {
+      const offerNumber = Math.min((transfer.deadlineOfferIndex || 0) + 1, transfer.candidates.length || 3);
+      const box = el("div", "direct-transfer-summary deadline-summary", "");
+      box.appendChild(el("strong", "", uiText(`截止日报价 ${offerNumber}/3`, `Deadline Offer ${offerNumber}/3`)));
+      box.appendChild(el("span", "", transfer.selectedCandidateId
+        ? uiText("报价已锁定，请在球场上选择替换位置。", "Offer locked in. Choose a replacement slot on the pitch.")
+        : uiText("接受当前报价，或永久放弃并查看下一份。", "Accept this offer, or reject it permanently to see the next one.")));
+      ui.spinResult.appendChild(box);
+      return;
+    }
     if (state.spinning) {
       ui.spinResult.appendChild(el("p", "slot-drawing-status", uiText("赛季与转会目标正在抽取中…", "Drawing season and transfer target…")));
       return;
@@ -2675,7 +2696,7 @@
       return;
     }
     if (!transfer.candidates.length) {
-      const message = transfer.mode === "free" || transfer.mode === "mystery"
+      const message = ["free", "mystery", "deadline"].includes(transfer.mode)
         ? uiText("没有足够的合格球员完成本次转会。", "Not enough eligible players for this transfer.")
         : uiText("没有可签球员，请重新抽取。", "No eligible player. Redraw.");
       ui.candidates.appendChild(el("p", "history-empty", message));
@@ -2683,6 +2704,10 @@
     }
     if (transfer.mode === "mystery") {
       renderMysteryCandidates(transfer);
+      return;
+    }
+    if (transfer.mode === "deadline") {
+      renderDeadlineCandidate(transfer);
       return;
     }
     transfer.candidates.forEach((candidate) => {
@@ -2709,6 +2734,70 @@
     return risk === "safe" ? uiText("稳健选择", "Safe Pick")
       : risk === "risky" ? uiText("高风险目标", "High-Risk Target")
       : uiText("未知新援", "Unknown Signing");
+  }
+
+  function renderDeadlineCandidate(transfer) {
+    const index = transfer.deadlineOfferIndex || 0;
+    const candidate = transfer.candidates[index];
+    if (!candidate) return;
+    const finalOffer = index >= transfer.candidates.length - 1;
+    const accepted = transfer.selectedCandidateId === candidate.id;
+    const card = el("div", `candidate deadline-offer${accepted ? " pending" : ""}`, "");
+    card.appendChild(el("span", "deadline-offer-number", uiText(`报价 ${index + 1}/3`, `Offer ${index + 1}/3`)));
+    card.appendChild(el("strong", "", candidate.name));
+    card.appendChild(el("small", "", [
+      candidate.sourceSeason,
+      candidate.sourceClubName,
+      candidate.nat,
+      candidate.pos.map((pos) => POSITION_NAMES[pos] || pos).join("/")
+    ].filter(Boolean).join(" · ")));
+    card.appendChild(el("span", "rate", String(candidate.rate)));
+    const actions = el("div", "deadline-actions", "");
+    const accept = el("button", "btn btn-primary", accepted
+      ? uiText(finalOffer ? "强制签约" : "已接受", finalOffer ? "Mandatory Signing" : "Accepted")
+      : uiText("接受报价", "Accept Offer"));
+    accept.type = "button";
+    accept.disabled = accepted;
+    accept.addEventListener("click", () => {
+      transfer.selectedCandidateId = candidate.id;
+      saveGame();
+      renderTransferHeader();
+      renderTransferSpinResult();
+      renderPitch();
+      renderCandidates();
+      updateSpinControls();
+      toast(uiText(`已接受 ${candidate.name} 的报价，请选择替换位置。`, `Accepted ${candidate.name}. Choose a replacement slot.`));
+      document.querySelector(".pitch-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    actions.appendChild(accept);
+    if (!finalOffer) {
+      const reject = el("button", "btn btn-ghost", uiText("放弃，查看下一份", "Reject — Next Offer"));
+      reject.type = "button";
+      reject.disabled = accepted;
+      reject.addEventListener("click", () => rejectDeadlineOffer(transfer));
+      actions.appendChild(reject);
+    }
+    card.appendChild(actions);
+    ui.candidates.appendChild(card);
+  }
+
+  function rejectDeadlineOffer(transfer) {
+    if (transfer.selectedCandidateId) return;
+    const nextIndex = (transfer.deadlineOfferIndex || 0) + 1;
+    if (nextIndex < transfer.candidates.length) {
+      transfer.deadlineOfferIndex = nextIndex;
+      const finalOffer = nextIndex >= transfer.candidates.length - 1;
+      if (finalOffer) transfer.selectedCandidateId = transfer.candidates[nextIndex].id;
+      saveGame();
+      renderTransferHeader();
+      renderTransferSpinResult();
+      renderPitch();
+      renderCandidates();
+      toast(finalOffer
+        ? uiText("最后一份报价已经锁定，必须完成签约。", "The final offer is locked in and must be signed.")
+        : uiText("当前报价已放弃，下一份报价已经送达。", "Offer rejected. The next offer has arrived."));
+      return;
+    }
   }
 
   function transferUnitName(unit) {

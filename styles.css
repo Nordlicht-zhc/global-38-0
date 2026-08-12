@@ -2876,6 +2876,37 @@ button {
   background: linear-gradient(135deg, rgba(88, 28, 135, 0.2), rgba(30, 41, 59, 0.2));
 }
 
+.deadline-summary {
+  border-color: rgba(251, 191, 36, 0.46);
+  background: linear-gradient(135deg, rgba(146, 64, 14, 0.2), rgba(30, 41, 59, 0.2));
+}
+
+.candidate.deadline-offer {
+  grid-column: 1 / -1;
+  max-width: 520px;
+  border-color: rgba(251, 191, 36, 0.45);
+  background: linear-gradient(145deg, rgba(120, 53, 15, 0.28), rgba(15, 23, 42, 0.94));
+}
+
+.deadline-offer-number {
+  color: #fcd34d;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deadline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.deadline-actions .btn {
+  flex: 1 1 180px;
+}
+
 .candidate.mystery-box {
   position: relative;
   align-content: start;

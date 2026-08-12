@@ -973,6 +973,9 @@
 
 
   function toggleLanguage() {
+    const activeView = ["setup", "game", "result"].find((name) => (
+      !document.getElementById(`${name}View`)?.classList.contains("hidden")
+    )) || "setup";
     currentLang = currentLang === "en" ? "zh" : "en";
     localStorage.setItem(LANG_KEY, currentLang);
     applyLanguage();
@@ -996,6 +999,7 @@
       }
     }
     if (state.viewingRun) renderResult(state.viewingRun);
+    showView(activeView, { scroll: false });
     setTimeout(translateDom, 0);
   }
 
@@ -1278,11 +1282,13 @@
     renderGame();
   }
 
-  function showView(name) {
+  function showView(name, options = {}) {
     ["setupView", "gameView", "resultView"].forEach((id) => {
       document.getElementById(id).classList.toggle("hidden", id !== `${name}View`);
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (options.scroll !== false) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   function renderGame() {
@@ -1460,6 +1466,7 @@
     const game = state.game;
     const hidden = isRatingsHidden(game);
     ui.pitchField.innerHTML = "";
+    appendPitchMarkings(ui.pitchField);
     const pending = game.candidates.find((p) => p.id === state.pendingDraftPlayerId) || null;
     const selectedSlot = state.selectedSlotIndex !== null ? game.slots[state.selectedSlotIndex] : null;
     const swapMode = Boolean(!pending && selectedSlot && selectedSlot.player);
@@ -1510,6 +1517,27 @@
     renderUnitRatings();
   }
 
+  function appendPitchMarkings(field) {
+    const markings = el("div", "pitch-markings", "");
+    [
+      ["pitch-boundary", ""],
+      ["pitch-halfway", ""],
+      ["pitch-center-circle", ""],
+      ["pitch-mark pitch-center-spot", ""],
+      ["pitch-area penalty-area top", ""],
+      ["pitch-area penalty-area bottom", ""],
+      ["pitch-area goal-area top", ""],
+      ["pitch-area goal-area bottom", ""],
+      ["pitch-mark penalty-spot top", ""],
+      ["pitch-mark penalty-spot bottom", ""],
+      ["pitch-arc top", ""],
+      ["pitch-arc bottom", ""],
+      ["pitch-goal top", ""],
+      ["pitch-goal bottom", ""]
+    ].forEach(([className, text]) => markings.appendChild(el("span", className, text)));
+    field.appendChild(markings);
+  }
+
   function appendAbilityRating(parent, label, value) {
     const item = el("div", "unit-rating", "");
     const track = el("div", "rating-track", "");
@@ -1552,6 +1580,7 @@
     ui.resultLineupTitle.textContent = `${run.formation || "赛季"}阵容`;
     ui.resultLineupRating.textContent = String(teamRating);
     ui.resultLineupField.innerHTML = "";
+    appendPitchMarkings(ui.resultLineupField);
     run.slots.forEach((slot) => {
       const node = el("div", "slot result-slot", "");
       node.style.left = `${slot.x}%`;
@@ -2262,7 +2291,7 @@
         ? transfer.revealedCandidateId
           ? uiText("盲盒已经锁定，点击球场上的兼容位置完成签约。", "The box is locked in. Click a compatible slot to complete the signing.")
           : uiText("三个盲盒只能打开一个；揭晓后必须签下这名球员。", "Only one of the three boxes can be opened; the revealed player must be signed.")
-        : uiText("候选球员必须比被替换球员评分更高；点击可补强的位置完成转会。", "The candidate must be rated higher than the outgoing player. Click an upgradeable slot to complete the transfer.");
+        : uiText("系统会先筛出拥有合格补强球员的球队，再从中抽取；点击可补强的位置完成转会。", "The game first filters for clubs with a valid upgrade, then draws from them. Click an upgradeable slot to complete the transfer.");
     ui.transferStatus.appendChild(el("span", "", instruction));
     renderTransferLog();
   }
@@ -2377,6 +2406,24 @@
       .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)));
   }
 
+  function buildWeakTransferClubPool(transfer, game) {
+    const leagueIds = new Set(game.leagues.length ? game.leagues : [...state.selectedLeagues]);
+    return seasonsInRange(game.seasonRange).flatMap((season) => (
+      allClubs(season)
+        .filter((club) => leagueIds.has(club.league))
+        .map((club) => ({
+          season,
+          leagueId: club.league,
+          club,
+          candidates: buildTransferCandidates(club, {
+            ...transfer,
+            currentSpin: { season }
+          }, game)
+        }))
+        .filter((entry) => entry.candidates.length)
+    ));
+  }
+
   function prepareDirectTransferCandidates(transfer) {
     const game = transfer.sim.game;
     const rng = gameRng(game);
@@ -2436,6 +2483,56 @@
       return;
     }
     const rng = gameRng(game);
+    if (transfer.mode === "weak") {
+      const seasonOptions = seasonsInRange(game.seasonRange);
+      state.spinning = true;
+      ui.spinBtn.disabled = true;
+      renderSpinResult();
+      renderCandidates();
+      try {
+        await loadSeasonRange(seasonOptions);
+      } catch (error) {
+        state.spinning = false;
+        ui.spinBtn.disabled = false;
+        toast(uiText("历史球员数据加载失败，请重试。", "Could not load historical players. Please retry."));
+        console.error(error);
+        return;
+      }
+      const eligibleClubs = buildWeakTransferClubPool(transfer, game);
+      state.spinning = false;
+      if (!eligibleClubs.length) {
+        ui.spinBtn.disabled = false;
+        toast(uiText("所选范围内没有能够提升弱项的球队。", "No club in the selected range can improve the weak area."));
+        renderSpinResult();
+        renderCandidates();
+        updateSpinControls();
+        return;
+      }
+      const selected = eligibleClubs[Math.floor(rng() * eligibleClubs.length)];
+      const eligibleSeasons = [...new Set(eligibleClubs.map((entry) => entry.season))];
+      const clubOptions = eligibleClubs
+        .filter((entry) => entry.season === selected.season)
+        .map((entry) => entry.club);
+      transfer.currentSpin = {
+        leagueId: selected.leagueId,
+        clubId: selected.club.id,
+        season: selected.season,
+        drafted: false
+      };
+      transfer.candidates = [];
+      transfer.selectedCandidateId = null;
+      animateWheel(selected.season, selected.club, eligibleSeasons, clubOptions, () => {
+        transfer.candidates = selected.candidates;
+        saveGame();
+        renderSpinResult();
+        renderCandidates();
+        updateSpinControls();
+      });
+      renderSpinResult();
+      renderCandidates();
+      updateSpinControls();
+      return;
+    }
     const leagueId = leagueIds[Math.floor(rng() * leagueIds.length)];
     const season = randomSeasonInRange(game.seasonRange, rng);
     state.spinning = true;
@@ -2480,19 +2577,31 @@
     const allowedPositions = transfer.mode === "weak"
       ? (TRANSFER_UNIT_POSITIONS[transfer.targetUnit] || [])
       : null;
-    const rng = gameRng(game);
+    const rng = transfer.mode === "weak" ? null : gameRng(game);
     return pool
       .map((player) => ({
         ...player,
         id: `${season}|${club.id}|${player.name}`,
         sourceClubId: club.id,
+        sourceClubName: club.name,
         sourceSeason: season,
-        rate: clamp(calibrateRate(Number(player.rate || 80), season) + Math.floor(rng() * 3) - 1, 40, 99)
+        rate: clamp(
+          calibrateRate(Number(player.rate || 80), season) + (rng ? Math.floor(rng() * 3) - 1 : 0),
+          40,
+          99
+        )
       }))
       .filter((player) => !isOwnedPlayer(player, game))
       .filter((player) => !allowedPositions || player.pos.some((pos) => allowedPositions.includes(pos)))
       .filter((player) => game.slots.some((slot) => canTransferReplace(player, slot, transfer)))
-      .sort((a, b) => b.rate - a.rate);
+      .sort((a, b) => transferUpgradeValue(b, game, transfer) - transferUpgradeValue(a, game, transfer) || b.rate - a.rate);
+  }
+
+  function transferUpgradeValue(player, game, transfer) {
+    return game.slots.reduce((best, slot) => {
+      if (!canTransferReplace(player, slot, transfer)) return best;
+      return Math.max(best, transferRateForSlot(player, slot.pos) - Number(slot.player.rate || 0));
+    }, 0);
   }
 
   function transferRateForSlot(player, slotPos) {
@@ -3153,10 +3262,18 @@
   }
 
   function simulateNextMatch(sim) {
+    finishDomesticCupInBackgroundAfterElimination(sim);
     if (shouldPlayDomesticCupRound(sim)) {
-      simulateDomesticCupRound(sim);
-      renderSimulationStep(sim);
-      setTimeout(() => simulateNextMatch(sim), 600);
+      const cupMatch = simulateDomesticCupRound(sim);
+      if (cupMatch) {
+        playDomesticCupMatch(sim, cupMatch, () => {
+          renderSimulationStep(sim);
+          setTimeout(() => simulateNextMatch(sim), 600);
+        });
+      } else {
+        renderSimulationStep(sim);
+        setTimeout(() => simulateNextMatch(sim), 600);
+      }
       return;
     }
     const transferResolved = Boolean(sim.transferState?.resolved);
@@ -3883,6 +4000,12 @@
     return Boolean(cup && !cup.finished && sim.matches.length >= cup.milestones[cup.roundIndex]);
   }
 
+  function finishDomesticCupInBackgroundAfterElimination(sim) {
+    const cup = sim?.domesticCup;
+    if (!cup || cup.finished || cup.currentTeams.some((team) => team.isUser)) return;
+    while (!cup.finished) simulateDomesticCupRound(sim);
+  }
+
   function syncDomesticCupUserProfile(sim, profile = sim?.profileMap?.["我的球队"]) {
     const user = sim?.domesticCup?.teams?.find((team) => team.isUser);
     if (!user || !profile) return;
@@ -3892,16 +4015,18 @@
 
   function simulateDomesticCupRound(sim) {
     const cup = sim.domesticCup;
-    if (!cup || cup.finished) return;
+    if (!cup || cup.finished) return null;
     const stage = DOMESTIC_CUP_STAGES[cup.roundIndex] || "决赛";
     const shuffled = shuffleWithRng(cup.currentTeams, sim.rng);
     const ties = [];
     const winners = [];
+    let userMatch = null;
     for (let index = 0; index < shuffled.length; index += 2) {
       const home = shuffled[index];
       const away = shuffled[index + 1];
       const tie = createEuropeanTie(home, away, false);
-      tie.legs.push(simulateEuropeanTie(home, away, sim.rng, stage === "决赛"));
+      const played = simulateEuropeanTie(home, away, sim.rng, stage === "决赛");
+      tie.legs.push(played);
       finalizeEuropeanTie(tie, sim.rng);
       const result = {
         home: home.name,
@@ -3916,6 +4041,7 @@
       ties.push(result);
       winners.push(tie.winner);
       if (result.isUser) {
+        userMatch = { cup, stage, tie, played };
         cup.userStage = tie.winner.isUser
           ? (stage === "决赛" ? cup.championLabel : `晋级${DOMESTIC_CUP_STAGES[cup.roundIndex + 1]}`)
           : `${stage}出局`;
@@ -3929,6 +4055,7 @@
       cup.finished = true;
       if (winners[0].isUser) cup.userStage = cup.championLabel;
     }
+    return userMatch;
   }
 
   function domesticCupResult(cup) {
@@ -4258,9 +4385,24 @@
           userMatch: home.isUser || away.isUser
         };
         sim.logs.push(log);
-        if (log.userMatch) renderEuropeanStep(sim, log);
-        if (tie.legs.length >= (stage.twoLeg ? 2 : 1)) {
+        const tieComplete = tie.legs.length >= (stage.twoLeg ? 2 : 1);
+        if (tieComplete) {
           finalizeEuropeanTie(tie, sim.rng);
+        }
+        if (log.userMatch) {
+          playEuropeanKnockoutMatch(sim, stage, tie, played, () => {
+            if (tieComplete) {
+              logEuropeanTieResolution(sim, stage, tie);
+              stage.tieIndex += 1;
+              if (stage.tieIndex >= stage.ties.length) {
+                advanceEuropeanStage(sim, stage);
+              }
+            }
+            setTimeout(() => simulateNextEuropeanStep(sim), delay);
+          });
+          return;
+        }
+        if (tieComplete) {
           logEuropeanTieResolution(sim, stage, tie);
           stage.tieIndex += 1;
           if (stage.tieIndex >= stage.ties.length) {
@@ -4463,6 +4605,193 @@
       latest.appendChild(row);
     });
     ui.europeResults.appendChild(latest);
+  }
+
+  function europeanStageText(stage) {
+    const names = {
+      "附加赛": "Knockout play-off",
+      "1/8决赛": "Round of 16",
+      "1/4决赛": "Quarter-final",
+      "半决赛": "Semi-final",
+      "决赛": "Final"
+    };
+    return uiText(stage, names[stage] || stage);
+  }
+
+  function europeanGoalEvents(played, stageName, legNumber, extraTime, runId) {
+    const seed = [
+      "europe-goals",
+      runId,
+      stageName,
+      legNumber,
+      played.home.name,
+      played.away.name,
+      played.homeGoals,
+      played.awayGoals,
+      extraTime?.homeGoals || 0,
+      extraTime?.awayGoals || 0
+    ].join("|");
+    const rng = makeRng(hashSeed(seed));
+    const events = [];
+    const addGoals = (count, side, startMinute, endMinute) => {
+      for (let index = 0; index < count; index += 1) {
+        events.push({
+          minute: startMinute + Math.floor(rng() * (endMinute - startMinute + 1)),
+          side
+        });
+      }
+    };
+    addGoals(played.homeGoals, "home", 4, 88);
+    addGoals(played.awayGoals, "away", 4, 88);
+    addGoals(extraTime?.homeGoals || 0, "home", 94, 118);
+    addGoals(extraTime?.awayGoals || 0, "away", 94, 118);
+    return events.sort((a, b) => a.minute - b.minute || (a.side === "home" ? -1 : 1));
+  }
+
+  function europeanAggregateAtMinute(tie, played, homeGoals, awayGoals) {
+    const previousLegs = tie.legs.slice(0, -1);
+    let teamAGoals = 0;
+    let teamBGoals = 0;
+    previousLegs.forEach((leg) => {
+      teamAGoals += leg.home === tie.teamA ? leg.homeGoals : leg.awayGoals;
+      teamBGoals += leg.home === tie.teamB ? leg.homeGoals : leg.awayGoals;
+    });
+    teamAGoals += played.home === tie.teamA ? homeGoals : awayGoals;
+    teamBGoals += played.home === tie.teamB ? homeGoals : awayGoals;
+    return { teamAGoals, teamBGoals };
+  }
+
+  function playDomesticCupMatch(sim, match, onComplete) {
+    ui.simulationProgress.textContent = uiText(
+      `${sim.matches.length}/${sim.matchCount} · 国内杯赛`,
+      `${sim.matches.length}/${sim.matchCount} · Domestic cup`
+    );
+    playEuropeanKnockoutMatch(sim, { name: match.stage, twoLeg: false }, match.tie, match.played, onComplete, {
+      container: ui.simulationCurrent,
+      title: uiText(`${match.cup.name} · ${match.stage}`, `${match.cup.nameEn} · ${domesticCupStageText(match.stage)}`),
+      matchLabel: uiText("单场淘汰赛", "Knockout tie"),
+      seedId: sim.game.id,
+      className: "domestic-cup-live"
+    });
+  }
+
+  function playEuropeanKnockoutMatch(sim, stage, tie, played, onComplete, options = {}) {
+    const container = options.container || ui.europeResults;
+    container.innerHTML = "";
+    const legNumber = tie.legs.length;
+    const extraTime = tie.extraTime || null;
+    const maxMinute = extraTime ? 120 : 90;
+    const events = europeanGoalEvents(played, stage.name, legNumber, extraTime, options.seedId || sim.run.id);
+    const live = el("div", `europe-live-match${options.className ? ` ${options.className}` : ""}`, "");
+    const heading = el("div", "europe-live-heading", "");
+    heading.appendChild(el("strong", "", options.title || europeanStageText(stage.name)));
+    heading.appendChild(el(
+      "span",
+      "europe-leg-label",
+      options.matchLabel || (stage.twoLeg
+        ? uiText(`第 ${legNumber} 回合`, legNumber === 1 ? "First leg" : "Second leg")
+        : uiText("单场决胜", "Single match"))
+    ));
+    live.appendChild(heading);
+
+    const scoreboard = el("div", "europe-live-scoreboard", "");
+    const homeName = el("span", "europe-live-team home", uiText(played.home.name, played.home.isUser ? "My Team" : played.home.name));
+    const score = el("strong", "europe-live-score", "0 - 0");
+    const awayName = el("span", "europe-live-team away", uiText(played.away.name, played.away.isUser ? "My Team" : played.away.name));
+    scoreboard.append(homeName, score, awayName);
+    live.appendChild(scoreboard);
+
+    const aggregate = el("div", "europe-live-aggregate", "");
+    if (stage.twoLeg) live.appendChild(aggregate);
+
+    const clock = el("div", "europe-live-clock", "0′");
+    live.appendChild(clock);
+    const timeline = el("div", "europe-timeline", "");
+    const track = el("div", "europe-timeline-track", "");
+    const fill = el("div", "europe-timeline-fill", "");
+    track.appendChild(fill);
+    [0, 45, 90, ...(maxMinute === 120 ? [120] : [])].forEach((minute) => {
+      const tick = el("span", "europe-timeline-tick", `${minute}′`);
+      tick.style.left = `${(minute / maxMinute) * 100}%`;
+      track.appendChild(tick);
+    });
+    const markers = events.map((event) => {
+      const marker = el("span", `europe-goal-marker ${event.side}`, "⚽");
+      marker.style.left = `${(event.minute / maxMinute) * 100}%`;
+      marker.title = `${event.minute}′ · ${event.side === "home" ? played.home.name : played.away.name}`;
+      track.appendChild(marker);
+      return marker;
+    });
+    timeline.appendChild(track);
+    live.appendChild(timeline);
+
+    const eventFeed = el("div", "europe-goal-feed", "");
+    eventFeed.appendChild(el("span", "europe-goal-feed-empty", uiText("等待开球…", "Waiting for kick-off…")));
+    live.appendChild(eventFeed);
+    const controls = el("div", "europe-live-controls", "");
+    const skipButton = el("button", "btn btn-ghost europe-skip-button", uiText("跳过动画", "Skip animation"));
+    skipButton.type = "button";
+    controls.appendChild(skipButton);
+    live.appendChild(controls);
+    container.appendChild(live);
+
+    let minute = 0;
+    let homeGoals = 0;
+    let awayGoals = 0;
+    let revealedCount = 0;
+    let completed = false;
+    const renderMinute = (targetMinute) => {
+      minute = targetMinute;
+      while (revealedCount < events.length && events[revealedCount].minute <= minute) {
+        const event = events[revealedCount];
+        if (event.side === "home") homeGoals += 1;
+        else awayGoals += 1;
+        markers[revealedCount].classList.add("show");
+        if (revealedCount === 0) eventFeed.innerHTML = "";
+        const team = event.side === "home" ? played.home : played.away;
+        eventFeed.appendChild(el(
+          "span",
+          `europe-goal-event ${event.side}`,
+          `⚽ ${event.minute}′ · ${uiText(team.name, team.isUser ? "My Team" : team.name)}`
+        ));
+        revealedCount += 1;
+      }
+      score.textContent = `${homeGoals} - ${awayGoals}`;
+      clock.textContent = `${minute}′`;
+      fill.style.width = `${(minute / maxMinute) * 100}%`;
+      if (stage.twoLeg) {
+        const total = europeanAggregateAtMinute(tie, played, homeGoals, awayGoals);
+        aggregate.textContent = uiText(
+          `总比分：${tie.teamA.name} ${total.teamAGoals}-${total.teamBGoals} ${tie.teamB.name}`,
+          `Aggregate: ${tie.teamA.isUser ? "My Team" : tie.teamA.name} ${total.teamAGoals}-${total.teamBGoals} ${tie.teamB.isUser ? "My Team" : tie.teamB.name}`
+        );
+      }
+    };
+    const finish = (skipped = false) => {
+      if (completed) return;
+      completed = true;
+      clearInterval(sim.liveMatchTimer);
+      sim.liveMatchTimer = null;
+      renderMinute(maxMinute);
+      skipButton.disabled = true;
+      clock.textContent = extraTime ? uiText("加时结束", "AET") : uiText("全场结束", "Full time");
+      if (tie.penalties) {
+        eventFeed.querySelector(".europe-goal-feed-empty")?.remove();
+        eventFeed.appendChild(el(
+          "span",
+          "europe-penalty-result",
+          uiText(`点球大战 ${tie.penalties.home}-${tie.penalties.away}`, `Penalties ${tie.penalties.home}-${tie.penalties.away}`)
+        ));
+      }
+      setTimeout(onComplete, skipped ? 180 : 1200);
+    };
+    skipButton.addEventListener("click", () => finish(true));
+    renderMinute(0);
+    sim.liveMatchTimer = setInterval(() => {
+      const nextMinute = Math.min(maxMinute, minute + 1);
+      renderMinute(nextMinute);
+      if (nextMinute >= maxMinute) finish();
+    }, 100);
   }
 
   function simulateEuropeanTie(teamA, teamB, rng, neutral) {

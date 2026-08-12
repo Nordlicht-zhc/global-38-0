@@ -132,7 +132,7 @@
       ? clamp(eloExpected(eloHome + HOME_ELO_ADVANTAGE, eloAway) * 0.7 + strengthExpected * 0.3, 0.06, 0.94)
       : strengthExpected;
     const diff = hasElo ? eloHome - eloAway : baseDiff;
-    const drawChance = clamp(0.285 - Math.abs(diff) * 0.00035, 0.19, 0.3);
+    const drawChance = clamp(0.3 - Math.abs(diff) * 0.00035, 0.19, 0.3);
     const isDraw = rng() < drawChance;
     const result = isDraw ? "D" : rng() < expectedHome ? "H" : "A";
     const expectedFor = clamp(0.85 + (homeProfile.attack - awayProfile.defense) * 0.055

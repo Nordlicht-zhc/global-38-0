@@ -2,51 +2,48 @@
 
 ## Project Structure & Module Organization
 
-This is a build-free browser football simulation. `global 38-0.html` is the only entry point. `app.js` coordinates UI and game flows; `simulation-core.js`, `season-data.js`, and `storage.js` own simulation, lazy data access, and persistence. `styles.css` owns presentation.
+This is a build-free browser football draft and simulation game. `global 38-0.html` is the entry point. `app.js` coordinates UI and game flows, `simulation-core.js` contains seeded league simulation, `storage.js` handles persistence, and `styles.css` owns presentation.
 
 Keep data separate from behavior:
 
-- `data.js` and `big-five*.js`: leagues, formations, and base club metadata. `big-five-squads.js` is a retired 2026-27 import and must not be re-enabled.
+- `data.js` and `big-five*.js`: formations, leagues, and current club metadata. Do not re-enable the retired `big-five-squads.js` import.
 - `season-players.js`: active 2025-26 player pool. `season-data.js` lazily loads per-season JavaScript chunks from `history-data/`; regenerate them with `scripts/split-season-data.js`.
+- `player-identity.js`: cross-season duplicate-player detection.
 - `european-clubs.js`: European competition entrants and profiles.
-- `scripts/`: one-off or repeatable data-repair utilities.
+- `scripts/`: validation, balance tests, and repeatable data-repair utilities.
 
-There is no dedicated test directory or asset pipeline.
+There is no build output, package manager, or dedicated test directory.
 
 ## Build, Test, and Development Commands
 
-No install or build step is required. Serve the repository locally so browser storage and scripts work consistently:
+Serve the repository locally:
 
 ```powershell
 python -m http.server 8000
 ```
 
-Open `http://127.0.0.1:8000/global%2038-0.html`.
-
-Check every edited JavaScript file before submitting, for example:
+Open `http://127.0.0.1:8000/global%2038-0.html`. No install or build step is required. Run focused checks after changes:
 
 ```powershell
 node --check app.js
-node --check season-players.js
+node scripts/validate-data.js
+node scripts/random-test.js
+node scripts/player-identity-test.js
+node scripts/season-loader-test.js
+node scripts/balance-test.js --runs=1000 --seed=review
+git diff --check
 ```
 
-Run `git diff --check` to catch whitespace errors. When data changes, verify league sizes remain `20/20/20/18/18` for ENG/ESP/ITA/GER/FRA and confirm club IDs remain unique.
-
-Run `node scripts/balance-test.js --runs=1000 --seed=review` to compare champion, European qualification, and relegation rates with reproducible results.
-Run `node scripts/random-test.js` after changing seeded random behavior.
-Run `node scripts/validate-data.js` after editing club or player data.
-Run `node scripts/season-loader-test.js` after changing lazy history loading.
+Regenerate historical chunks with `node scripts/split-season-data.js`. Data validation must preserve league sizes `20/20/20/18/18` for ENG/ESP/ITA/GER/FRA, unique club IDs, and valid squads.
 
 ## Coding Style & Naming Conventions
 
-Use two-space indentation, semicolons, and `const` unless reassignment is required. Use `camelCase` for functions and variables and kebab-case for club IDs such as `real-sociedad`. Preserve existing global data formats. Build UI elements with the `el()` helper rather than HTML strings.
-
-All new user-facing text must work in Chinese and English. Add translations in `app.js` and test both language modes.
+Use two-space indentation, semicolons, and `const` unless reassignment is needed. Use `camelCase` for JavaScript identifiers and kebab-case for club IDs, such as `real-sociedad`. Preserve established global data shapes. Build UI nodes with the `el()` helper instead of HTML strings. Add all user-facing text in both Chinese and English.
 
 ## Testing Guidelines
 
-There is no automated test framework or coverage target. Manually verify the affected flow: drafting, position placement, rerolls, coaches, both transfer windows, domestic cups, full league simulation, results, and European competition. Test both Chinese and English UI modes. For data repairs, report record counts, duplicates, invalid ratings, and affected seasons.
+There is no test framework or coverage threshold. Name executable checks `scripts/*-test.js`. Manually test affected flows in both languages: drafting, rerolls, coaches, transfers, domestic cups, league simulation, results, achievements, and European competition. For data changes, report affected seasons, record counts, duplicates, and invalid ratings.
 
 ## Commit & Pull Request Guidelines
 
-History uses short imperative subjects, for example `Add bilingual UI and contributor guide` or `Fix duplicate league fixtures`. Keep each commit focused. Pull requests should explain what changed, why, and how it was verified; link relevant issues and include screenshots for visible UI changes. Never overwrite unrelated working-tree changes.
+Use short imperative commit subjects matching repository history, such as `Optimize history loading and league simulation`. Keep commits focused and preserve unrelated worktree changes. Pull requests should explain what changed, why, and how it was verified; link relevant issues and include screenshots for visible UI changes.

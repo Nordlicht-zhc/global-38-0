@@ -123,7 +123,7 @@ function simulateLeague(league, profiles, iteration) {
 const season = loadSeasonPlayers();
 const eliteStrength = readObjectConstant("ELITE_STRENGTH");
 const historicalIds = readObjectConstant("HISTORICAL_CLUB_IDS");
-const report = { runs, seed: baseSeed, leagues: {}, warnings: [] };
+const report = { runs, seed: baseSeed, leagues: {}, outcomes: {}, warnings: [] };
 
 Object.keys(leagueNames).forEach((league) => {
   const clubs = season.clubs.filter((club) => club.league === league);
@@ -158,13 +158,17 @@ Object.keys(leagueNames).forEach((league) => {
     averagePoints: Number((entry.points / runs).toFixed(1)),
     averagePosition: Number((entry.positions / runs).toFixed(2))
   })).sort((a, b) => b.championPct - a.championPct || a.averagePosition - b.averagePosition);
-  report.leagues[league].outcomes = {
+  report.outcomes[league] = {
     homeWinPct: Number((outcomes.homeWins * 100 / outcomes.matches).toFixed(1)),
     drawPct: Number((outcomes.draws * 100 / outcomes.matches).toFixed(1)),
     awayWinPct: Number((outcomes.awayWins * 100 / outcomes.matches).toFixed(1)),
     goalsPerMatch: Number((outcomes.goals / outcomes.matches).toFixed(2))
   };
+  report.leagues[league].outcomes = report.outcomes[league];
   const leaders = report.leagues[league];
+  if (report.outcomes[league].drawPct < 24.5 || report.outcomes[league].drawPct > 27.5) {
+    report.warnings.push(`${leagueNames[league]}: draw rate is ${report.outcomes[league].drawPct}%.`);
+  }
   if (leaders[0].championPct >= 65) {
     report.warnings.push(`${leagueNames[league]}: ${leaders[0].name} wins ${leaders[0].championPct}% of titles.`);
   }

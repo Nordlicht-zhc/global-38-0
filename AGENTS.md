@@ -11,10 +11,9 @@ Keep data separate from behavior:
 - `player-identity.js`: cross-season duplicate-player detection.
 - `position-fit.js`: normal position compatibility and out-of-position midfielder penalties.
 - `european-clubs.js`: European competition entrants and profiles.
-- `desktop/`: optional Tauri 2 Windows wrapper; its Rust project lives in `desktop/src-tauri/`.
 - `scripts/`: validation, balance tests, and repeatable data-repair utilities.
 
-The browser edition has no build step or package manager. Generated desktop outputs stay ignored in `desktop/dist/`, `desktop/release/`, and `desktop/src-tauri/target/`.
+The browser edition has no build step or package manager.
 
 ## Build, Test, and Development Commands
 
@@ -36,8 +35,6 @@ node scripts/balance-test.js --runs=1000 --seed=review
 node scripts/cup-europe-balance-test.js --runs=1000 --seed=review
 git diff --check
 ```
-
-To check the desktop wrapper, run `cargo check --manifest-path desktop/src-tauri/Cargo.toml`; use `cd desktop; cargo tauri build` for a Windows build.
 
 Regenerate historical chunks with `node scripts/split-season-data.js`. Data validation must preserve league sizes `20/20/20/18/18` for ENG/ESP/ITA/GER/FRA, unique club IDs, and valid squads.
 

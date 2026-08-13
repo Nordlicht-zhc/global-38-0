@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-  <link rel="stylesheet" href="styles.css?v=20260813-04" />
+  <link rel="stylesheet" href="styles.css?v=20260813-05" />
 </head>
 <body>
   <header class="topbar">
@@ -93,6 +93,7 @@
           <div class="play-mode-switch" id="playModeSwitch" aria-label="游戏模式">
             <button class="play-mode-option active" data-play-mode="classic" type="button">经典模式</button>
             <button class="play-mode-option" data-play-mode="challenge" type="button">挑战模式</button>
+            <button class="play-mode-option" data-play-mode="dynasty" type="button">王朝模式</button>
           </div>
           <div class="challenge-picker hidden" id="challengePicker">
             <div class="challenge-picker-head">
@@ -102,6 +103,11 @@
             <div class="challenge-cards" id="challengeCards"></div>
             <div class="challenge-rules" id="challengeRules"></div>
           </div>
+          <label class="field dynasty-season-field hidden" id="dynastySeasonField">
+            <span>王朝起始赛季</span>
+            <select id="dynastyStartSeason"></select>
+            <small id="dynastySeasonHint">固定连续执教 3 个赛季，起始赛季最晚为 2023-24。</small>
+          </label>
           <label class="field">
             <span>赛季范围滑块</span>
             <div class="season-range" id="seasonRange">
@@ -311,6 +317,7 @@
         </div>
         <div class="game-actions">
           <button class="btn btn-ghost" id="backGameBtn" type="button">返回首页</button>
+          <button class="btn btn-accent hidden" id="nextDynastySeasonBtn" type="button">进入下一赛季</button>
           <button class="btn btn-primary" id="shareBtn" type="button">复制战报</button>
         </div>
       </div>
@@ -318,6 +325,7 @@
       <div class="result-layout">
         <section class="panel result-summary">
           <div class="summary-score" id="resultScore">--</div>
+          <div class="season-review" id="seasonReview"></div>
           <div class="summary-grid" id="resultStats"></div>
           <div class="challenge-result hidden" id="challengeResult"></div>
           <div class="achievement-section">
@@ -420,12 +428,13 @@
   <script src="big-five-france.js?v=20260809-21"></script>
   <script src="season-players.js?v=20260813-02"></script>
   <script src="season-data.js?v=20260813-02"></script>
+  <script src="season-standings.js?v=20260813-01"></script>
   <script src="storage.js?v=20260813-01"></script>
   <script src="player-identity.js?v=20260813-01"></script>
   <script src="european-clubs.js?v=20260809-21"></script>
   <script src="simulation-core.js?v=20260813-04"></script>
   <script src="position-fit.js?v=20260813-01"></script>
   <script src="challenge-data.js?v=20260813-01"></script>
-  <script src="app.js?v=20260813-08"></script>
+  <script src="app.js?v=20260813-10"></script>
 </body>
 </html>

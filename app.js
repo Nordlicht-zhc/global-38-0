@@ -108,16 +108,20 @@
     { sel: ".setup-panel h2", en: "Draft Setup" },
     { sel: "#playModeSwitch [data-play-mode='classic']", en: "Classic" },
     { sel: "#playModeSwitch [data-play-mode='challenge']", en: "Challenges" },
+    { sel: "#playModeSwitch [data-play-mode='dynasty']", en: "Dynasty" },
+    { sel: "#dynastySeasonField > span", en: "Dynasty Start Season" },
+    { sel: "#dynastySeasonHint", en: "Manage exactly 3 consecutive seasons. Start no later than 2023-24." },
+    { sel: "#nextDynastySeasonBtn", en: "Start Next Season" },
     { sel: ".challenge-picker-head strong", en: "Choose a Challenge" },
-    { sel: ".setup-panel label.field:nth-of-type(1) > span", en: "Season Range" },
-    { sel: ".setup-panel label.field:nth-of-type(2) > span", en: "Difficulty" },
+    { sel: ".setup-panel label.field:nth-of-type(2) > span", en: "Season Range" },
+    { sel: ".setup-panel label.field:nth-of-type(3) > span", en: "Difficulty" },
     { sel: "#difficultySelect option[value='easy']", en: "Easy: 3 rerolls" },
     { sel: "#difficultySelect option[value='normal']", en: "Normal: 1 reroll" },
     { sel: "#difficultySelect option[value='hard']", en: "Hard: 0 rerolls" },
-    { sel: ".setup-panel label.field:nth-of-type(3) > span", en: "Rating Mode" },
+    { sel: ".setup-panel label.field:nth-of-type(4) > span", en: "Rating Mode" },
     { sel: "#hideRatingsSelect option[value='0']", en: "Show ratings" },
     { sel: "#hideRatingsSelect option[value='1']", en: "Hide ratings" },
-    { sel: ".setup-panel label.field:nth-of-type(4) > span", en: "Formation" },
+    { sel: ".setup-panel label.field:nth-of-type(5) > span", en: "Formation" },
     { sel: "#startBtn", en: "Start Game" },
     { sel: ".hint", en: "Your save is stored locally and survives a page refresh." },
     { sel: ".history-home .eyebrow", en: "Recent Results" },
@@ -721,6 +725,9 @@
     seasonRangeStartLabel: $("#seasonRangeStartLabel"),
     seasonRangeEndLabel: $("#seasonRangeEndLabel"),
     seasonRangeFill: $("#seasonRangeFill"),
+    dynastySeasonField: $("#dynastySeasonField"),
+    dynastyStartSeason: $("#dynastyStartSeason"),
+    dynastySeasonHint: $("#dynastySeasonHint"),
     difficultySelect: $("#difficultySelect"),
     langToggle: $("#langToggle"),
     hideRatingsSelect: $("#hideRatingsSelect"),
@@ -735,6 +742,8 @@
     leagueChoice: $("#leagueChoice"),
     leagueChoiceOptions: $("#leagueChoiceOptions"),
     seasonPrediction: $("#seasonPrediction"),
+    seasonReview: $("#seasonReview"),
+    nextDynastySeasonBtn: $("#nextDynastySeasonBtn"),
     coachChoice: $("#coachChoice"),
     simulationPanel: $("#simulationPanel"),
     simulationProgress: $("#simulationProgress"),
@@ -795,8 +804,18 @@
   };
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-  const leagueTeamCount = (leagueId) => (leagueId === "ger" || leagueId === "fra" ? 18 : 20);
-  const leagueMatchCount = (leagueId) => (leagueTeamCount(leagueId) - 1) * 2;
+  const dynastyStandings = (season, leagueId) => (
+    typeof HISTORICAL_STANDINGS !== "undefined" && HISTORICAL_STANDINGS[season]?.[leagueId]
+  ) || [];
+  const leagueTeamCount = (leagueOrGame) => {
+    const game = typeof leagueOrGame === "object" ? leagueOrGame : null;
+    const leagueId = game?.league || leagueOrGame;
+    const historicalCount = game?.mode === "dynasty"
+      ? dynastyStandings(simulationSeason(game), leagueId).length
+      : 0;
+    return historicalCount || (leagueId === "ger" || leagueId === "fra" ? 18 : 20);
+  };
+  const leagueMatchCount = (leagueOrGame) => (leagueTeamCount(leagueOrGame) - 1) * 2;
   const expectedPointsForRating = (rating, played) => {
     const base = rating >= 80 ? 71 + (rating - 80) * 4.8 : 42 + (rating - 76) * 7.25;
     return clamp(Math.round(base), 18, Math.max(18, played * 3 - 8));
@@ -808,7 +827,10 @@
   };
   const getLeagueTeams = (game) => {
     const season = simulationSeason(game);
-    const real = clubsForLeague(game?.league, season).map((club) => club.name);
+    const historical = game?.mode === "dynasty" ? dynastyStandings(season, game.league) : [];
+    const real = historical.length
+      ? [...historical]
+      : clubsForLeague(game?.league, season).map((club) => club.name);
     if (!real.length) return ["我的球队"];
     const rng = makeRng(hashSeed(`replace-${game?.id}-${game?.league}`));
     const promoted = (PROMOTED_TEAMS[game?.league] || []).filter((name) => real.includes(name));
@@ -873,7 +895,9 @@
   };
   const clubsForLeague = (id, season = CURRENT_DATA_SEASON) => getSeasonData(season).clubs.filter((c) => c.league === id);
   const allClubs = (season) => getSeasonData(season).clubs;
-  const simulationSeason = () => CURRENT_DATA_SEASON;
+  const simulationSeason = (game) => game?.mode === "dynasty"
+    ? game.dynasty?.currentSeason || game.season || CURRENT_DATA_SEASON
+    : CURRENT_DATA_SEASON;
   const isRatingsHidden = (game) => Boolean(game?.hideRatings && game.draftedPlayers.length < game.slots.length);
 
   const pruneData = () => {
@@ -888,6 +912,7 @@
     const end = start + 1;
     SEASON_KEYS.push(`${start}-${String(end % 100).padStart(2, "0")}`);
   }
+  const DYNASTY_START_SEASON_KEYS = SEASON_KEYS.filter((season) => season <= "2023-24");
   const seasonIndexToKey = (index) => SEASON_KEYS[clamp(index, 0, SEASON_KEYS.length - 1)];
   const seasonKeyToIndex = (key) => Math.max(0, SEASON_KEYS.indexOf(key));
   const randomSeasonInRange = (range, rng) => {
@@ -916,6 +941,33 @@
     ui.seasonRangeEnd.value = String(max);
     updateSeasonRangeLabels();
   };
+
+  function initDynastySeasonSelect() {
+    if (!ui.dynastyStartSeason) return;
+    ui.dynastyStartSeason.innerHTML = "";
+    DYNASTY_START_SEASON_KEYS.forEach((season) => {
+      const option = document.createElement("option");
+      option.value = season;
+      option.textContent = season;
+      ui.dynastyStartSeason.appendChild(option);
+    });
+    ui.dynastyStartSeason.value = "2023-24";
+    updateDynastySeasonHint();
+  }
+
+  function dynastySeasonsFrom(startSeason) {
+    const startIndex = Math.max(0, SEASON_KEYS.indexOf(startSeason));
+    return SEASON_KEYS.slice(startIndex, startIndex + 3);
+  }
+
+  function updateDynastySeasonHint() {
+    if (!ui.dynastySeasonHint || !ui.dynastyStartSeason) return;
+    const seasons = dynastySeasonsFrom(ui.dynastyStartSeason.value);
+    ui.dynastySeasonHint.textContent = uiText(
+      `固定连续执教 3 个赛季：${seasons[0]} 至 ${seasons[seasons.length - 1]}。`,
+      `Manage exactly 3 consecutive seasons: ${seasons[0]} to ${seasons[seasons.length - 1]}.`
+    );
+  }
 
   const updateSeasonRangeLabels = (active = null) => {
     const max = SEASON_KEYS.length - 1;
@@ -992,6 +1044,7 @@
       button.classList.toggle("active", button.dataset.playMode === state.setupMode);
     });
     const challengeMode = state.setupMode === "challenge";
+    const dynastyMode = state.setupMode === "dynasty";
     const challenge = challengeMode ? activeSetupChallenge() : null;
     const ironManager = challenge?.id === "iron-manager";
     if (!ironManager && ui.difficultySelect.disabled) {
@@ -999,6 +1052,8 @@
       state.difficultyBeforeIron = null;
     }
     ui.challengePicker.classList.toggle("hidden", !challengeMode);
+    ui.dynastySeasonField?.classList.toggle("hidden", !dynastyMode);
+    document.querySelector("#seasonRange")?.closest("label.field")?.classList.toggle("hidden", dynastyMode);
     ui.challengeCards.innerHTML = "";
     if (!challengeMode) {
       ui.difficultySelect.disabled = false;
@@ -1042,7 +1097,7 @@
   }
 
   function setSetupMode(mode) {
-    state.setupMode = mode === "challenge" ? "challenge" : "classic";
+    state.setupMode = ["challenge", "dynasty"].includes(mode) ? mode : "classic";
     renderChallengeSetup();
   }
 
@@ -1074,7 +1129,8 @@
         renderTransferSpinResult();
       }
     }
-    if (state.viewingRun) renderResult(state.viewingRun);
+    const resultRun = state.viewingRun || (state.game?.result ? state.game : null);
+    if (resultRun) renderResult(resultRun);
     showView(activeView, { scroll: false });
     setTimeout(translateDom, 0);
   }
@@ -1083,6 +1139,7 @@
     await loadStorage();
     pruneData();
     initSeasonRange();
+    initDynastySeasonSelect();
     renderLeagueGrid();
     renderHeroStats();
     renderHomeHistory();
@@ -1098,7 +1155,11 @@
     }
     bindEvents();
     await loadSavedGame();
-    if (state.game) renderGame();
+    if (state.game?.mode === "dynasty" && state.game.phase === "complete" && state.game.result) {
+      renderResult(state.game);
+    } else if (state.game) {
+      renderGame();
+    }
     drawWheel();
   }
 
@@ -1110,11 +1171,13 @@
       const button = event.target.closest("[data-play-mode]");
       if (button) setSetupMode(button.dataset.playMode);
     });
+    ui.dynastyStartSeason?.addEventListener("change", updateDynastySeasonHint);
     $("#startBtn").addEventListener("click", startGame);
     $("#newGameBtn").addEventListener("click", showNewGameSetup);
     $("#historyBtn").addEventListener("click", showHomeHistory);
     $("#backSetupBtn").addEventListener("click", () => showView("setup"));
     $("#backGameBtn").addEventListener("click", goBackFromResult);
+    ui.nextDynastySeasonBtn?.addEventListener("click", startNextDynastySeason);
     $("#enterTransferBtn").addEventListener("click", enterTransferWindow);
     $("#skipTransferBtn").addEventListener("click", skipTransferWindow);
     $("#toggleAllLeagues").addEventListener("click", toggleAllLeagues);
@@ -1219,7 +1282,9 @@
       card.type = "button";
       const challenge = getChallenge(run.challengeId);
       const stars = Number(run.result?.challenge?.stars || 0);
-      card.appendChild(el("strong", "", challenge
+      card.appendChild(el("strong", "", run.mode === "dynasty"
+        ? `${uiText("王朝模式", "Dynasty")} · ${run.dynasty?.results?.length || 0}/${run.dynasty?.seasons?.length || 1}`
+        : challenge
         ? `${challenge.icon} ${challengeName(challenge)} · ${"★".repeat(stars)}${"☆".repeat(3 - stars)}`
         : `${uiText("经典模式", "Classic")} · ${run.formation}`));
       const res = run.result || {};
@@ -1249,7 +1314,8 @@
 
   async function loadSavedGame() {
     const saved = safeGet(STORAGE_GAME);
-    if (saved?.phase === "drafting") {
+    const resumableDynasty = saved?.mode === "dynasty" && saved?.slots;
+    if (saved?.phase === "drafting" || resumableDynasty) {
       await loadSeasonData(saved.currentSpin?.season || saved.season || CURRENT_DATA_SEASON).catch((error) => {
         console.error(error);
       });
@@ -1257,7 +1323,7 @@
     if (
       saved
       && saved.slots
-      && saved.phase === "drafting"
+      && (saved.phase === "drafting" || resumableDynasty)
       && hasSeasonData(saved.currentSpin?.season || saved.season || CURRENT_DATA_SEASON)
     ) {
       ensureGameRandomState(saved);
@@ -1309,19 +1375,31 @@
     const gameId = uid();
     const randomSeed = createRandomSeed(gameId);
     const challenge = activeSetupChallenge();
+    const dynastyMode = state.setupMode === "dynasty";
+    const dynastySeasons = dynastyMode
+      ? dynastySeasonsFrom(ui.dynastyStartSeason?.value || "2023-24")
+      : [];
+    const dynastyStart = dynastySeasons[0] || null;
     const ironManager = challenge?.id === "iron-manager";
     state.game = {
       id: gameId,
       createdAt: Date.now(),
       leagues: [...state.selectedLeagues],
       seasonRange: {
-        start: seasonIndexToKey(Number(ui.seasonRangeStart.value || 0)),
-        end: seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1))
+        start: dynastyStart || seasonIndexToKey(Number(ui.seasonRangeStart.value || 0)),
+        end: dynastyStart || seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1))
       },
       season: null,
       league: null,
-      mode: challenge ? "challenge" : "classic",
+      mode: dynastyMode ? "dynasty" : challenge ? "challenge" : "classic",
       challengeId: challenge?.id || null,
+      dynasty: dynastyMode ? {
+        seasons: dynastySeasons,
+        currentIndex: 0,
+        currentSeason: dynastyStart,
+        results: [],
+        trophies: { league: 0, domesticCup: 0, europe: 0 }
+      } : null,
       difficulty: ironManager ? "hard" : ui.difficultySelect.value,
       hideRatings: ui.hideRatingsSelect.value === "1",
       formation,
@@ -1341,7 +1419,7 @@
       result: null
     };
     const rng = gameRng(state.game);
-    state.game.season = randomSeasonInRange(state.game.seasonRange, rng);
+    state.game.season = dynastyStart || randomSeasonInRange(state.game.seasonRange, rng);
     state.game.coachCandidates = shuffleWithRng(Object.keys(COACHES), rng).slice(0, 3);
     state.selectedSlotIndex = null;
     state.pendingDraftPlayerId = null;
@@ -1352,6 +1430,8 @@
     renderGame();
     toast(challenge
       ? uiText(`${challenge.name}挑战已开始。`, `${challenge.nameEn} challenge started.`)
+      : dynastyMode
+        ? uiText(`${dynastyStart} 王朝已开始。`, `${dynastyStart} dynasty started.`)
       : uiText("新选秀已开始，请抽取赛季和球队。", "New draft started. Draw a season and club."));
   }
 
@@ -1411,13 +1491,15 @@
     const challenge = getChallenge(game.challengeId);
     ui.gameLeagueLabel.textContent = challenge
       ? `${challengeName(challenge)} · ${scopeText}`
+      : game.mode === "dynasty"
+        ? `${uiText("王朝", "Dynasty")} ${Number(game.dynasty?.currentIndex || 0) + 1}/${game.dynasty?.seasons?.length || 1} · ${simulationSeason(game)}`
       : scopeText;
     renderChallengeGameBanner(game);
     document.querySelector(".game-layout")?.classList.remove("hidden");
     ui.rerollChip.textContent = `重转 ${game.rerolls} 次`;
     ui.simulateBtn.disabled = game.draftedPlayers.length < 11 || !game.league;
     ui.simulateBtn.textContent = game.league
-      ? `模拟 ${leagueMatchCount(game.league)} 场赛季`
+      ? `模拟 ${leagueMatchCount(game)} 场赛季`
       : "模拟赛季";
     ui.simulationPanel.classList.add("hidden");
     ui.transferPanel.classList.add("hidden");
@@ -1496,7 +1578,7 @@
       button.appendChild(el("small", "", league.country));
       button.addEventListener("click", () => {
         game.league = league.id;
-        ui.simulateBtn.textContent = `模拟 ${leagueMatchCount(game.league)} 场赛季`;
+        ui.simulateBtn.textContent = `模拟 ${leagueMatchCount(game)} 场赛季`;
         saveGame();
         renderLeagueChoice();
         toast(`已选择加入 ${league.name}`);
@@ -1584,17 +1666,30 @@
     ui.coachChoice.appendChild(cards);
   }
 
+  function getSeasonPrediction(game, fallbackRating) {
+    if (!game?.league) return null;
+    const profile = applyCoachToProfile(calcTeamProfile(game), getCoach(game));
+    const rating = Number.isFinite(Number(fallbackRating))
+      ? Number(fallbackRating)
+      : profile.overall || 80;
+    const matches = leagueMatchCount(game);
+    const points = expectedPointsForRating(rating, matches);
+    const rank = clamp(
+      Math.round(1 + (matches * 3 * 0.88 - points) / 6.5),
+      1,
+      leagueTeamCount(game)
+    );
+    return { rating, matches, points, rank };
+  }
+
   function renderSeasonPrediction() {
     const game = state.game;
     ui.seasonPrediction.innerHTML = "";
-    if (!game?.league) return;
-    const rating = applyCoachToProfile(calcTeamProfile(game), getCoach(game)).overall || 80;
-    const matches = leagueMatchCount(game.league);
-    const predictedPoints = expectedPointsForRating(rating, matches);
-    const predictedRank = clamp(Math.round(1 + (matches * 3 * 0.88 - predictedPoints) / 6.5), 1, leagueTeamCount(game.league));
+    const prediction = getSeasonPrediction(game);
+    if (!prediction) return;
     const box = el("div", "prediction-card", "");
-    box.appendChild(el("strong", "", `赛前预测：第 ${predictedRank} 名`));
-    box.appendChild(el("span", "", `预计 ${matches} 场拿到 ${predictedPoints} 分`));
+    box.appendChild(el("strong", "", `赛前预测：第 ${prediction.rank} 名`));
+    box.appendChild(el("span", "", `预计 ${prediction.matches} 场拿到 ${prediction.points} 分`));
     ui.seasonPrediction.appendChild(box);
   }
 
@@ -1760,6 +1855,24 @@
       const teamBest = playerStats[0];
       const goldenBoot = [...playerStats].sort((a, b) => b.goals - a.goals)[0];
       const mostAssists = [...playerStats].sort((a, b) => b.assists - a.assists)[0];
+      const goalkeeperIds = new Set(run.slots
+        .filter((slot) => positionUnit(slot.pos) === "GK")
+        .map((slot) => slot.player?.id)
+        .filter(Boolean));
+      const transferEntries = Array.isArray(run.result?.transferLog) && run.result.transferLog.length
+        ? run.result.transferLog
+        : Array.isArray(run.transferLog) ? run.transferLog : [];
+      const outgoingIds = new Set(transferEntries.map((entry) => entry.outgoingId).filter(Boolean));
+      const outgoingNames = new Set(transferEntries.map((entry) => entry.outgoing).filter(Boolean));
+      const visibleStats = playerStats.slice(0, run.slots.length);
+      playerStats
+        .filter((stat) => stat.position === "GK"
+          || goalkeeperIds.has(stat.id)
+          || outgoingIds.has(stat.id)
+          || outgoingNames.has(stat.name))
+        .forEach((stat) => {
+          if (!visibleStats.some((item) => item.id === stat.id)) visibleStats.push(stat);
+        });
       const awards = el("div", "lineup-awards", "");
       [
         ["最佳球员", teamBest ? `${teamBest.name} · ${teamBest.goals}球 ${teamBest.assists}助` : "--"],
@@ -1773,15 +1886,30 @@
       });
       ui.resultLineupInfo.appendChild(awards);
       const statsHead = el("div", "lineup-stats-head", "");
-      statsHead.appendChild(el("strong", "", "球员赛季数据"));
+      statsHead.appendChild(el("strong", "", uiText("球员赛季数据", "Player Season Stats")));
       ui.resultLineupInfo.appendChild(statsHead);
       const statsList = el("div", "lineup-player-stats", "");
-      playerStats.slice(0, run.slots.length).forEach((stat) => {
+      const columnHead = el("div", "lineup-player-stat lineup-player-stat-head", "");
+      [
+        uiText("球员", "Player"),
+        uiText("出场", "Apps"),
+        uiText("进球", "Goals"),
+        uiText("助攻", "Assists"),
+        uiText("零封", "Clean sheets")
+      ].forEach((label) => columnHead.appendChild(el("span", "", label)));
+      statsList.appendChild(columnHead);
+      visibleStats.forEach((stat) => {
         const row = el("div", "lineup-player-stat", "");
-        row.appendChild(el("strong", "", stat.name));
-        row.appendChild(el("span", "", `${stat.apps ?? 0}场`));
-        row.appendChild(el("span", "", `${stat.goals ?? 0}球`));
-        row.appendChild(el("span", "", `${stat.assists ?? 0}助`));
+        const isGoalkeeper = stat.position === "GK" || goalkeeperIds.has(stat.id);
+        const isTransferredOut = outgoingIds.has(stat.id) || outgoingNames.has(stat.name);
+        const playerCell = el("strong", "lineup-player-name", "");
+        playerCell.appendChild(el("span", "", stat.name));
+        if (isTransferredOut) playerCell.appendChild(el("small", "", uiText("已转出", "Transferred out")));
+        row.appendChild(playerCell);
+        row.appendChild(el("span", "", String(stat.apps ?? 0)));
+        row.appendChild(el("span", "", String(stat.goals ?? 0)));
+        row.appendChild(el("span", "", String(stat.assists ?? 0)));
+        row.appendChild(el("span", "player-clean-sheets", isGoalkeeper ? String(stat.cleanSheets ?? 0) : "—"));
         statsList.appendChild(row);
       });
       ui.resultLineupInfo.appendChild(statsList);
@@ -1806,6 +1934,91 @@
       block.appendChild(el("span", "", uiText("未进行转会", "No transfers made")));
     }
     ui.resultLineupInfo.appendChild(block);
+  }
+
+  function renderTransferReview(run, result, container) {
+    const entries = Array.isArray(result.transferLog) && result.transferLog.length
+      ? result.transferLog
+      : Array.isArray(run.transferLog) ? run.transferLog : [];
+    if (!entries.length && !result.transferSkipped && !run.transferSkipped) return;
+
+    const review = el("div", "season-transfer-review", "");
+    const heading = el("div", "season-transfer-review-heading", "");
+    heading.appendChild(el("strong", "", uiText("转会评价", "Transfer Review")));
+    if (!entries.length) {
+      heading.appendChild(el("span", "season-transfer-tag neutral", uiText("保持原阵", "No signings")));
+      review.appendChild(heading);
+      review.appendChild(el("p", "", uiText(
+        "本赛季没有进行中途引援，球队以原有阵容完成了全部联赛赛程。这让战术体系和更衣室保持了连续性，但也意味着赛季中暴露出的薄弱位置只能依靠内部调整解决。最终成绩可以直接视作这套初始阵容真实竞争力的体现。",
+        "No mid-season signings were made, so the original squad completed the entire league campaign. That preserved tactical and dressing-room continuity, but any weaknesses exposed during the season had to be solved from within. The final result is therefore a direct reflection of the starting squad's true level."
+      )));
+      container.appendChild(review);
+      return;
+    }
+
+    const ratingGains = entries
+      .map((entry) => Number(entry.ratingGain))
+      .filter((gain) => Number.isFinite(gain));
+    const averageGain = ratingGains.length
+      ? ratingGains.reduce((sum, gain) => sum + gain, 0) / ratingGains.length
+      : null;
+    const performance = averageGain === null ? "neutral" : averageGain >= 4 ? "ahead" : averageGain >= 1 ? "on-target" : "behind";
+    const tagText = averageGain === null
+      ? uiText(`${entries.length} 笔签约`, `${entries.length} signing${entries.length === 1 ? "" : "s"}`)
+      : uiText(`平均 ${averageGain >= 0 ? "+" : ""}${averageGain.toFixed(1)} 评分`, `Avg. ${averageGain >= 0 ? "+" : ""}${averageGain.toFixed(1)} rating`);
+    heading.appendChild(el("span", `season-transfer-tag ${performance}`, tagText));
+
+    const statsById = new Map((result.playerStats || []).map((stat) => [stat.id, stat]));
+    const incomingStats = entries.map((entry) => {
+      if (entry.incomingId && statsById.has(entry.incomingId)) return statsById.get(entry.incomingId);
+      return (result.playerStats || []).find((stat) => stat.name === entry.incoming) || null;
+    }).filter(Boolean);
+    const goals = incomingStats.reduce((sum, stat) => sum + Number(stat.goals || 0), 0);
+    const assists = incomingStats.reduce((sum, stat) => sum + Number(stat.assists || 0), 0);
+    const cleanSheets = incomingStats.reduce((sum, stat) => sum + Number(stat.cleanSheets || 0), 0);
+    const directContributions = goals + assists + cleanSheets;
+    const contribution = [
+      goals ? uiText(`${goals} 球`, `${goals} goal${goals === 1 ? "" : "s"}`) : "",
+      assists ? uiText(`${assists} 助`, `${assists} assist${assists === 1 ? "" : "s"}`) : "",
+      cleanSheets ? uiText(`${cleanSheets} 次零封`, `${cleanSheets} clean sheet${cleanSheets === 1 ? "" : "s"}`) : ""
+    ].filter(Boolean).join(" · ");
+    const reviewText = averageGain === null
+      ? uiText(`球队完成了 ${entries.length} 笔转会，为阵容带来了新的轮换选择。由于旧存档没有完整的评分变化记录，本次评价更侧重新援的实际贡献。`, `${entries.length} transfer${entries.length === 1 ? " was" : "s were"} completed, adding new rotation options. Because this older save does not contain complete rating-change data, the assessment focuses on the arrivals' actual output.`)
+      : averageGain >= 4
+        ? uiText(`这是一次非常精准的补强：${entries.length} 笔签约平均带来 ${averageGain.toFixed(1)} 点能力提升，明显抬高了阵容上限，也让关键位置拥有了更可靠的即战力。`, `This was highly precise recruitment: ${entries.length} signing${entries.length === 1 ? " delivered" : "s delivered"} an average rating gain of ${averageGain.toFixed(1)}, clearly raising the squad's ceiling and adding dependable quality in key positions.`)
+        : averageGain >= 1
+          ? uiText(`转会窗完成了有效调整，平均 ${averageGain.toFixed(1)} 点的能力提升不算颠覆性，却为轮换和临场变化补上了可用的即战力。整体操作稳健，属于风险较低、效果明确的补强。`, `The window produced a useful adjustment. An average gain of ${averageGain.toFixed(1)} was not transformative, but it added usable quality for rotation and in-game changes. Overall, this was steady, low-risk recruitment with a clear benefit.`)
+          : uiText(`这次操作更接近阵容重组，平均评分变化为 ${averageGain >= 0 ? "+" : ""}${averageGain.toFixed(1)}。纸面实力没有得到明显提升，新援需要用持续表现证明这次人员更替的价值。`, `This window was closer to a squad reshuffle, with an average rating change of ${averageGain >= 0 ? "+" : ""}${averageGain.toFixed(1)}. The team did not improve clearly on paper, so the arrivals need sustained performances to justify the changes.`);
+    review.appendChild(heading);
+    review.appendChild(el("p", "", reviewText));
+    const transferDetails = el("div", "season-review-details", "");
+    entries.forEach((entry) => {
+      const incomingStat = entry.incomingId && statsById.has(entry.incomingId)
+        ? statsById.get(entry.incomingId)
+        : (result.playerStats || []).find((item) => item.name === entry.incoming);
+      const outgoingStat = entry.outgoingId && statsById.has(entry.outgoingId)
+        ? statsById.get(entry.outgoingId)
+        : (result.playerStats || []).find((item) => item.name === entry.outgoing);
+      const gain = Number(entry.ratingGain);
+      const incomingOutput = incomingStat
+        ? uiText(`${Number(incomingStat.apps || 0)} 场、${Number(incomingStat.goals || 0)} 球、${Number(incomingStat.assists || 0)} 助、${Number(incomingStat.cleanSheets || 0)} 次零封`, `${Number(incomingStat.apps || 0)} apps, ${Number(incomingStat.goals || 0)} goals, ${Number(incomingStat.assists || 0)} assists, ${Number(incomingStat.cleanSheets || 0)} clean sheets`)
+        : uiText("暂无完整个人数据", "complete individual data unavailable");
+      const outgoingOutput = outgoingStat
+        ? uiText(`${Number(outgoingStat.apps || 0)} 场、${Number(outgoingStat.goals || 0)} 球、${Number(outgoingStat.assists || 0)} 助、${Number(outgoingStat.cleanSheets || 0)} 次零封`, `${Number(outgoingStat.apps || 0)} apps, ${Number(outgoingStat.goals || 0)} goals, ${Number(outgoingStat.assists || 0)} assists, ${Number(outgoingStat.cleanSheets || 0)} clean sheets`)
+        : uiText("暂无完整个人数据", "complete individual data unavailable");
+      const change = Number.isFinite(gain)
+        ? uiText(`位置评分 ${gain >= 0 ? "+" : ""}${gain.toFixed(1)}`, `slot rating ${gain >= 0 ? "+" : ""}${gain.toFixed(1)}`)
+        : uiText("评分变化未知", "rating change unavailable");
+      transferDetails.appendChild(el("span", "", uiText(
+        `${entry.outgoing || "原位置球员"} 转会前贡献：${outgoingOutput}；${entry.incoming} 加入后贡献：${incomingOutput}。本次更替带来${change}。`,
+        `Before leaving, ${entry.outgoing || "the previous player"} recorded ${outgoingOutput}; after arriving, ${entry.incoming} recorded ${incomingOutput}. The change produced ${change}.`
+      )));
+    });
+    review.appendChild(transferDetails);
+    review.appendChild(el("small", "", contribution
+      ? uiText(`新援合计贡献 ${contribution}。${directContributions >= 12 ? "他们迅速成为赛季后半程的重要力量。" : directContributions > 0 ? "他们已经带来直接回报，但仍有继续提升的空间。" : ""}`, `The arrivals combined for ${contribution}. ${directContributions >= 12 ? "They quickly became an important force in the second half of the season." : directContributions > 0 ? "They delivered an immediate return, with room for more." : ""}`)
+      : uiText("新援尚未直接参与进球或零封，转会的长期价值仍需后续赛季检验。", "The arrivals did not directly register a goal, assist, or clean sheet, so the long-term value of the business remains to be proven.")));
+    container.appendChild(review);
   }
 
   function selectSlot(index) {
@@ -3059,7 +3272,12 @@
       club: clubName,
       season: transferSeason,
       incoming: incoming.name,
+      incomingId: incoming.id,
+      incomingRate: incoming.rate,
       outgoing: outgoing.name,
+      outgoingId: outgoing.id,
+      outgoingRate: outgoing.rate,
+      ratingGain: incoming.rate - outgoing.rate,
       slot: slot.pos,
       rate: incoming.rate
     });
@@ -3480,6 +3698,7 @@
     }
     const teamRating = calcTeamRating(game);
     const profile = calcTeamProfile(game);
+    const seasonPrediction = getSeasonPrediction(game);
     const teamNames = [...new Set(getLeagueTeams(game))];
     const profileMap = buildProfileMap(game, teamNames);
     const schedule = createLeagueSchedule(teamNames);
@@ -3495,6 +3714,7 @@
     const simulation = {
       game,
       teamRating,
+      seasonPrediction,
       profile,
       profileMap,
       eloMap,
@@ -3571,21 +3791,22 @@
     sim.goalsAgainst += match.ga;
     (match.scorerStats || match.scorers || []).forEach((scorer) => {
       if (!scorer || typeof scorer === "string") return;
-      const stat = sim.playerStats.get(scorer.id) || { id: scorer.id, name: scorer.name, apps: 0, goals: 0, assists: 0 };
+      const stat = getSeasonPlayerStat(sim, scorer);
       stat.goals += 1;
       sim.playerStats.set(scorer.id, stat);
       sim.scorers.set(scorer.name, (sim.scorers.get(scorer.name) || 0) + 1);
     });
     (match.assists || []).forEach((assist) => {
       if (!assist) return;
-      const stat = sim.playerStats.get(assist.id) || { id: assist.id, name: assist.name, apps: 0, goals: 0, assists: 0 };
+      const stat = getSeasonPlayerStat(sim, assist);
       stat.assists += 1;
       sim.playerStats.set(assist.id, stat);
     });
     sim.game.slots.forEach((slot) => {
       if (!slot.player) return;
-      const stat = sim.playerStats.get(slot.player.id) || { id: slot.player.id, name: slot.player.name, apps: 0, goals: 0, assists: 0 };
+      const stat = getSeasonPlayerStat(sim, slot.player, slot.pos);
       stat.apps += 1;
+      if (positionUnit(slot.pos) === "GK" && match.ga === 0) stat.cleanSheets += 1;
       sim.playerStats.set(slot.player.id, stat);
     });
     advanceTransferChemistry(sim);
@@ -3594,6 +3815,21 @@
       return;
     }
     setTimeout(() => simulateNextMatch(sim), 600);
+  }
+
+  function getSeasonPlayerStat(sim, player, position) {
+    const stat = sim.playerStats.get(player.id) || {
+      id: player.id,
+      name: player.name,
+      position: position || "",
+      apps: 0,
+      goals: 0,
+      assists: 0,
+      cleanSheets: 0
+    };
+    if (!stat.position && position) stat.position = position;
+    if (!Number.isFinite(Number(stat.cleanSheets))) stat.cleanSheets = 0;
+    return stat;
   }
 
   function advanceAiFixtures(sim, endIndex = sim.schedule.length) {
@@ -3666,21 +3902,20 @@
   }
 
   function renderLeagueSimulationResultRow(match, current = false) {
-    const row = renderEuropeanLeagueResultRow({
-      stage: uiText(`第 ${match.round} 轮`, `Round ${match.round}`),
-      home: match.home ? "我的球队" : match.opponent,
-      away: match.home ? match.opponent : "我的球队",
-      homeGoals: match.homeGoals,
-      awayGoals: match.awayGoals,
-      homeIsUser: match.home,
-      awayIsUser: !match.home,
-      userMatch: true
-    }, current);
+    const row = el("div", current ? "sim-match-current" : "sim-match-row", "");
+    row.classList.add(match.result === "W" ? "result-win" : match.result === "D" ? "result-draw" : "result-loss");
+    const score = el("strong", current ? "match-score" : "sim-list-score", `${match.gf}-${match.ga}`);
+    const round = el("span", "match-round", uiText(`第 ${match.round} 轮`, `Round ${match.round}`));
+    const venue = el("span", `sim-venue ${match.home ? "home" : "away"}`, uiText(
+      match.home ? "主场" : "客场",
+      match.home ? "Home" : "Away"
+    ));
+    const matchup = el("strong", "", uiText(`我的球队 vs ${match.opponent}`, `My Team vs ${match.opponent}`));
+    row.append(score, round, venue, matchup);
     if (current) {
-      row.classList.add("league-simulation-current");
       row.appendChild(el(
         "small",
-        "league-simulation-scorers",
+        "",
         match.scorers.length
           ? uiText(`进球：${match.scorers.join("、")}`, `Goals: ${match.scorers.join(", ")}`)
           : uiText("无进球", "No goals")
@@ -3692,7 +3927,7 @@
   function renderSimulationStep(sim) {
     ui.simulationProgress.textContent = `${sim.matches.length}/${sim.matchCount}`;
     ui.simulationCurrent.innerHTML = "";
-    ui.simulationCurrent.classList.toggle("league-simulation-shell", sim.matches.length > 0);
+    ui.simulationCurrent.classList.remove("league-simulation-shell");
     if (sim.matches.length) {
       const match = sim.matches[sim.matches.length - 1];
       ui.simulationCurrent.appendChild(renderLeagueSimulationResultRow(match, true));
@@ -3713,7 +3948,7 @@
     while (sim.domesticCup && !sim.domesticCup.finished) simulateDomesticCupRound(sim);
     const game = sim.game;
     const points = sim.wins * 3 + sim.draws;
-    const maxFinish = leagueTeamCount(game.league);
+    const maxFinish = leagueTeamCount(game);
     let finish = rankFromPoints(points, maxFinish);
     const topScorer = [...sim.scorers.entries()].sort((a, b) => b[1] - a[1])[0] || null;
     const playerStats = buildPlayerStats(sim);
@@ -3750,6 +3985,7 @@
       points,
       finish,
       teamRating: sim.teamRating,
+      seasonPrediction: sim.seasonPrediction,
       seed: hashSeed(`${game.id}|${game.slots.map((s) => s.player.id).join(",")}`),
       simVersion: SIM_VERSION,
       topScorer,
@@ -3769,10 +4005,66 @@
     game.transferSkipped = Boolean(sim.transferState?.skipped);
     game.phase = "complete";
     game.simulation = null;
+    if (game.mode === "dynasty" && game.dynasty) {
+      const seasonRecord = {
+        season: simulationSeason(game),
+        league: game.league,
+        result: game.result,
+        lineup: game.slots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }))
+      };
+      const recordIndex = game.dynasty.results.findIndex((entry) => entry.season === seasonRecord.season);
+      if (recordIndex >= 0) game.dynasty.results[recordIndex] = seasonRecord;
+      else game.dynasty.results.push(seasonRecord);
+      if (game.result.finish === 1) game.dynasty.trophies.league += 1;
+      if (game.result.domesticCup?.champion === "我的球队") game.dynasty.trophies.domesticCup += 1;
+    }
     saveGame();
-    addRun(game);
+    if (game.mode === "dynasty") updateRun(game);
+    else addRun(game);
     renderHomeHistory();
     renderResult(game);
+  }
+
+  async function startNextDynastySeason() {
+    const game = state.game;
+    if (!game?.dynasty || game.mode !== "dynasty") return;
+    const nextIndex = Number(game.dynasty.currentIndex || 0) + 1;
+    const nextSeason = game.dynasty.seasons[nextIndex];
+    if (!nextSeason) return;
+    ui.nextDynastySeasonBtn.disabled = true;
+    try {
+      await loadSeasonData(nextSeason);
+      game.dynasty.currentIndex = nextIndex;
+      game.dynasty.currentSeason = nextSeason;
+      game.dynasty.previousQualification = game.result?.europeQualification || null;
+      game.season = nextSeason;
+      game.seasonRange = { start: nextSeason, end: nextSeason };
+      game.phase = "drafting";
+      game.result = null;
+      game.simulation = null;
+      game.europeResult = null;
+      game.europeSim = null;
+      game.transferLog = [];
+      game.transferSkipped = false;
+      game.currentSpin = null;
+      game.candidates = [];
+      game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
+      game.rerolls = REROLL_BUDGET[game.difficulty] || 0;
+      game.randomSeed = hashSeed(`${game.id}|dynasty|${nextSeason}`);
+      game.randomState = game.randomSeed;
+      game.randomDraws = 0;
+      state.viewingRun = null;
+      state.transfer = null;
+      saveGame();
+      updateRun(game);
+      renderGame();
+      toast(uiText(`${nextSeason} 赛季开始，阵容已保留。`, `${nextSeason} season started with your squad retained.`));
+    } catch (error) {
+      console.error(error);
+      toast(uiText("下一赛季数据加载失败，请重试。", "Could not load the next season. Please try again."));
+    } finally {
+      ui.nextDynastySeasonBtn.disabled = false;
+    }
   }
 
   function buildPlayerStats(sim) {
@@ -3783,6 +4075,7 @@
     return [...sim.playerStats.values()]
       .map((stat) => ({
         ...stat,
+        cleanSheets: Number(stat.cleanSheets || 0),
         rate: rateById.get(stat.id) || 0,
         score: stat.goals * 5 + stat.assists * 2 + stat.apps * 0.12 + (rateById.get(stat.id) || 0) / 10
       }))
@@ -3795,7 +4088,7 @@
         .sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor)
         .map((row, index) => ({ ...row, position: index + 1 }));
     }
-    const size = leagueTeamCount(game.league);
+    const size = leagueTeamCount(game);
     const played = (size - 1) * 2;
     const rng = makeRng(hashSeed(`table-${game.id}`));
     const pool = getLeagueTeams(game).filter((name) => name !== "我的球队");
@@ -3892,7 +4185,7 @@
       "传奇十一人", "青年军", "冠军联队", "欧陆豪门", "美洲冠军", "海湾之星",
       "太平洋联队", "伊比利亚明星", "地中海联队", "大西洋联队", "北欧劲旅", "东欧联队", "中东联队"
     ];
-    const opponentCount = leagueTeamCount(game.league) - 1;
+    const opponentCount = leagueTeamCount(game) - 1;
     while (pool.length < opponentCount) pool.push(filler[pool.length % filler.length]);
     const rng = makeRng(hashSeed(`opponents-${game.id}`));
     return shuffleWithRng([...new Set(pool)].slice(0, 60), rng).slice(0, opponentCount)
@@ -3934,6 +4227,17 @@
 
   function buildLeagueProfileMap(game, names) {
     const season = simulationSeason(game);
+    if (game.mode === "dynasty") {
+      const standings = dynastyStandings(season, game.league);
+      const clubs = clubsForLeague(game.league, season);
+      const count = Math.max(2, standings.length);
+      const profiles = {};
+      names.filter((name) => name !== "我的球队").forEach((name) => {
+        const rankIndex = Math.max(0, standings.indexOf(name));
+        profiles[name] = dynastyRankProfile(name, rankIndex, count, clubs);
+      });
+      return profiles;
+    }
     const clubs = clubsForLeague(game.league, season).filter((club) => names.includes(club.name));
     const eliteStrength = (club) => {
       if (ELITE_STRENGTH[club.id]) return ELITE_STRENGTH[club.id];
@@ -3961,6 +4265,70 @@
       item.profile.overall = normalized;
     });
     return Object.fromEntries(rows.map((item) => [item.club.name, item.profile]));
+  }
+
+  const DYNASTY_CLUB_ALIASES = {
+    "man city": "manchester city",
+    "man united": "manchester united",
+    "nott m forest": "nottingham forest",
+    "qpr": "queens park rangers",
+    "ath madrid": "atletico madrid",
+    "ath bilbao": "athletic bilbao",
+    "la coruna": "deportivo la coruna",
+    "deportivo de la coruna": "deportivo la coruna",
+    "sociedad": "real sociedad",
+    "betis": "real betis",
+    "paris sg": "paris saint germain",
+    "lyon": "olympique lyon",
+    "marseille": "olympique marseille",
+    "m gladbach": "borussia monchengladbach",
+    "dortmund": "borussia dortmund",
+    "leverkusen": "bayer leverkusen",
+    "bayern munich": "bayern munchen",
+    "inter": "inter milan",
+    "milan": "ac milan"
+  };
+
+  function normalizeDynastyClubName(value) {
+    const normalized = String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\b(football club|club de futbol|calcio|fc|cf|ssc|1)\b/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return DYNASTY_CLUB_ALIASES[normalized] || normalized;
+  }
+
+  function findDynastySeasonClub(name, clubs) {
+    const target = normalizeDynastyClubName(name);
+    const exact = clubs.filter((club) => [club.name, club.short, club.id]
+      .some((value) => normalizeDynastyClubName(value) === target));
+    if (exact.length === 1) return exact[0];
+    const partial = clubs.filter((club) => {
+      const clubName = normalizeDynastyClubName(club.name);
+      return clubName.includes(target) || target.includes(clubName);
+    });
+    return partial.length === 1 ? partial[0] : null;
+  }
+
+  function dynastyRankProfile(name, rankIndex, count, clubs) {
+    const rankStrength = Math.round(90 - (rankIndex / Math.max(1, count - 1)) * 18);
+    const club = findDynastySeasonClub(name, clubs);
+    const rawProfile = club
+      ? calcClubProfile(club)
+      : { attack: rankStrength, midfield: rankStrength, defense: rankStrength, goalkeeper: rankStrength, overall: rankStrength };
+    const normalized = clamp(Math.round(rankStrength * 0.8 + rawProfile.overall * 0.2), 68, 94);
+    const delta = normalized - rawProfile.overall;
+    return {
+      attack: clamp(rawProfile.attack + Math.round(delta * 0.35), 40, 99),
+      midfield: clamp(rawProfile.midfield + Math.round(delta * 0.25), 40, 99),
+      defense: clamp(rawProfile.defense + Math.round(delta * 0.25), 40, 99),
+      goalkeeper: clamp(rawProfile.goalkeeper + Math.round(delta * 0.15), 40, 99),
+      overall: normalized
+    };
   }
 
     function runSeason(game, teamRating, opponents, seed) {
@@ -4221,6 +4589,121 @@
     ui.challengeResult.appendChild(list);
   }
 
+  function renderSeasonReview(run, result) {
+    const container = ui.seasonReview;
+    if (!container) return;
+    container.innerHTML = "";
+    const prediction = result.seasonPrediction || getSeasonPrediction(run, result.teamRating);
+    if (!prediction) return;
+
+    const actualRank = Number(result.finish);
+    const predictedRank = Number(prediction.rank);
+    const rankDifference = predictedRank - actualRank;
+    const pointDifference = Number(result.points) - Number(prediction.points || 0);
+    const performanceClass = rankDifference > 0 ? "ahead" : rankDifference < 0 ? "behind" : "on-target";
+    const differenceText = rankDifference > 0
+      ? uiText(`高于预测 ${rankDifference} 位`, `${rankDifference} place${rankDifference === 1 ? "" : "s"} above prediction`)
+      : rankDifference < 0
+        ? uiText(`低于预测 ${Math.abs(rankDifference)} 位`, `${Math.abs(rankDifference)} place${Math.abs(rankDifference) === 1 ? "" : "s"} below prediction`)
+        : uiText("符合预测", "On target");
+    const pointText = pointDifference > 0
+      ? uiText(`多拿 ${pointDifference} 分`, `+${pointDifference} pts`)
+      : pointDifference < 0
+        ? uiText(`少拿 ${Math.abs(pointDifference)} 分`, `${pointDifference} pts`)
+        : uiText("积分持平", "Points matched");
+    const matches = Array.isArray(result.matches) ? result.matches : [];
+    const biggestWin = matches
+      .filter((match) => Number(match.gf) > Number(match.ga))
+      .sort((a, b) => (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf)[0] || null;
+    const heaviestLoss = matches
+      .filter((match) => Number(match.gf) < Number(match.ga))
+      .sort((a, b) => (b.ga - b.gf) - (a.ga - a.gf) || b.ga - a.ga)[0] || null;
+    const cleanSheets = matches.filter((match) => Number(match.ga) === 0).length;
+    const scorelessMatches = matches.filter((match) => Number(match.gf) === 0).length;
+    const goalDifference = Number(result.goalsFor) - Number(result.goalsAgainst);
+    const pointsPerMatch = matches.length ? Number(result.points) / matches.length : 0;
+    let longestUnbeaten = 0;
+    let currentUnbeaten = 0;
+    matches.forEach((match) => {
+      currentUnbeaten = match.result === "L" ? 0 : currentUnbeaten + 1;
+      longestUnbeaten = Math.max(longestUnbeaten, currentUnbeaten);
+    });
+    const reviewText = rankDifference >= 4
+      ? uiText(`惊喜赛季，最终名次比预测高出 ${rankDifference} 位。`, `A surprise season: ${rankDifference} places above the prediction.`)
+      : rankDifference >= 2
+        ? uiText(`超额完成目标，球队把预测转化成了更高的联赛位置。`, "A clear overperformance turned the projection into a stronger league finish.")
+        : rankDifference === 1
+          ? uiText("略超预期，关键场次的表现带来了额外回报。", "Slightly ahead of target, with key results making the difference.")
+          : rankDifference === 0
+            ? uiText("走势与赛前判断一致，球队稳定兑现了预期。", "The season tracked the pre-season outlook and delivered steadily.")
+            : rankDifference >= -2
+              ? uiText("与预期有些差距，下赛季需要把细节转化为积分。", "A small gap to the projection leaves room to turn fine margins into points next season.")
+              : uiText("结果低于赛前预测，阵容深度和稳定性会是下赛季的重点。", "The finish fell short of the projection; squad depth and consistency should be next season's focus.");
+
+    const heading = el("div", "season-review-heading", "");
+    heading.appendChild(el("span", "eyebrow", uiText("赛季表现", "Season Review")));
+    heading.appendChild(el("strong", "season-review-delta", differenceText));
+    const comparison = el("div", "season-rank-comparison", "");
+    [
+      [actualRank, uiText("实际排名", "Actual finish"), "actual"],
+      [predictedRank, uiText("赛前预测", "Pre-season prediction"), "predicted"]
+    ].forEach(([rank, label, type]) => {
+      const card = el("div", `season-rank-card ${type}`, "");
+      card.appendChild(el("strong", "", uiText(`第 ${rank} 名`, `#${rank}`)));
+      card.appendChild(el("span", "", label));
+      comparison.appendChild(card);
+    });
+    const commentary = el("p", "season-review-commentary", "");
+    commentary.appendChild(el("span", "", reviewText));
+    commentary.appendChild(el("small", "", uiText(
+      `${pointText}，场均 ${pointsPerMatch.toFixed(2)} 分；${result.goalsFor} 个进球、${result.goalsAgainst} 个失球，净胜球 ${goalDifference >= 0 ? "+" : ""}${goalDifference}。`,
+      `${pointText}, with ${pointsPerMatch.toFixed(2)} points per match; ${result.goalsFor} scored, ${result.goalsAgainst} conceded and a goal difference of ${goalDifference >= 0 ? "+" : ""}${goalDifference}.`
+    )));
+    const details = el("div", "season-review-details", "");
+    if (biggestWin) {
+      details.appendChild(el("span", "", uiText(
+        `代表作是第 ${biggestWin.round} 轮${biggestWin.home ? "主场" : "客场"} ${biggestWin.gf}-${biggestWin.ga} 击败 ${biggestWin.opponent}，这是本赛季最大比分胜利。`,
+        `The standout result was the ${biggestWin.gf}-${biggestWin.ga} ${biggestWin.home ? "home" : "away"} win over ${biggestWin.opponent} in round ${biggestWin.round}, the biggest victory of the season.`
+      )));
+    }
+    if (heaviestLoss) {
+      details.appendChild(el("span", "", uiText(
+        `最需要复盘的是第 ${heaviestLoss.round} 轮${heaviestLoss.home ? "主场" : "客场"} ${heaviestLoss.gf}-${heaviestLoss.ga} 负于 ${heaviestLoss.opponent}，暴露了球队在逆境中的防守问题。`,
+        `The result most in need of review was the ${heaviestLoss.gf}-${heaviestLoss.ga} ${heaviestLoss.home ? "home" : "away"} defeat to ${heaviestLoss.opponent} in round ${heaviestLoss.round}, which exposed defensive issues under pressure.`
+      )));
+    }
+    details.appendChild(el("span", "", uiText(
+      `球队完成 ${cleanSheets} 场零封，最长连续 ${longestUnbeaten} 场不败，同时有 ${scorelessMatches} 场未能进球。${cleanSheets >= Math.ceil(matches.length * 0.35) ? "防守稳定性是取得当前排名的重要基础。" : scorelessMatches >= Math.ceil(matches.length * 0.25) ? "如何提高进攻下限，是下赛季最值得优先解决的问题。" : "整体攻防表现较为均衡，但关键场次的效率仍决定了排名上限。"}`,
+      `The team recorded ${cleanSheets} clean sheets and a longest unbeaten run of ${longestUnbeaten} matches, while failing to score ${scorelessMatches} times. ${cleanSheets >= Math.ceil(matches.length * 0.35) ? "Defensive consistency was a major foundation of this finish." : scorelessMatches >= Math.ceil(matches.length * 0.25) ? "Raising the attacking floor should be the priority next season." : "The overall balance was sound, although efficiency in key matches still set the ceiling."}`
+    )));
+    container.className = `season-review ${performanceClass}`;
+    container.append(heading, comparison, commentary, details);
+    renderTransferReview(run, result, container);
+  }
+
+  function renderDynastyProgress(run) {
+    if (run.mode !== "dynasty" || !run.dynasty || !ui.seasonReview) return;
+    const block = el("div", "dynasty-progress", "");
+    const trophies = run.dynasty.trophies || {};
+    block.appendChild(el("strong", "", uiText(
+      `王朝进度 · ${run.dynasty.results.length}/${run.dynasty.seasons.length} 赛季`,
+      `Dynasty progress · ${run.dynasty.results.length}/${run.dynasty.seasons.length} seasons`
+    )));
+    block.appendChild(el("small", "", uiText(
+      `奖杯：联赛 ${trophies.league || 0} · 国内杯赛 ${trophies.domesticCup || 0} · 欧战 ${trophies.europe || 0}`,
+      `Trophies: League ${trophies.league || 0} · Domestic cup ${trophies.domesticCup || 0} · Europe ${trophies.europe || 0}`
+    )));
+    const seasons = el("div", "dynasty-season-list", "");
+    run.dynasty.results.forEach((entry) => {
+      seasons.appendChild(el("span", "", uiText(
+        `${entry.season} · 第 ${entry.result.finish} 名 · ${entry.result.points} 分`,
+        `${entry.season} · #${entry.result.finish} · ${entry.result.points} pts`
+      )));
+    });
+    block.appendChild(seasons);
+    ui.seasonReview.appendChild(block);
+  }
+
   function renderResult(game) {
     const run = game || state.game;
     if (!run || !run.result) return;
@@ -4228,13 +4711,21 @@
     const leagueName = getLeague(run.league)?.name || run.league || "";
     const seasonText = run.season || run.seasonRange?.end || "";
     const challenge = getChallenge(run.challengeId);
+    const dynastyActive = run.mode === "dynasty" && run === state.game;
+    const dynastyHasNext = dynastyActive
+      && Number(run.dynasty?.currentIndex || 0) < Number(run.dynasty?.seasons?.length || 1) - 1;
+    ui.nextDynastySeasonBtn?.classList.toggle("hidden", !dynastyHasNext);
     $("#resultMatchEyebrow").textContent = `${result.matches.length} 场比赛`;
     $("#resultBadge").textContent = challenge
       ? `${challengeName(challenge)} · ${run.formation}`
+      : run.mode === "dynasty"
+        ? `${uiText("王朝模式", "Dynasty")} · ${simulationSeason(run)} · ${Number(run.dynasty?.currentIndex || 0) + 1}/${run.dynasty?.seasons?.length || 1}`
       : `${run.formation} · ${leagueName || seasonText}`;
     $("#resultRecord").textContent = `${result.wins}-${result.draws}-${result.losses}`;
     $("#resultPoints").textContent = `${result.points} 分`;
     $("#resultScore").textContent = `${result.points} 分 · 第 ${result.finish} 名`;
+    renderSeasonReview(run, result);
+    renderDynastyProgress(run);
 
     const stats = [
       [result.wins, "胜"],
@@ -4641,7 +5132,37 @@
     const rng = makeRng(hashSeed(`europe-${run.id}-${competition}`));
     const entries = (typeof EUROPE_2025_26 !== "undefined" && EUROPE_2025_26[competition]) || null;
     const teams = [];
-    if (entries && entries.length) {
+    if (run.mode === "dynasty") {
+      const season = simulationSeason(run);
+      const rankOffset = competition === "UCL" ? 0 : competition === "UEL" ? 3 : 6;
+      const pool = ["eng", "esp", "ita", "ger", "fra"].flatMap((leagueId) => {
+        const standings = dynastyStandings(season, leagueId);
+        const clubs = clubsForLeague(leagueId, season);
+        return standings.slice(rankOffset, rankOffset + 7).map((name, index) => ({
+          name,
+          profile: dynastyRankProfile(name, rankOffset + index, standings.length, clubs)
+        }));
+      });
+      shuffleWithRng(pool, rng).slice(0, 35).forEach((entry) => {
+        teams.push({
+          name: entry.name,
+          strength: teamStrength(entry.profile),
+          profile: entry.profile,
+          played: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          points: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          awayGoals: 0,
+          awayWins: 0,
+          disciplinaryPoints: 0,
+          clubCoefficient: teamStrength(entry.profile),
+          isUser: false
+        });
+      });
+    } else if (entries && entries.length) {
       const nonBigFive = entries.filter((entry) => !(
         entry.id
         && typeof CLUBS !== "undefined"
@@ -4948,6 +5469,11 @@
       rounds: sim.rounds,
       logs: sim.logs
     };
+    if (sim.run.mode === "dynasty" && sim.run.dynasty) {
+      const seasonRecord = sim.run.dynasty.results.find((entry) => entry.season === simulationSeason(sim.run));
+      if (seasonRecord) seasonRecord.europeResult = sim.run.europeResult;
+      if (champion?.isUser) sim.run.dynasty.trophies.europe += 1;
+    }
     sim.run.europeSim = null;
     sim.finished = true;
     if (sim.run === state.game) saveGame();
@@ -5005,16 +5531,31 @@
     const match = europeanMatchFromLog(log);
     const row = el("div", current ? "europe-league-current" : "europe-league-result-row", "");
     row.classList.toggle("user-row", Boolean(log?.userMatch));
-    row.appendChild(el("span", "europe-league-round", log?.stage || ""));
     if (!match) {
+      row.appendChild(el("span", "europe-league-round", log?.stage || ""));
       row.appendChild(el("span", "europe-league-matchup", log?.text || ""));
       return row;
     }
-    row.appendChild(el("strong", "europe-league-score", `${match.homeGoals}-${match.awayGoals}`));
+    const userFirst = match.homeIsUser || match.awayIsUser;
+    const firstTeam = userFirst ? "我的球队" : match.home;
+    const secondTeam = userFirst
+      ? match.homeIsUser ? match.away : match.home
+      : match.away;
+    const firstGoals = userFirst && match.awayIsUser ? match.awayGoals : match.homeGoals;
+    const secondGoals = userFirst && match.awayIsUser ? match.homeGoals : match.awayGoals;
+    if (userFirst) {
+      row.classList.add(firstGoals > secondGoals ? "result-win" : firstGoals === secondGoals ? "result-draw" : "result-loss");
+    }
+    row.appendChild(el("strong", "europe-league-score", `${firstGoals}-${secondGoals}`));
+    row.appendChild(el("span", "europe-league-round", log?.stage || ""));
+    row.appendChild(el("span", `sim-venue ${match.homeIsUser ? "home" : "away"}`, uiText(
+      match.homeIsUser ? "主场" : "客场",
+      match.homeIsUser ? "Home" : "Away"
+    )));
     const teams = el("div", "europe-league-matchup", "");
-    teams.appendChild(el("span", match.homeIsUser ? "user-team" : "", uiText(match.home, match.homeIsUser ? "My Team" : match.home)));
+    teams.appendChild(el("span", userFirst ? "user-team" : "", uiText(firstTeam, userFirst ? "My Team" : firstTeam)));
     teams.appendChild(el("small", "", "vs"));
-    teams.appendChild(el("span", match.awayIsUser ? "user-team" : "", uiText(match.away, match.awayIsUser ? "My Team" : match.away)));
+    teams.appendChild(el("span", "", secondTeam));
     row.appendChild(teams);
     return row;
   }

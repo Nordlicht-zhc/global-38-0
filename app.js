@@ -2581,7 +2581,7 @@
       return;
     }
     if (transfer.mode === "deadline") {
-      transfer.candidates = shuffleWithRng(pool, rng).slice(0, 3);
+      transfer.candidates = buildDeadlineCandidates(pool, rng);
       transfer.deadlineOfferIndex = 0;
       return;
     }
@@ -2617,6 +2617,24 @@
       safe && { ...safe, mysteryRisk: "safe" },
       standard && { ...standard, mysteryRisk: "standard" },
       risky && { ...risky, mysteryRisk: "risky" }
+    ].filter(Boolean);
+  }
+
+  function buildDeadlineCandidates(pool, rng) {
+    if (!pool.length) return [];
+    const ordered = [...pool].sort((a, b) => a.rate - b.rate);
+    const band = (start, end) => ordered.slice(
+      Math.floor(ordered.length * start),
+      Math.max(Math.floor(ordered.length * start) + 1, Math.ceil(ordered.length * end))
+    );
+    const excludedIds = new Set();
+    const firstPool = band(0.4, 0.7);
+    const secondPool = rng() < 0.5 ? band(0.18, 0.48) : band(0.7, 0.9);
+    const finalPool = rng() < 0.5 ? band(0, 0.25) : band(0.88, 1);
+    return [
+      takeRandomCandidate(firstPool, excludedIds, pool, rng),
+      takeRandomCandidate(secondPool, excludedIds, pool, rng),
+      takeRandomCandidate(finalPool, excludedIds, pool, rng)
     ].filter(Boolean);
   }
 
@@ -2743,10 +2761,32 @@
   }
 
   function transferUpgradeValue(player, game, transfer) {
+    return bestTransferFit(player, game, transfer)?.change || 0;
+  }
+
+  function bestTransferFit(player, game, transfer) {
     return game.slots.reduce((best, slot) => {
       if (!canTransferReplace(player, slot, transfer)) return best;
-      return Math.max(best, transferRateForSlot(player, slot.pos) - Number(slot.player.rate || 0));
-    }, 0);
+      const incomingRate = transferRateForSlot(player, slot.pos);
+      const outgoingRate = Number(slot.player.rate || 0);
+      const fit = {
+        pos: slot.pos,
+        incomingRate,
+        outgoingRate,
+        change: incomingRate - outgoingRate
+      };
+      return !best || fit.change > best.change ? fit : best;
+    }, null);
+  }
+
+  function appendTransferImpact(parent, player, transfer) {
+    const fit = bestTransferFit(player, state.game, transfer);
+    if (!fit) return;
+    const change = fit.change > 0 ? `+${fit.change}` : String(fit.change);
+    parent.appendChild(el("span", `transfer-impact${fit.change > 0 ? " positive" : fit.change < 0 ? " negative" : ""}`, uiText(
+      `最佳替换：${POSITION_NAMES[fit.pos] || fit.pos} · 首发评分 ${change}`,
+      `Best replacement: ${fit.pos} · Starting rating ${change}`
+    )));
   }
 
   function transferRateForSlot(player, slotPos) {
@@ -2853,6 +2893,7 @@
       const clubLine = sourceBits.length ? `${sourceBits.join(" · ")} · ` : "";
       button.appendChild(el("small", "", `${clubLine}${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}`));
       button.appendChild(el("span", "rate", String(candidate.rate)));
+      if (transfer.mode === "weak") appendTransferImpact(button, candidate, transfer);
       button.addEventListener("click", () => {
         transfer.selectedCandidateId = candidate.id;
         renderPitch();
@@ -2886,6 +2927,7 @@
       candidate.pos.map((pos) => POSITION_NAMES[pos] || pos).join("/")
     ].filter(Boolean).join(" · ")));
     card.appendChild(el("span", "rate", String(candidate.rate)));
+    appendTransferImpact(card, candidate, transfer);
     const actions = el("div", "deadline-actions", "");
     const accept = el("button", "btn btn-primary", accepted
       ? uiText(finalOffer ? "强制签约" : "已接受", finalOffer ? "Mandatory Signing" : "Accepted")

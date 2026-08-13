@@ -1,0 +1,5 @@
+/dist/
+/release/
+/src-tauri/gen/
+/src-tauri/target/
+

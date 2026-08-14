@@ -103,6 +103,16 @@
             <div class="challenge-cards" id="challengeCards"></div>
             <div class="challenge-rules" id="challengeRules"></div>
           </div>
+          <div class="dynasty-type-picker hidden" id="dynastyTypePicker" role="group" aria-label="王朝分支">
+            <button class="dynasty-type-option active" data-dynasty-type="normal" type="button">
+              <strong>正常五大联赛</strong>
+              <small>连续 3 个赛季</small>
+            </button>
+            <button class="dynasty-type-option" data-dynasty-type="tiered" type="button">
+              <strong>三级征途</strong>
+              <small>从第三级冲击顶级冠军</small>
+            </button>
+          </div>
           <label class="field dynasty-season-field hidden" id="dynastySeasonField">
             <span>王朝起始赛季</span>
             <select id="dynastyStartSeason"></select>
@@ -317,6 +327,7 @@
         </div>
         <div class="game-actions">
           <button class="btn btn-ghost" id="backGameBtn" type="button">返回首页</button>
+          <button class="btn btn-primary hidden" id="postSeasonTransferBtn" type="button">赛季结束自由签约</button>
           <button class="btn btn-accent hidden" id="nextDynastySeasonBtn" type="button">进入下一赛季</button>
           <button class="btn btn-primary" id="shareBtn" type="button">复制战报</button>
         </div>
@@ -431,10 +442,10 @@
   <script src="season-standings.js?v=20260813-01"></script>
   <script src="storage.js?v=20260813-01"></script>
   <script src="player-identity.js?v=20260813-01"></script>
-  <script src="european-clubs.js?v=20260809-21"></script>
+  <script src="european-clubs.js?v=20260814-01"></script>
   <script src="simulation-core.js?v=20260813-04"></script>
   <script src="position-fit.js?v=20260813-01"></script>
   <script src="challenge-data.js?v=20260813-01"></script>
-  <script src="app.js?v=20260813-10"></script>
+  <script src="app.js?v=20260814-03"></script>
 </body>
 </html>

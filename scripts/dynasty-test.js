@@ -30,6 +30,12 @@ const deportivo = deportivoContext.window.G38_HISTORY_DATA["2003-04"].clubs
   .find((club) => club.id === "deportivo-de-la-coru-a");
 assert(deportivo?.players.length, "2003-04 Deportivo de La Coruña squad data should exist.");
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+assert(appSource.includes("const DYNASTY_LEAGUE_PROFILE = Object.freeze({")
+  && appSource.includes("fallbackToCurrent: true")
+  && appSource.includes("fallbackToLeagueAverage: true"),
+  "Normal dynasty league profiles should stay in the Classic strength band.");
+assert(appSource.includes("clubs, DYNASTY_LEAGUE_PROFILE"),
+  "Normal dynasty league simulation must use its Classic-band calibration.");
 assert(appSource.includes('"deportivo de la coruna": "deportivo la coruna"'),
   "Dynasty aliases must match Deportivo de La Coruña to the La Coruna standings entry.");
 

@@ -8,12 +8,13 @@ Keep data separate from behavior:
 
 - `data.js` and `big-five*.js`: formations, leagues, and current club metadata. Do not re-enable the retired `big-five-squads.js` import.
 - `season-players.js`: active 2025-26 player pool. `season-data.js` lazily loads per-season JavaScript chunks from `history-data/`; regenerate them with `scripts/split-season-data.js`.
+- `season-standings.js`: generated historical league tables used by dynasty mode; regenerate it with `scripts/generate-season-standings.js`.
 - `player-identity.js`: cross-season duplicate-player detection.
 - `position-fit.js`: normal position compatibility and out-of-position midfielder penalties.
 - `european-clubs.js`: European competition entrants and profiles.
 - `scripts/`: validation, balance tests, and repeatable data-repair utilities.
 
-The browser edition has no build step or package manager.
+The browser edition has no build step or package manager. Keep the local `desktop/` wrapper out of Git; it is released separately and ignored at the repository root.
 
 ## Build, Test, and Development Commands
 
@@ -31,6 +32,8 @@ node scripts/validate-data.js
 node scripts/random-test.js
 node scripts/player-identity-test.js
 node scripts/season-loader-test.js
+node scripts/position-fit-test.js
+node scripts/dynasty-test.js
 node scripts/balance-test.js --runs=1000 --seed=review
 node scripts/cup-europe-balance-test.js --runs=1000 --seed=review
 git diff --check
@@ -48,4 +51,4 @@ There is no test framework or coverage threshold. Name executable checks `script
 
 ## Commit & Pull Request Guidelines
 
-Use short imperative commit subjects matching repository history, such as `Add deadline day transfer mode`. Keep commits focused and preserve unrelated worktree changes. Pull requests should explain what changed, why, and how it was verified; link relevant issues and include screenshots for visible UI changes.
+Use short imperative commit subjects matching repository history, such as `Add dynasty season history`. Keep commits focused and preserve unrelated worktree changes. Never stage `.vs/` or `desktop/`. Pull requests should explain what changed, why, and how it was verified; link relevant issues and include screenshots for visible UI changes.

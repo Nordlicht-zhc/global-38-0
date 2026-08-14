@@ -86,6 +86,29 @@
   };
   const EUROPE_LIST_VERSION = "2025-26-v4";
   const SIM_VERSION = "2026-v5";
+  const DYNASTY_TYPES = {
+    normal: {
+      name: "正常五大联赛",
+      nameEn: "Big Five Dynasty",
+      hint: "固定连续执教 3 个赛季，起始赛季最晚为 2023-24。",
+      hintEn: "Manage exactly 3 consecutive seasons. Start no later than 2023-24."
+    },
+    tiered: {
+      name: "三级征途",
+      nameEn: "Three-Tier Journey",
+      hint: "固定使用 2025-26 赛季五大联赛球队按强度分为三级，从第三级开始，直到赢得顶级联赛冠军。",
+      hintEn: "Use the 2025-26 Big Five clubs, split by strength into three tiers. Start in Tier 3 and climb to the title."
+    }
+  };
+  // Keep normal dynasty league opponents in the same overall band as Classic.
+  // The shared dynasty rank profile remains unchanged for Europe and the tiered journey.
+  const DYNASTY_LEAGUE_PROFILE = Object.freeze({
+    rankTop: 90,
+    rankBottom: 66,
+    rankWeight: 0.8,
+    fallbackToCurrent: true,
+    fallbackToLeagueAverage: true
+  });
   const LANG_KEY = "g38-lang";
   let currentLang = "zh";
   try {
@@ -109,8 +132,11 @@
     { sel: "#playModeSwitch [data-play-mode='classic']", en: "Classic" },
     { sel: "#playModeSwitch [data-play-mode='challenge']", en: "Challenges" },
     { sel: "#playModeSwitch [data-play-mode='dynasty']", en: "Dynasty" },
+    { sel: "#dynastyTypePicker [data-dynasty-type='normal'] strong", en: "Big Five Dynasty" },
+    { sel: "#dynastyTypePicker [data-dynasty-type='tiered'] strong", en: "Three-Tier Journey" },
+    { sel: "#dynastyTypePicker [data-dynasty-type='normal'] small", en: "3 consecutive seasons" },
+    { sel: "#dynastyTypePicker [data-dynasty-type='tiered'] small", en: "Climb from Tier 3 to the title" },
     { sel: "#dynastySeasonField > span", en: "Dynasty Start Season" },
-    { sel: "#dynastySeasonHint", en: "Manage exactly 3 consecutive seasons. Start no later than 2023-24." },
     { sel: "#nextDynastySeasonBtn", en: "Start Next Season" },
     { sel: ".challenge-picker-head strong", en: "Choose a Challenge" },
     { sel: ".setup-panel label.field:nth-of-type(2) > span", en: "Season Range" },
@@ -128,6 +154,7 @@
     { sel: ".history-home h2", en: "Local Season History" },
     { sel: "#backSetupBtn", en: "Back to Setup" },
     { sel: "#backGameBtn", en: "Back to Home" },
+    { sel: "#postSeasonTransferBtn", en: "End-of-Season Free Signings" },
     { sel: "#shareBtn", en: "Copy Report" },
     { sel: ".league-choice .eyebrow", en: "Season Sim" },
     { sel: ".league-choice h2", en: "Choose Your League" },
@@ -705,6 +732,7 @@
   const state = {
     selectedLeagues: new Set(["eng", "esp", "ita", "ger", "fra"]),
     setupMode: "classic",
+    dynastyType: "normal",
     selectedChallengeId: CHALLENGES[0]?.id || null,
     difficultyBeforeIron: null,
     game: null,
@@ -726,6 +754,7 @@
     seasonRangeEndLabel: $("#seasonRangeEndLabel"),
     seasonRangeFill: $("#seasonRangeFill"),
     dynastySeasonField: $("#dynastySeasonField"),
+    dynastyTypePicker: $("#dynastyTypePicker"),
     dynastyStartSeason: $("#dynastyStartSeason"),
     dynastySeasonHint: $("#dynastySeasonHint"),
     difficultySelect: $("#difficultySelect"),
@@ -743,6 +772,7 @@
     leagueChoiceOptions: $("#leagueChoiceOptions"),
     seasonPrediction: $("#seasonPrediction"),
     seasonReview: $("#seasonReview"),
+    postSeasonTransferBtn: $("#postSeasonTransferBtn"),
     nextDynastySeasonBtn: $("#nextDynastySeasonBtn"),
     coachChoice: $("#coachChoice"),
     simulationPanel: $("#simulationPanel"),
@@ -810,12 +840,16 @@
   const leagueTeamCount = (leagueOrGame) => {
     const game = typeof leagueOrGame === "object" ? leagueOrGame : null;
     const leagueId = game?.league || leagueOrGame;
+    if (isTieredDynasty(game)) return journeyTeams(game).length || 32;
     const historicalCount = game?.mode === "dynasty"
       ? dynastyStandings(simulationSeason(game), leagueId).length
       : 0;
     return historicalCount || (leagueId === "ger" || leagueId === "fra" ? 18 : 20);
   };
-  const leagueMatchCount = (leagueOrGame) => (leagueTeamCount(leagueOrGame) - 1) * 2;
+  const leagueMatchCount = (leagueOrGame) => {
+    const game = typeof leagueOrGame === "object" ? leagueOrGame : null;
+    return isTieredDynasty(game) ? Math.max(1, leagueTeamCount(game) - 1) : (leagueTeamCount(leagueOrGame) - 1) * 2;
+  };
   const expectedPointsForRating = (rating, played) => {
     const base = rating >= 80 ? 71 + (rating - 80) * 4.8 : 42 + (rating - 76) * 7.25;
     return clamp(Math.round(base), 18, Math.max(18, played * 3 - 8));
@@ -826,6 +860,7 @@
     return clamp(1 + Math.round((topPoints - points) / step), 1, size);
   };
   const getLeagueTeams = (game) => {
+    if (isTieredDynasty(game)) return journeyTeams(game);
     const season = simulationSeason(game);
     const historical = game?.mode === "dynasty" ? dynastyStandings(season, game.league) : [];
     const real = historical.length
@@ -960,8 +995,223 @@
     return SEASON_KEYS.slice(startIndex, startIndex + 3);
   }
 
+  const JOURNEY_USER_ID = "__journey_user__";
+  const JOURNEY_USER_NAME = "我的球队";
+  const JOURNEY_LEAGUE_PREFIX = "journey-tier-";
+  const journeyLeagueId = (tier) => `${JOURNEY_LEAGUE_PREFIX}${clamp(Number(tier) || 3, 1, 3)}`;
+  const journeyTierFromLeague = (leagueId) => {
+    const match = String(leagueId || "").match(/^journey-tier-([123])$/);
+    return match ? Number(match[1]) : null;
+  };
+  const isTieredDynasty = (game) => Boolean(game?.mode === "dynasty" && game.dynasty?.type === "tiered");
+
+  function dynastyHasNextSeason(game) {
+    if (!game?.dynasty || game.mode !== "dynasty") return false;
+    if (isTieredDynasty(game)) {
+      return !game.dynasty.completed && !game.dynasty.journey?.completed;
+    }
+    return Number(game.dynasty.currentIndex || 0) < Number(game.dynasty.seasons?.length || 1) - 1;
+  }
+
+  function shouldHideDynastyLeagueChoice(game) {
+    if (game?.mode !== "dynasty") return false;
+    if (isTieredDynasty(game)) return Number(game.dynasty?.results?.length || 0) > 0;
+    return Number(game.dynasty?.currentIndex || 0) > 0 || Number(game.dynasty?.results?.length || 0) > 0;
+  }
+
+  function journeyClubKey(club) {
+    return `${club.league}:${club.id || club.name}`;
+  }
+
+  function journeyRankIndex(club, season) {
+    const standings = dynastyStandings(season, club.league);
+    const target = normalizeDynastyClubName(club.name);
+    const exact = standings.findIndex((name) => normalizeDynastyClubName(name) === target);
+    if (exact >= 0) return exact;
+    return Math.max(0, Math.min(standings.length - 1, clubsForLeague(club.league, season)
+      .findIndex((candidate) => candidate.id === club.id)));
+  }
+
+  function journeyProfileForClub(club, season) {
+    const standings = dynastyStandings(season, club.league);
+    const count = Math.max(2, standings.length || clubsForLeague(club.league, season).length || 20);
+    return dynastyRankProfile(club.name, journeyRankIndex(club, season), count, clubsForLeague(club.league, season));
+  }
+
+  function buildJourneyClubPool(season) {
+    const clubs = allClubs(season).filter((club) => BIG_FIVE_IDS.has(club.league));
+    const records = clubs.map((club) => ({
+      id: journeyClubKey(club),
+      name: club.name,
+      short: club.short || "",
+      league: club.league,
+      sourceClubId: club.id,
+      sourceSeason: season,
+      profile: journeyProfileForClub(club, season)
+    }));
+    records.sort((left, right) => right.profile.overall - left.profile.overall
+      || left.name.localeCompare(right.name));
+    return records;
+  }
+
+  function createJourneyState(rosterSeason, startSeason = rosterSeason) {
+    const records = buildJourneyClubPool(rosterSeason);
+    const total = records.length;
+    const base = Math.floor(total / 3);
+    const remainder = total % 3;
+    const sizes = [base + (remainder > 0 ? 1 : 0), base + (remainder > 1 ? 1 : 0), base];
+    const tiers = [[], [], []];
+    let cursor = 0;
+    sizes.forEach((size, tierIndex) => {
+      tiers[tierIndex] = records.slice(cursor, cursor + size).map((record) => record.id);
+      cursor += size;
+    });
+    const replacement = tiers[2].pop();
+    tiers[2].push(JOURNEY_USER_ID);
+    const clubs = Object.fromEntries(records.map((record) => [record.id, record]));
+    clubs[JOURNEY_USER_ID] = {
+      id: JOURNEY_USER_ID,
+      name: JOURNEY_USER_NAME,
+      nameEn: "My Team",
+      profile: null,
+      isUser: true
+    };
+    return {
+      type: "tiered",
+      startSeason,
+      currentSeason: startSeason,
+      rosterSeason,
+      seasonNumber: 1,
+      tier: 3,
+      tiers,
+      clubs,
+      replacement,
+      completed: false,
+      lastMovement: null
+    };
+  }
+
+  function journeyTeams(game) {
+    const journey = game?.dynasty?.journey;
+    if (!journey) return [];
+    const tier = clamp(Number(journey.tier) || 3, 1, 3);
+    return (journey.tiers?.[tier - 1] || [])
+      .map((id) => id === JOURNEY_USER_ID ? JOURNEY_USER_NAME : journey.clubs?.[id]?.name)
+      .filter(Boolean);
+  }
+
+  function journeyRecordForName(game, name) {
+    const journey = game?.dynasty?.journey;
+    if (!journey) return null;
+    if (name === JOURNEY_USER_NAME) return journey.clubs?.[JOURNEY_USER_ID] || null;
+    return Object.values(journey.clubs || {}).find((record) => record.name === name) || null;
+  }
+
+  function journeyProfileMap(game, names) {
+    return Object.fromEntries(names.map((name) => {
+      const record = journeyRecordForName(game, name);
+      return [name, record?.profile || { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 }];
+    }));
+  }
+
+  function refreshJourneySeason(game, season) {
+    const journey = game?.dynasty?.journey;
+    if (!journey) return;
+    if (journey.rosterSeason === CURRENT_DATA_SEASON) {
+      journey.currentSeason = season;
+      return;
+    }
+    const clubs = allClubs(season).filter((club) => BIG_FIVE_IDS.has(club.league));
+    Object.values(journey.clubs || {}).forEach((record) => {
+      if (!record || record.id === JOURNEY_USER_ID) return;
+      const current = findDynastySeasonClub(record.name, clubs)
+        || clubs.find((club) => club.id === record.sourceClubId);
+      if (!current) return;
+      record.name = current.name;
+      record.short = current.short || record.short;
+      record.league = current.league;
+      record.sourceClubId = current.id;
+      record.sourceSeason = season;
+      record.profile = journeyProfileForClub(current, season);
+    });
+    journey.currentSeason = season;
+  }
+
+  function removeJourneyId(tier, id) {
+    const index = tier.indexOf(id);
+    if (index >= 0) tier.splice(index, 1);
+  }
+
+  function journeyAiIds(game, tierIndex) {
+    return (game.dynasty.journey.tiers?.[tierIndex] || []).filter((id) => id !== JOURNEY_USER_ID);
+  }
+
+  function sortJourneyIds(game, ids, descending = true) {
+    return [...ids].sort((left, right) => {
+      const leftStrength = Number(game.dynasty.journey.clubs?.[left]?.profile?.overall || 78);
+      const rightStrength = Number(game.dynasty.journey.clubs?.[right]?.profile?.overall || 78);
+      return (descending ? rightStrength - leftStrength : leftStrength - rightStrength)
+        || String(left).localeCompare(String(right));
+    });
+  }
+
+  function swapJourneyBoundary(game, upperIndex, lowerIndex, count = 8) {
+    const upper = game.dynasty.journey.tiers[upperIndex];
+    const lower = game.dynasty.journey.tiers[lowerIndex];
+    const upCandidates = sortJourneyIds(game, journeyAiIds(game, upperIndex), false).slice(0, count);
+    const downCandidates = sortJourneyIds(game, journeyAiIds(game, lowerIndex), true).slice(0, count);
+    upCandidates.forEach((id) => removeJourneyId(upper, id));
+    downCandidates.forEach((id) => removeJourneyId(lower, id));
+    upper.push(...downCandidates);
+    lower.push(...upCandidates);
+  }
+
+  function updateJourneyAfterSeason(game, leagueTable) {
+    const journey = game?.dynasty?.journey;
+    if (!journey || !Array.isArray(leagueTable)) return;
+    const fromTier = clamp(Number(journey.tier) || 3, 1, 3);
+    if (fromTier > 1) swapJourneyBoundary(game, fromTier - 2, fromTier - 1, 8);
+    if (fromTier < 3) swapJourneyBoundary(game, fromTier - 1, fromTier, 8);
+    const finish = Number(game.result?.finish || leagueTable.find((row) => row.isUser)?.position || 99);
+    const size = leagueTable.length;
+    let toTier = fromTier;
+    if (fromTier === 1 && finish > size - 8) toTier = 2;
+    if (fromTier > 1 && finish <= 8) toTier = fromTier - 1;
+    if (fromTier < 3 && finish > size - 8) toTier = fromTier + 1;
+    if (toTier !== fromTier) {
+      const from = journey.tiers[fromTier - 1];
+      const to = journey.tiers[toTier - 1];
+      removeJourneyId(from, JOURNEY_USER_ID);
+      const replacementIndex = toTier < fromTier
+        ? sortJourneyIds(game, journeyAiIds(game, toTier - 1), false)[0]
+        : sortJourneyIds(game, journeyAiIds(game, toTier - 1), true)[0];
+      if (replacementIndex) removeJourneyId(to, replacementIndex);
+      if (replacementIndex) from.push(replacementIndex);
+      to.push(JOURNEY_USER_ID);
+      journey.lastMovement = { from: fromTier, to: toTier, finish };
+      journey.tier = toTier;
+    } else {
+      journey.lastMovement = { from: fromTier, to: fromTier, finish };
+    }
+    if (fromTier === 1 && finish === 1) {
+      journey.completed = true;
+      game.dynasty.completed = true;
+    }
+    game.result.journey = {
+      tier: fromTier,
+      nextTier: journey.tier,
+      completed: Boolean(journey.completed),
+      movement: journey.lastMovement
+    };
+    game.dynasty.currentIndex = Number(journey.seasonNumber || 1) - 1;
+  }
+
   function updateDynastySeasonHint() {
     if (!ui.dynastySeasonHint || !ui.dynastyStartSeason) return;
+    if (state.dynastyType === "tiered") {
+      ui.dynastySeasonHint.textContent = uiText(DYNASTY_TYPES.tiered.hint, DYNASTY_TYPES.tiered.hintEn);
+      return;
+    }
     const seasons = dynastySeasonsFrom(ui.dynastyStartSeason.value);
     ui.dynastySeasonHint.textContent = uiText(
       `固定连续执教 3 个赛季：${seasons[0]} 至 ${seasons[seasons.length - 1]}。`,
@@ -1045,6 +1295,7 @@
     });
     const challengeMode = state.setupMode === "challenge";
     const dynastyMode = state.setupMode === "dynasty";
+    const dynastyType = DYNASTY_TYPES[state.dynastyType] || DYNASTY_TYPES.normal;
     const challenge = challengeMode ? activeSetupChallenge() : null;
     const ironManager = challenge?.id === "iron-manager";
     if (!ironManager && ui.difficultySelect.disabled) {
@@ -1052,9 +1303,16 @@
       state.difficultyBeforeIron = null;
     }
     ui.challengePicker.classList.toggle("hidden", !challengeMode);
-    ui.dynastySeasonField?.classList.toggle("hidden", !dynastyMode);
+    ui.dynastyTypePicker?.classList.toggle("hidden", !dynastyMode);
+    ui.dynastySeasonField?.classList.toggle("hidden", !dynastyMode || state.dynastyType === "tiered");
     document.querySelector("#seasonRange")?.closest("label.field")?.classList.toggle("hidden", dynastyMode);
     ui.challengeCards.innerHTML = "";
+    ui.dynastyTypePicker?.querySelectorAll("[data-dynasty-type]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.dynastyType === state.dynastyType);
+    });
+    if (ui.dynastySeasonHint && dynastyMode) {
+      ui.dynastySeasonHint.textContent = uiText(dynastyType.hint, dynastyType.hintEn);
+    }
     if (!challengeMode) {
       ui.difficultySelect.disabled = false;
       return;
@@ -1101,6 +1359,12 @@
     renderChallengeSetup();
   }
 
+  function setDynastyType(type) {
+    if (!DYNASTY_TYPES[type]) return;
+    state.dynastyType = type;
+    renderChallengeSetup();
+  }
+
 
   function toggleLanguage() {
     const activeView = ["setup", "game", "result"].find((name) => (
@@ -1122,6 +1386,8 @@
         const directMode = ["free", "mystery", "deadline"].includes(state.transfer.mode);
         ui.transferPanel.classList.remove("hidden");
         ui.simulationPanel.classList.add("hidden");
+        ui.leagueChoice.classList.add("hidden");
+        if (state.transfer.postSeason) ui.simulateBtn.disabled = true;
         document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
         ui.rerollBtn.classList.toggle("hidden", directMode);
         renderTransferIntro();
@@ -1171,12 +1437,17 @@
       const button = event.target.closest("[data-play-mode]");
       if (button) setSetupMode(button.dataset.playMode);
     });
+    ui.dynastyTypePicker?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-dynasty-type]");
+      if (button) setDynastyType(button.dataset.dynastyType);
+    });
     ui.dynastyStartSeason?.addEventListener("change", updateDynastySeasonHint);
     $("#startBtn").addEventListener("click", startGame);
     $("#newGameBtn").addEventListener("click", showNewGameSetup);
     $("#historyBtn").addEventListener("click", showHomeHistory);
     $("#backSetupBtn").addEventListener("click", () => showView("setup"));
     $("#backGameBtn").addEventListener("click", goBackFromResult);
+    ui.postSeasonTransferBtn?.addEventListener("click", openPostSeasonTransferWindow);
     ui.nextDynastySeasonBtn?.addEventListener("click", startNextDynastySeason);
     $("#enterTransferBtn").addEventListener("click", enterTransferWindow);
     $("#skipTransferBtn").addEventListener("click", skipTransferWindow);
@@ -1283,7 +1554,9 @@
       const challenge = getChallenge(run.challengeId);
       const stars = Number(run.result?.challenge?.stars || 0);
       card.appendChild(el("strong", "", run.mode === "dynasty"
-        ? `${uiText("王朝模式", "Dynasty")} · ${run.dynasty?.results?.length || 0}/${run.dynasty?.seasons?.length || 1}`
+        ? run.dynasty?.type === "tiered"
+          ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.dynasty?.journey?.tier || 3} · ${run.dynasty?.results?.length || 0}`
+          : `${uiText("王朝模式", "Dynasty")} · ${run.dynasty?.results?.length || 0}/${run.dynasty?.seasons?.length || 1}`
         : challenge
         ? `${challenge.icon} ${challengeName(challenge)} · ${"★".repeat(stars)}${"☆".repeat(3 - stars)}`
         : `${uiText("经典模式", "Classic")} · ${run.formation}`));
@@ -1361,8 +1634,8 @@
     if (state.game) safeSet(STORAGE_GAME, state.game);
   }
 
-  function startGame() {
-    if (!state.selectedLeagues.size) {
+  async function startGame() {
+    if (!state.selectedLeagues.size && !(state.setupMode === "dynasty" && state.dynastyType === "tiered")) {
       toast("请至少选择一个联赛。");
       return;
     }
@@ -1376,29 +1649,35 @@
     const randomSeed = createRandomSeed(gameId);
     const challenge = activeSetupChallenge();
     const dynastyMode = state.setupMode === "dynasty";
-    const dynastySeasons = dynastyMode
+    const dynastyType = dynastyMode ? state.dynastyType : null;
+    const dynastySeasons = dynastyMode && dynastyType !== "tiered"
       ? dynastySeasonsFrom(ui.dynastyStartSeason?.value || "2023-24")
       : [];
-    const dynastyStart = dynastySeasons[0] || null;
+    const dynastyStart = dynastyMode
+      ? dynastyType === "tiered" ? CURRENT_DATA_SEASON : dynastySeasons[0]
+      : null;
     const ironManager = challenge?.id === "iron-manager";
     state.game = {
       id: gameId,
       createdAt: Date.now(),
-      leagues: [...state.selectedLeagues],
+      leagues: dynastyType === "tiered" ? [...BIG_FIVE_IDS] : [...state.selectedLeagues],
       seasonRange: {
         start: dynastyStart || seasonIndexToKey(Number(ui.seasonRangeStart.value || 0)),
         end: dynastyStart || seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1))
       },
       season: null,
-      league: null,
+      league: dynastyType === "tiered" ? journeyLeagueId(3) : null,
       mode: dynastyMode ? "dynasty" : challenge ? "challenge" : "classic",
       challengeId: challenge?.id || null,
       dynasty: dynastyMode ? {
-        seasons: dynastySeasons,
+        type: dynastyType || "normal",
+        seasons: dynastyType === "tiered" ? [] : dynastySeasons,
         currentIndex: 0,
         currentSeason: dynastyStart,
         results: [],
-        trophies: { league: 0, domesticCup: 0, europe: 0 }
+        trophies: { league: 0, domesticCup: 0, europe: 0 },
+        completed: false,
+        journey: null
       } : null,
       difficulty: ironManager ? "hard" : ui.difficultySelect.value,
       hideRatings: ui.hideRatingsSelect.value === "1",
@@ -1416,10 +1695,22 @@
       randomDraws: 0,
       selectedSlotIndex: null,
       phase: "drafting",
-      result: null
+      result: null,
+      postSeasonTransfer: null
     };
     const rng = gameRng(state.game);
     state.game.season = dynastyStart || randomSeasonInRange(state.game.seasonRange, rng);
+    if (dynastyType === "tiered") {
+      try {
+        await loadSeasonData(CURRENT_DATA_SEASON);
+        state.game.dynasty.journey = createJourneyState(CURRENT_DATA_SEASON, dynastyStart);
+      } catch (error) {
+        console.error(error);
+        toast(uiText("三级征途数据加载失败，请重试。", "Could not load the Three-Tier Journey data. Please retry."));
+        state.game = null;
+        return;
+      }
+    }
     state.game.coachCandidates = shuffleWithRng(Object.keys(COACHES), rng).slice(0, 3);
     state.selectedSlotIndex = null;
     state.pendingDraftPlayerId = null;
@@ -1492,7 +1783,9 @@
     ui.gameLeagueLabel.textContent = challenge
       ? `${challengeName(challenge)} · ${scopeText}`
       : game.mode === "dynasty"
-        ? `${uiText("王朝", "Dynasty")} ${Number(game.dynasty?.currentIndex || 0) + 1}/${game.dynasty?.seasons?.length || 1} · ${simulationSeason(game)}`
+        ? isTieredDynasty(game)
+          ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${game.dynasty?.journey?.tier || 3} · ${simulationSeason(game)}`
+          : `${uiText("王朝", "Dynasty")} ${Number(game.dynasty?.currentIndex || 0) + 1}/${game.dynasty?.seasons?.length || 1} · ${simulationSeason(game)}`
       : scopeText;
     renderChallengeGameBanner(game);
     document.querySelector(".game-layout")?.classList.remove("hidden");
@@ -1503,11 +1796,14 @@
       : "模拟赛季";
     ui.simulationPanel.classList.add("hidden");
     ui.transferPanel.classList.add("hidden");
-    ui.rerollBtn.classList.remove("hidden");
+    const retainedDynastySquad = game.mode === "dynasty" && Number(game.dynasty?.currentIndex || 0) > 0;
+    document.querySelector(".wheel-card")?.classList.toggle("hidden", retainedDynastySquad);
+    ui.rerollBtn.classList.toggle("hidden", retainedDynastySquad);
     ui.rerollBtn.textContent = uiText("使用 1 次重转", "Use Reroll");
     updateSpinControls();
-    ui.leagueChoice.classList.toggle("hidden", game.draftedPlayers.length < game.slots.length);
-    if (game.draftedPlayers.length >= game.slots.length) {
+    const showLeagueChoice = game.draftedPlayers.length >= game.slots.length && !shouldHideDynastyLeagueChoice(game);
+    ui.leagueChoice.classList.toggle("hidden", !showLeagueChoice);
+    if (showLeagueChoice) {
       renderLeagueChoice();
     }
     if (!game.currentSpin) drawWheel();
@@ -1569,6 +1865,22 @@
     const game = state.game;
     if (!game || !ui.leagueChoiceOptions) return;
     ui.leagueChoiceOptions.innerHTML = "";
+    if (isTieredDynasty(game)) {
+      const tier = Number(game.dynasty?.journey?.tier || 3);
+      const button = el("button", "league-choice-option active", "");
+      button.type = "button";
+      button.disabled = true;
+      button.appendChild(el("span", "league-code", `T${tier}`));
+      button.appendChild(el("strong", "", uiText(`三级征途 · 第${tier}级联赛`, `Three-Tier Journey · Tier ${tier}`)));
+      button.appendChild(el("small", "", uiText(
+        tier === 1 ? "顶级联赛 · 冠军即可完成王朝" : `单循环 · ${journeyTeams(game).length} 支球队`,
+        tier === 1 ? "Top flight · win the title to complete the dynasty" : `Single round robin · ${journeyTeams(game).length} clubs`
+      )));
+      ui.leagueChoiceOptions.appendChild(button);
+      renderSeasonPrediction();
+      renderCoachChoice();
+      return;
+    }
     LEAGUES.forEach((league) => {
       const button = el("button", "league-choice-option", "");
       button.type = "button";
@@ -1859,6 +2171,10 @@
         .filter((slot) => positionUnit(slot.pos) === "GK")
         .map((slot) => slot.player?.id)
         .filter(Boolean));
+      const defenderIds = new Set(run.slots
+        .filter((slot) => positionUnit(slot.pos) === "DEF")
+        .map((slot) => slot.player?.id)
+        .filter(Boolean));
       const transferEntries = Array.isArray(run.result?.transferLog) && run.result.transferLog.length
         ? run.result.transferLog
         : Array.isArray(run.transferLog) ? run.transferLog : [];
@@ -1868,6 +2184,8 @@
       playerStats
         .filter((stat) => stat.position === "GK"
           || goalkeeperIds.has(stat.id)
+          || positionUnit(stat.position) === "DEF"
+          || defenderIds.has(stat.id)
           || outgoingIds.has(stat.id)
           || outgoingNames.has(stat.name))
         .forEach((stat) => {
@@ -1901,6 +2219,7 @@
       visibleStats.forEach((stat) => {
         const row = el("div", "lineup-player-stat", "");
         const isGoalkeeper = stat.position === "GK" || goalkeeperIds.has(stat.id);
+        const isDefender = positionUnit(stat.position) === "DEF" || defenderIds.has(stat.id);
         const isTransferredOut = outgoingIds.has(stat.id) || outgoingNames.has(stat.name);
         const playerCell = el("strong", "lineup-player-name", "");
         playerCell.appendChild(el("span", "", stat.name));
@@ -1909,7 +2228,7 @@
         row.appendChild(el("span", "", String(stat.apps ?? 0)));
         row.appendChild(el("span", "", String(stat.goals ?? 0)));
         row.appendChild(el("span", "", String(stat.assists ?? 0)));
-        row.appendChild(el("span", "player-clean-sheets", isGoalkeeper ? String(stat.cleanSheets ?? 0) : "—"));
+        row.appendChild(el("span", "player-clean-sheets", isGoalkeeper || isDefender ? String(stat.cleanSheets ?? 0) : "—"));
         statsList.appendChild(row);
       });
       ui.resultLineupInfo.appendChild(statsList);
@@ -2282,7 +2601,7 @@
       return;
     }
     if (state.spinning) return;
-    if (!state.selectedLeagues.size) {
+    if (!state.selectedLeagues.size && !isTieredDynasty(game)) {
       toast("请至少选择一个联赛。");
       return;
     }
@@ -2490,9 +2809,9 @@
     return Object.keys(groups).sort((a, b) => avg(groups[a]) - avg(groups[b]))[0];
   }
 
-  function openTransferWindow(sim) {
+  function openTransferWindow(sim, options = {}) {
     if (sim.transferState?.resolved) return false;
-    if (sim.game.challengeId === "iron-manager") {
+    if (!options.postSeason && sim.game.challengeId === "iron-manager") {
       sim.transferState = {
         completed: 0,
         log: [],
@@ -2506,8 +2825,8 @@
     const transfer = {
       sim,
       step: 1,
-      mode: "weak",
-      targetUnit: getWeakestUnit(sim.game),
+      mode: options.postSeason ? "free" : "weak",
+      targetUnit: options.postSeason ? null : getWeakestUnit(sim.game),
       currentSpin: null,
       candidates: [],
       selectedCandidateId: null,
@@ -2515,7 +2834,8 @@
       completed: 0,
       log: [],
       resolved: false,
-      skipped: false
+      skipped: false,
+      postSeason: Boolean(options.postSeason)
     };
     state.transfer = transfer;
     sim.transferState = transfer;
@@ -2536,6 +2856,15 @@
   function renderTransferIntro() {
     if (!state.transfer) return;
     renderTransferHalfSummary();
+    if (state.transfer.postSeason) {
+      ui.transferWeakText.innerHTML = "";
+      ui.transferWeakText.appendChild(el("strong", "", uiText("赛季结束自由签约", "End-of-season free signings")));
+      ui.transferWeakText.appendChild(el("span", "", uiText(
+        "本次王朝转会窗固定提供两次自由签约，每次从当前赛季的合格球员池中随机提供 5 名候选人。",
+        "This dynasty window gives two free signings. Each signing offers five random eligible players from the current season."
+      )));
+      return;
+    }
     const unit = state.transfer.targetUnit || getWeakestUnit(state.game);
     ui.transferWeakText.innerHTML = "";
     ui.transferWeakText.appendChild(el("strong", "", uiText(`当前最弱位置：${unit}`, `Weakest area: ${unit}`)));
@@ -2582,8 +2911,13 @@
     container.innerHTML = "";
     const head = el("div", "transfer-half-head", "");
     const title = el("div", "", "");
-    title.appendChild(el("span", "eyebrow", uiText("前半程战绩", "First-Half Record")));
-    title.appendChild(el("strong", "", `${league?.name || ""} · ${uiText(`已赛 ${row.played} 场`, `${row.played} played`)}`));
+    title.appendChild(el("span", "eyebrow", transfer.postSeason
+      ? uiText("赛季战绩", "Season Record")
+      : uiText("前半程战绩", "First-Half Record")));
+    const recordLabel = transfer.postSeason
+      ? uiText("赛季最终战绩", "Final Season Record")
+      : `${league?.name || ""} · ${uiText(`已赛 ${row.played} 场`, `${row.played} played`)}`;
+    title.appendChild(el("strong", "", recordLabel));
     head.appendChild(title);
     head.appendChild(el("span", "transfer-rank-badge", uiText(`第 ${position}/${table.length} 名`, `#${position} of ${table.length}`)));
     container.appendChild(head);
@@ -2605,7 +2939,9 @@
     const context = el("div", "transfer-half-context", "");
     context.appendChild(el("span", "", situation));
     const form = el("div", "transfer-form", "");
-    form.appendChild(el("small", "", uiText("近 5 场", "Last 5")));
+    form.appendChild(el("small", "", transfer.postSeason
+      ? uiText("赛季已结束", "Season complete")
+      : uiText("近 5 场", "Last 5")));
     const recent = sim.matches.slice(-5);
     if (!recent.length) {
       form.appendChild(el("span", "transfer-form-empty", "--"));
@@ -2624,17 +2960,27 @@
     if (!state.transfer) return;
     renderTransferHalfSummary();
     const transfer = state.transfer;
-    const stepText = transfer.step === 1
-      ? uiText("第 1/2 次转会 · 弱项补强", "Transfer 1/2 · Weak-Area")
-      : uiText(`第 2/2 次转会 · ${transferModeName(transfer.mode)}`, `Transfer 2/2 · ${transferModeName(transfer.mode)}`);
+    const stepText = transfer.postSeason
+      ? uiText(`第 ${transfer.step}/2 次转会 · 自由签约`, `Transfer ${transfer.step}/2 · Free Signing`)
+      : transfer.step === 1
+        ? uiText("第 1/2 次转会 · 弱项补强", "Transfer 1/2 · Weak-Area")
+        : uiText(`第 2/2 次转会 · ${transferModeName(transfer.mode)}`, `Transfer 2/2 · ${transferModeName(transfer.mode)}`);
     ui.transferProgress.textContent = `${transfer.completed}/2`;
-    ui.transferTitle.textContent = uiText("冬季转会窗", "Winter Transfer Window");
+    const transferEyebrow = document.querySelector(".transfer-panel .eyebrow");
+    if (transferEyebrow) transferEyebrow.textContent = transfer.postSeason
+      ? uiText("赛季结束转会窗", "End-of-Season Transfer Window")
+      : uiText("半程转会窗", "Mid-Season Transfer Window");
+    ui.transferTitle.textContent = transfer.postSeason
+      ? uiText("赛季结束转会窗", "End-of-Season Transfer Window")
+      : uiText("冬季转会窗", "Winter Transfer Window");
     ui.transferModeText.innerHTML = "";
     ui.transferModeText.appendChild(el("strong", "", stepText));
     ui.transferStatus.innerHTML = "";
     const target = transfer.mode === "weak" ? transfer.targetUnit || getWeakestUnit(state.game) : null;
     if (target) ui.transferStatus.appendChild(el("span", "", uiText(`目标位置：${target}`, `Target area: ${target}`)));
-    const instruction = transfer.mode === "free"
+    const instruction = transfer.postSeason
+      ? uiText("从 5 名当前赛季的自由签约候选人中选择一人，再点击球场上的兼容位置完成签约。", "Choose one of five current-season free-signing candidates, then click a compatible slot to complete the signing.")
+      : transfer.mode === "free"
       ? uiText("从 5 名完全随机的候选人中选择一人，再点击球场上的兼容位置。", "Choose one of five fully random candidates, then click a compatible slot.")
       : transfer.mode === "mystery"
         ? transfer.revealedCandidateId
@@ -2696,13 +3042,19 @@
     transfer.skipped = true;
     transfer.resolved = true;
     transfer.log = [];
+    if (transfer.postSeason) {
+      finishPostSeasonTransferWindow(transfer);
+      return;
+    }
     toast(uiText("本次转会窗已跳过。", "Transfer window skipped."));
     resumeAfterTransfer(transfer.sim);
   }
 
   async function prepareTransferStep(transfer) {
     const rng = gameRng(transfer.sim.game);
-    if (transfer.step === 2) {
+    if (transfer.postSeason) {
+      transfer.mode = "free";
+    } else if (transfer.step === 2) {
       transfer.mode = SECOND_TRANSFER_MODE_KEYS[Math.floor(rng() * SECOND_TRANSFER_MODE_KEYS.length)];
     }
     if (transfer.mode === "weak") transfer.targetUnit = getWeakestUnit(transfer.sim.game);
@@ -3295,10 +3647,110 @@
     prepareTransferStep(transfer);
   }
 
+  function buildPostSeasonTransferSim(game) {
+    const teamNames = [...new Set(getLeagueTeams(game))];
+    const table = Object.fromEntries((game.result?.leagueTable || []).map((row) => [row.name, { ...row }]));
+    return {
+      game,
+      profile: calcTeamProfile(game),
+      profileMap: buildProfileMap(game, teamNames),
+      eloMap: {},
+      table,
+      matches: [],
+      teamRating: calcTeamRating(game),
+      transferState: null,
+      domesticCup: null
+    };
+  }
+
+  function activatePostSeasonTransferView(transfer) {
+    ui.transferPanel.classList.remove("hidden");
+    ui.simulationPanel.classList.add("hidden");
+    ui.leagueChoice.classList.add("hidden");
+    ui.simulateBtn.disabled = true;
+    document.querySelector(".game-layout")?.classList.remove("hidden");
+    ui.transferIntro.classList.remove("hidden");
+    ui.transferContent.classList.add("hidden");
+    ui.rerollBtn.classList.add("hidden");
+    document.querySelector(".wheel-card")?.classList.add("hidden");
+    renderTransferIntro();
+    renderTransferHeader();
+    renderPitch();
+    renderSpinResult();
+    renderCandidates();
+    updateSpinControls();
+    showView("game");
+  }
+
+  function openPostSeasonTransferWindow() {
+    const game = state.game;
+    if (!dynastyHasNextSeason(game) || game.postSeasonTransfer?.status === "resolved") return false;
+    const sim = buildPostSeasonTransferSim(game);
+    const opened = openTransferWindow(sim, { postSeason: true });
+    if (!opened) return false;
+    game.postSeasonTransfer = {
+      status: "active",
+      log: [],
+      skipped: false
+    };
+    state.viewingRun = null;
+    renderGame();
+    activatePostSeasonTransferView(state.transfer);
+    saveGame();
+    return true;
+  }
+
+  function updateDynastySeasonRecord(game) {
+    if (!game?.dynasty) return;
+    const seasonNumber = isTieredDynasty(game) ? Number(game.dynasty?.journey?.seasonNumber || 1) : null;
+    const record = game.dynasty.results.find((entry) => isTieredDynasty(game)
+      ? entry.seasonNumber === seasonNumber
+      : entry.season === simulationSeason(game));
+    if (!record) return;
+    record.result = game.result;
+    record.lineup = game.slots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }));
+  }
+
+  function finishPostSeasonTransferWindow(transfer) {
+    const game = transfer?.sim?.game;
+    if (!game?.result) return;
+    const log = Array.isArray(transfer.log) ? transfer.log : [];
+    game.result.transferLog = [...(game.result.transferLog || []), ...log];
+    game.result.postSeasonTransferLog = log;
+    game.result.postSeasonTransferSkipped = Boolean(transfer.skipped);
+    game.transferLog = [...(game.transferLog || []), ...log];
+    game.postSeasonTransfer = {
+      status: "resolved",
+      log,
+      skipped: Boolean(transfer.skipped)
+    };
+    updateDynastySeasonRecord(game);
+    state.transfer = null;
+    state.spinning = false;
+    ui.transferPanel.classList.add("hidden");
+    ui.transferIntro.classList.remove("hidden");
+    ui.transferContent.classList.add("hidden");
+    ui.rerollBtn.classList.remove("hidden");
+    document.querySelector(".wheel-card")?.classList.remove("hidden");
+    document.querySelector(".game-layout")?.classList.add("hidden");
+    ui.simulationPanel.classList.add("hidden");
+    saveGame();
+    updateRun(game);
+    renderHomeHistory();
+    renderResult(game);
+    toast(transfer.skipped
+      ? uiText("赛季结束转会窗已跳过。", "End-of-season transfer window skipped.")
+      : uiText(`赛季结束自由签约完成，共签下 ${log.length} 名球员。`, `End-of-season free signings completed: ${log.length} player${log.length === 1 ? "" : "s"}.`));
+  }
+
   function finishTransferWindow() {
     const transfer = state.transfer;
     if (!transfer) return;
     transfer.resolved = true;
+    if (transfer.postSeason) {
+      finishPostSeasonTransferWindow(transfer);
+      return;
+    }
     resumeAfterTransfer(transfer.sim);
   }
 
@@ -3484,8 +3936,8 @@
     syncDomesticCupUserProfile(sim, effectiveProfile);
   }
 
-  function createLeagueSchedule(names) {
-    return G38SimulationCore.createLeagueSchedule(names);
+  function createLeagueSchedule(names, options = {}) {
+    return G38SimulationCore.createLeagueSchedule(names, "我的球队", options);
     /* istanbul ignore next -- legacy body retained for build-free fallback review. */
     const order = names.slice();
     const size = order.length;
@@ -3701,7 +4153,7 @@
     const seasonPrediction = getSeasonPrediction(game);
     const teamNames = [...new Set(getLeagueTeams(game))];
     const profileMap = buildProfileMap(game, teamNames);
-    const schedule = createLeagueSchedule(teamNames);
+    const schedule = createLeagueSchedule(teamNames, isTieredDynasty(game) ? { doubleRound: false } : {});
     const table = createLeagueTable(teamNames);
     const eloMap = createEloMap(profileMap);
     const seed = hashSeed(`${game.id}|${game.slots.map((s) => s.player.id).join(",")}`);
@@ -3806,7 +4258,7 @@
       if (!slot.player) return;
       const stat = getSeasonPlayerStat(sim, slot.player, slot.pos);
       stat.apps += 1;
-      if (positionUnit(slot.pos) === "GK" && match.ga === 0) stat.cleanSheets += 1;
+      if (["GK", "DEF"].includes(positionUnit(slot.pos)) && match.ga === 0) stat.cleanSheets += 1;
       sim.playerStats.set(slot.player.id, stat);
     });
     advanceTransferChemistry(sim);
@@ -3963,7 +4415,8 @@
     }, sim);
     finish = leagueTable.find((row) => row.isUser)?.position || finish;
     const europeQualification = getEuropeanQualification(game, finish);
-    const achievements = collectAchievements({
+    const achievementsPending = Boolean(europeQualification.qualified);
+    const achievements = achievementsPending ? [] : collectAchievements({
       wins: sim.wins,
       draws: sim.draws,
       losses: sim.losses,
@@ -3990,6 +4443,7 @@
       simVersion: SIM_VERSION,
       topScorer,
       achievements,
+      achievementStatus: achievementsPending ? "pending-europe" : "settled",
       playerStats,
       leagueTable,
       domesticCup: domesticCupResult(sim.domesticCup),
@@ -4001,6 +4455,7 @@
         : null
     };
     game.result.challenge = evaluateChallenge(game, game.result);
+    if (isTieredDynasty(game)) updateJourneyAfterSeason(game, game.result.leagueTable);
     game.transferLog = sim.transferState?.log || [];
     game.transferSkipped = Boolean(sim.transferState?.skipped);
     game.phase = "complete";
@@ -4008,15 +4463,23 @@
     if (game.mode === "dynasty" && game.dynasty) {
       const seasonRecord = {
         season: simulationSeason(game),
+        seasonNumber: isTieredDynasty(game) ? Number(game.dynasty?.journey?.seasonNumber || 1) : null,
         league: game.league,
         result: game.result,
         lineup: game.slots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }))
       };
-      const recordIndex = game.dynasty.results.findIndex((entry) => entry.season === seasonRecord.season);
+      const recordIndex = game.dynasty.results.findIndex((entry) => isTieredDynasty(game)
+        ? entry.seasonNumber === seasonRecord.seasonNumber
+        : entry.season === seasonRecord.season);
       if (recordIndex >= 0) game.dynasty.results[recordIndex] = seasonRecord;
       else game.dynasty.results.push(seasonRecord);
-      if (game.result.finish === 1) game.dynasty.trophies.league += 1;
+      if (game.result.finish === 1 && (!isTieredDynasty(game) || game.result.journey?.tier === 1)) {
+        game.dynasty.trophies.league += 1;
+      }
       if (game.result.domesticCup?.champion === "我的球队") game.dynasty.trophies.domesticCup += 1;
+      game.postSeasonTransfer = dynastyHasNextSeason(game)
+        ? { status: "pending", log: [], skipped: false }
+        : null;
     }
     saveGame();
     if (game.mode === "dynasty") updateRun(game);
@@ -4028,6 +4491,60 @@
   async function startNextDynastySeason() {
     const game = state.game;
     if (!game?.dynasty || game.mode !== "dynasty") return;
+    if (game.postSeasonTransfer?.status !== "resolved") {
+      toast(uiText("请先完成或跳过赛季结束自由签约。", "Complete or skip the end-of-season free signings first."));
+      return;
+    }
+    if (game.result?.achievementStatus === "pending-europe" && !game.europeResult) {
+      toast(uiText("请先完成本赛季欧战，再进入下一赛季。", "Complete this season's European competition before starting the next season."));
+      return;
+    }
+    if (isTieredDynasty(game)) {
+      if (game.dynasty.completed || game.dynasty.journey?.completed) return;
+      ui.nextDynastySeasonBtn.disabled = true;
+      try {
+        const journey = game.dynasty.journey;
+        const nextNumber = Number(journey.seasonNumber || 1) + 1;
+        const startIndex = Math.max(0, SEASON_KEYS.indexOf(journey.startSeason || game.season));
+        const nextSeason = SEASON_KEYS[Math.min(SEASON_KEYS.length - 1, startIndex + nextNumber - 1)] || CURRENT_DATA_SEASON;
+        await loadSeasonData(nextSeason);
+        journey.seasonNumber = nextNumber;
+        journey.currentSeason = nextSeason;
+        refreshJourneySeason(game, nextSeason);
+        game.dynasty.currentIndex = nextNumber - 1;
+        game.dynasty.currentSeason = nextSeason;
+        game.season = nextSeason;
+        game.seasonRange = { start: nextSeason, end: nextSeason };
+        game.league = journeyLeagueId(journey.tier);
+        game.phase = "drafting";
+        game.result = null;
+        game.simulation = null;
+        game.europeResult = null;
+        game.europeSim = null;
+        game.transferLog = [];
+        game.transferSkipped = false;
+        game.postSeasonTransfer = null;
+        game.currentSpin = null;
+        game.candidates = [];
+        game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
+        game.rerolls = REROLL_BUDGET[game.difficulty] || 0;
+        game.randomSeed = hashSeed(`${game.id}|journey|${nextSeason}|${nextNumber}`);
+        game.randomState = game.randomSeed;
+        game.randomDraws = 0;
+        state.viewingRun = null;
+        state.transfer = null;
+        saveGame();
+        updateRun(game);
+        renderGame();
+        toast(uiText(`${nextSeason} 第 ${nextNumber} 季开始，当前为第 ${journey.tier} 级联赛。`, `${nextSeason} season ${nextNumber} started in Tier ${journey.tier}.`));
+      } catch (error) {
+        console.error(error);
+        toast(uiText("下一赛季数据加载失败，请重试。", "Could not load the next journey season. Please try again."));
+      } finally {
+        ui.nextDynastySeasonBtn.disabled = false;
+      }
+      return;
+    }
     const nextIndex = Number(game.dynasty.currentIndex || 0) + 1;
     const nextSeason = game.dynasty.seasons[nextIndex];
     if (!nextSeason) return;
@@ -4046,6 +4563,7 @@
       game.europeSim = null;
       game.transferLog = [];
       game.transferSkipped = false;
+      game.postSeasonTransfer = null;
       game.currentSpin = null;
       game.candidates = [];
       game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
@@ -4154,6 +4672,21 @@
   }
 
   function getEuropeanQualification(game, finish) {
+    if (isTieredDynasty(game)) {
+      const topTier = Number(game.dynasty?.journey?.tier || 3) === 1;
+      const allocation = topTier ? { ucl: 4, uel: 2, uecl: 1 } : { ucl: 0, uel: 0, uecl: 0 };
+      const competition = topTier && finish <= allocation.ucl ? "UCL"
+        : topTier && finish <= allocation.ucl + allocation.uel ? "UEL"
+          : topTier && finish <= allocation.ucl + allocation.uel + allocation.uecl ? "UECL" : null;
+      return {
+        qualified: Boolean(competition),
+        competition,
+        competitionName: competition ? { UCL: "欧洲冠军联赛", UEL: "欧洲联赛", UECL: "欧洲协会联赛" }[competition] : "未获得欧战资格",
+        finish,
+        allocation,
+        allocationSeason: EUROPE_ALLOCATION_SEASON
+      };
+    }
     const allocations = {
       eng: { ucl: 5, uel: 2, uecl: 1 },
       esp: { ucl: 5, uel: 2, uecl: 1 },
@@ -4227,6 +4760,7 @@
 
   function buildLeagueProfileMap(game, names) {
     const season = simulationSeason(game);
+    if (isTieredDynasty(game)) return journeyProfileMap(game, names);
     if (game.mode === "dynasty") {
       const standings = dynastyStandings(season, game.league);
       const clubs = clubsForLeague(game.league, season);
@@ -4234,7 +4768,7 @@
       const profiles = {};
       names.filter((name) => name !== "我的球队").forEach((name) => {
         const rankIndex = Math.max(0, standings.indexOf(name));
-        profiles[name] = dynastyRankProfile(name, rankIndex, count, clubs);
+        profiles[name] = dynastyRankProfile(name, rankIndex, count, clubs, DYNASTY_LEAGUE_PROFILE);
       });
       return profiles;
     }
@@ -4314,13 +4848,66 @@
     return partial.length === 1 ? partial[0] : null;
   }
 
-  function dynastyRankProfile(name, rankIndex, count, clubs) {
-    const rankStrength = Math.round(90 - (rankIndex / Math.max(1, count - 1)) * 18);
-    const club = findDynastySeasonClub(name, clubs);
+  function findDynastyCanonicalClubId(name) {
+    const target = normalizeDynastyClubName(name);
+    const entries = Object.entries(HISTORICAL_CLUB_IDS || {});
+    const matches = (value) => normalizeDynastyClubName(value) === target;
+    const exact = entries.filter(([id, aliases]) => [id, ...(aliases || [])].some(matches));
+    if (exact.length === 1) return exact[0][0];
+    const partial = entries.filter(([id, aliases]) => [id, ...(aliases || [])].some((value) => {
+      const candidate = normalizeDynastyClubName(value);
+      return candidate.includes(target) || target.includes(candidate);
+    }));
+    return partial.length === 1 ? partial[0][0] : null;
+  }
+
+  function findDynastyCurrentClub(name) {
+    const current = findDynastySeasonClub(name, allClubs(CURRENT_DATA_SEASON));
+    if (current) return current;
+    const canonicalId = findDynastyCanonicalClubId(name);
+    if (!canonicalId) return null;
+    return findClubInSeason(canonicalId, CURRENT_DATA_SEASON)
+      || (typeof CLUBS !== "undefined" ? CLUBS[canonicalId] || null : null);
+  }
+
+  function dynastyRankFallbackProfile(rankStrength, clubs) {
+    const knownProfiles = clubs.filter((club) => Array.isArray(club?.players) && club.players.length)
+      .map((club) => calcClubProfile(club));
+    if (!knownProfiles.length) {
+      return {
+        attack: clamp(rankStrength + 1, 40, 99),
+        midfield: clamp(rankStrength, 40, 99),
+        defense: clamp(rankStrength - 1, 40, 99),
+        goalkeeper: clamp(rankStrength - 2, 40, 99),
+        overall: rankStrength
+      };
+    }
+    const average = (key) => Math.round(knownProfiles.reduce((sum, profile) => sum + profile[key], 0) / knownProfiles.length);
+    return {
+      attack: clamp(average("attack"), 40, 99),
+      midfield: clamp(average("midfield"), 40, 99),
+      defense: clamp(average("defense"), 40, 99),
+      goalkeeper: clamp(average("goalkeeper"), 40, 99),
+      overall: clamp(average("overall"), 40, 99)
+    };
+  }
+
+  function dynastyRankProfile(name, rankIndex, count, clubs, profileConfig = {}) {
+    const rankTop = Number.isFinite(profileConfig.rankTop) ? profileConfig.rankTop : 90;
+    const rankBottom = Number.isFinite(profileConfig.rankBottom) ? profileConfig.rankBottom : 72;
+    const rankWeight = clamp(Number.isFinite(profileConfig.rankWeight) ? profileConfig.rankWeight : 0.8, 0, 1);
+    const rankStrength = Math.round(rankTop - (rankIndex / Math.max(1, count - 1)) * (rankTop - rankBottom));
+    const seasonClub = findDynastySeasonClub(name, clubs);
+    const fallbackClub = !seasonClub && profileConfig.fallbackToCurrent
+      ? findDynastyCurrentClub(name)
+      : null;
+    const club = seasonClub || fallbackClub;
     const rawProfile = club
       ? calcClubProfile(club)
-      : { attack: rankStrength, midfield: rankStrength, defense: rankStrength, goalkeeper: rankStrength, overall: rankStrength };
-    const normalized = clamp(Math.round(rankStrength * 0.8 + rawProfile.overall * 0.2), 68, 94);
+      : profileConfig.fallbackToLeagueAverage
+        ? dynastyRankFallbackProfile(rankStrength, clubs)
+        : { attack: rankStrength, midfield: rankStrength, defense: rankStrength, goalkeeper: rankStrength, overall: rankStrength };
+    const normalized = clamp(Math.round(rankStrength * rankWeight + rawProfile.overall * (1 - rankWeight)), 68, 94);
     const delta = normalized - rawProfile.overall;
     return {
       attack: clamp(rawProfile.attack + Math.round(delta * 0.35), 40, 99),
@@ -4488,6 +5075,30 @@
     if (result.teamRating >= 90) list.push("世界级阵容");
     if (result.domesticCupChampion) list.push("国内杯赛冠军");
     return list;
+  }
+
+  function collectSeasonAchievements(result) {
+    return collectAchievements({
+      matches: result?.matches,
+      wins: result?.wins,
+      draws: result?.draws,
+      losses: result?.losses,
+      goalsFor: result?.goalsFor,
+      goalsAgainst: result?.goalsAgainst,
+      points: result?.points,
+      finish: result?.finish,
+      teamRating: result?.teamRating,
+      uclPlaces: result?.europeQualification?.allocation?.ucl,
+      domesticCupChampion: result?.domesticCup?.champion === "我的球队"
+    });
+  }
+
+  function settleAchievements(run) {
+    const result = run?.result;
+    if (!result || result.achievementStatus !== "pending-europe" || !run.europeResult) return false;
+    result.achievements = collectSeasonAchievements(result);
+    result.achievementStatus = "settled";
+    return true;
   }
 
   function challengeSquadMetrics(game) {
@@ -4685,14 +5296,35 @@
     if (run.mode !== "dynasty" || !run.dynasty || !ui.seasonReview) return;
     const block = el("div", "dynasty-progress", "");
     const trophies = run.dynasty.trophies || {};
-    block.appendChild(el("strong", "", uiText(
-      `王朝进度 · ${run.dynasty.results.length}/${run.dynasty.seasons.length} 赛季`,
-      `Dynasty progress · ${run.dynasty.results.length}/${run.dynasty.seasons.length} seasons`
-    )));
+    const tiered = run.dynasty.type === "tiered";
+    block.appendChild(el("strong", "", tiered
+      ? uiText(
+        `三级征途 · 第 ${run.dynasty.journey?.tier || 3} 级 · 已完成 ${run.dynasty.results.length} 个赛季`,
+        `Three-Tier Journey · Tier ${run.dynasty.journey?.tier || 3} · ${run.dynasty.results.length} seasons completed`
+      )
+      : uiText(
+        `王朝进度 · ${run.dynasty.results.length}/${run.dynasty.seasons.length} 赛季`,
+        `Dynasty progress · ${run.dynasty.results.length}/${run.dynasty.seasons.length} seasons`
+      )));
     block.appendChild(el("small", "", uiText(
       `奖杯：联赛 ${trophies.league || 0} · 国内杯赛 ${trophies.domesticCup || 0} · 欧战 ${trophies.europe || 0}`,
       `Trophies: League ${trophies.league || 0} · Domestic cup ${trophies.domesticCup || 0} · Europe ${trophies.europe || 0}`
     )));
+    if (tiered && run.dynasty.journey?.lastMovement) {
+      const movement = run.dynasty.journey.lastMovement;
+      block.appendChild(el("small", "", uiText(
+        movement.from === movement.to
+          ? `本赛季排名第 ${movement.finish}，留在第 ${movement.to} 级。`
+          : movement.to < movement.from
+            ? `本赛季排名第 ${movement.finish}，升级至第 ${movement.to} 级。`
+            : `本赛季排名第 ${movement.finish}，降至第 ${movement.to} 级。`,
+        movement.from === movement.to
+          ? `Finished ${movement.finish}; stayed in Tier ${movement.to}.`
+          : movement.to < movement.from
+            ? `Finished ${movement.finish}; promoted to Tier ${movement.to}.`
+            : `Finished ${movement.finish}; relegated to Tier ${movement.to}.`
+      )));
+    }
     const seasons = el("div", "dynasty-season-list", "");
     run.dynasty.results.forEach((entry) => {
       seasons.appendChild(el("span", "", uiText(
@@ -4707,19 +5339,27 @@
   function renderResult(game) {
     const run = game || state.game;
     if (!run || !run.result) return;
+    if (settleAchievements(run)) {
+      if (run === state.game) saveGame();
+      updateRun(run);
+    }
     const result = run.result;
     const leagueName = getLeague(run.league)?.name || run.league || "";
     const seasonText = run.season || run.seasonRange?.end || "";
     const challenge = getChallenge(run.challengeId);
     const dynastyActive = run.mode === "dynasty" && run === state.game;
-    const dynastyHasNext = dynastyActive
-      && Number(run.dynasty?.currentIndex || 0) < Number(run.dynasty?.seasons?.length || 1) - 1;
-    ui.nextDynastySeasonBtn?.classList.toggle("hidden", !dynastyHasNext);
+    const dynastyHasNext = dynastyActive && dynastyHasNextSeason(run);
+    const postSeasonTransferPending = dynastyHasNext && run.postSeasonTransfer?.status !== "resolved";
+    const europePending = result.achievementStatus === "pending-europe" && !run.europeResult;
+    ui.postSeasonTransferBtn?.classList.toggle("hidden", !postSeasonTransferPending);
+    ui.nextDynastySeasonBtn?.classList.toggle("hidden", !dynastyHasNext || postSeasonTransferPending || europePending);
     $("#resultMatchEyebrow").textContent = `${result.matches.length} 场比赛`;
     $("#resultBadge").textContent = challenge
       ? `${challengeName(challenge)} · ${run.formation}`
       : run.mode === "dynasty"
-        ? `${uiText("王朝模式", "Dynasty")} · ${simulationSeason(run)} · ${Number(run.dynasty?.currentIndex || 0) + 1}/${run.dynasty?.seasons?.length || 1}`
+        ? isTieredDynasty(run)
+          ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.result.journey?.tier || run.dynasty?.journey?.tier || 3} · ${simulationSeason(run)}`
+          : `${uiText("王朝模式", "Dynasty")} · ${simulationSeason(run)} · ${Number(run.dynasty?.currentIndex || 0) + 1}/${run.dynasty?.seasons?.length || 1}`
       : `${run.formation} · ${leagueName || seasonText}`;
     $("#resultRecord").textContent = `${result.wins}-${result.draws}-${result.losses}`;
     $("#resultPoints").textContent = `${result.points} 分`;
@@ -4748,10 +5388,13 @@
 
     const achievements = $("#achievements");
     achievements.innerHTML = "";
+    const achievementsPending = result.achievementStatus === "pending-europe";
     const unlocked = Array.isArray(result.achievements) ? result.achievements : [];
     const honorCount = unlocked.length;
     const achievementCount = $("#achievementCount");
-    if (achievementCount) achievementCount.textContent = uiText(`${honorCount} 项解锁`, `${honorCount} unlocked`);
+    if (achievementCount) achievementCount.textContent = achievementsPending
+      ? uiText("待欧战结算", "Pending European competition")
+      : uiText(`${honorCount} 项解锁`, `${honorCount} unlocked`);
     unlocked.forEach((name) => {
       const detail = ACHIEVEMENT_DETAILS[name] || ["🎖️", "完成特殊赛季目标", "Complete a special season objective"];
       const card = el("div", "achievement-card", "");
@@ -4762,7 +5405,15 @@
       card.appendChild(copy);
       achievements.appendChild(card);
     });
-    if (!honorCount) {
+    if (achievementsPending) {
+      const empty = el("div", "achievement-empty", "");
+      empty.appendChild(el("strong", "", uiText("欧战结束后结算", "Finalizes after European competition")));
+      empty.appendChild(el("small", "", uiText(
+        "完成本赛季欧战后，系统会结算本赛季成就。",
+        "Complete this season's European competition to settle the achievements."
+      )));
+      achievements.appendChild(empty);
+    } else if (!honorCount) {
       const empty = el("div", "achievement-empty", "");
       empty.appendChild(el("strong", "", uiText("赛季已完成", "Season complete")));
       empty.appendChild(el("small", "", uiText("继续挑战更高排名与特殊赛季目标。", "Aim for a higher finish and special season objectives next time.")));
@@ -5128,40 +5779,216 @@
     };
   }
 
+  function europeanAssociationForEntry(entry) {
+    if (entry?.association) return entry.association;
+    if (entry?.id && typeof CLUBS !== "undefined" && CLUBS[entry.id]?.league) {
+      return CLUBS[entry.id].league;
+    }
+    const key = entry?.profile || entry?.name;
+    if (typeof EUROPEAN_CLUB_ASSOCIATIONS !== "undefined" && EUROPEAN_CLUB_ASSOCIATIONS[key]) {
+      return EUROPEAN_CLUB_ASSOCIATIONS[key];
+    }
+    return "other";
+  }
+
+  function europeanAssociationCoefficient(association) {
+    const coefficients = typeof EUROPEAN_ASSOCIATION_COEFFICIENTS !== "undefined"
+      ? EUROPEAN_ASSOCIATION_COEFFICIENTS
+      : {};
+    return Number(coefficients[association] || coefficients.other || 8);
+  }
+
+  function dynastyEuropeanClubCoefficient(association, profile) {
+    return clamp(Math.round(
+      europeanAssociationCoefficient(association) * 0.72 + Number(profile?.overall || 75) * 0.28
+    ), 1, 100);
+  }
+
+  // The dynasty pool contains more historical Big-Five clubs than the real
+  // 2025-26 field, especially in UEL/UECL. Calibrate only those surplus
+  // clubs so each competition keeps roughly the current-season intensity.
+  const DYNASTY_EUROPEAN_LEVEL_ADJUSTMENTS = Object.freeze({
+    UCL: -3,
+    UEL: -8,
+    UECL: -12
+  });
+  const DYNASTY_EUROPEAN_NON_BIG_FIVE_TARGETS = Object.freeze({ UCL: 12, UEL: 18, UECL: 24 });
+  const DYNASTY_EUROPEAN_COMPETITION_ORDER = Object.freeze(["UCL", "UEL", "UECL"]);
+
+  function calibrateDynastyEuropeanProfile(profile, competition, association) {
+    if (!BIG_FIVE_IDS.has(association)) return profile;
+    const adjustment = Number(DYNASTY_EUROPEAN_LEVEL_ADJUSTMENTS[competition] || 0);
+    if (!adjustment) return profile;
+    const adjust = (value) => clamp(Math.round(Number(value || 75) + adjustment), 40, 99);
+    return {
+      attack: adjust(profile.attack),
+      midfield: adjust(profile.midfield),
+      defense: adjust(profile.defense),
+      goalkeeper: adjust(profile.goalkeeper),
+      overall: adjust(profile.overall)
+    };
+  }
+
+  function dynastyEuropeanBigFiveSlotPlan(pools, competition) {
+    // Allocate the qualification bands cumulatively so a club selected for
+    // UCL is not available again in UEL or UECL for the same season.
+    const associations = Object.keys(pools).filter((association) => BIG_FIVE_IDS.has(association));
+    const coefficients = Object.fromEntries(associations.map((association) => [
+      association,
+      europeanAssociationCoefficient(association)
+    ]));
+    const offsets = Object.fromEntries(associations.map((association) => [association, 0]));
+    let selectedSlots = null;
+    DYNASTY_EUROPEAN_COMPETITION_ORDER.forEach((currentCompetition) => {
+      const availablePools = Object.fromEntries(associations.map((association) => [
+        association,
+        pools[association].slice(offsets[association])
+      ]));
+      const totalSlots = 35 - Number(DYNASTY_EUROPEAN_NON_BIG_FIVE_TARGETS[currentCompetition] || 0);
+      const slots = G38SimulationCore.allocateWeightedAssociationSlots(
+        availablePools,
+        coefficients,
+        totalSlots,
+        associations.length
+      );
+      if (currentCompetition === competition) {
+        selectedSlots = { slots, offsets: { ...offsets } };
+      }
+      associations.forEach((association) => {
+        offsets[association] += Number(slots[association] || 0);
+      });
+    });
+    return selectedSlots || { slots: {}, offsets };
+  }
+
+  function buildDynastyEuropeanCandidates(run, competition, rng) {
+    const season = simulationSeason(run);
+    const candidates = [];
+    ["eng", "esp", "ita", "ger", "fra"].forEach((association) => {
+      const standings = dynastyStandings(season, association);
+      const clubs = clubsForLeague(association, season);
+      standings.forEach((name, rankIndex) => {
+        const profile = dynastyRankProfile(name, rankIndex, standings.length, clubs);
+        candidates.push({
+          name,
+          profile,
+          association,
+          rankIndex,
+          clubCoefficient: dynastyEuropeanClubCoefficient(association, profile)
+        });
+      });
+    });
+    const entries = (typeof EUROPE_2025_26 !== "undefined" && EUROPE_2025_26[competition]) || [];
+    entries.forEach((entry) => {
+      const association = europeanAssociationForEntry(entry);
+      if (BIG_FIVE_IDS.has(association)) return;
+      const profileName = entry.profile || entry.name;
+      const fallback = europeProfileFromStrength(70 + Math.floor(rng() * 16));
+      const profile = (typeof EUROPEAN_CLUB_PROFILES !== "undefined" && EUROPEAN_CLUB_PROFILES[profileName])
+        || fallback;
+      candidates.push({
+        name: entry.name,
+        profile,
+        association,
+        rankIndex: Number.MAX_SAFE_INTEGER,
+        clubCoefficient: dynastyEuropeanClubCoefficient(association, profile)
+      });
+    });
+    const pools = {};
+    candidates.forEach((candidate) => {
+      pools[candidate.association] ||= [];
+      if (!pools[candidate.association].some((item) => item.name === candidate.name)) {
+        pools[candidate.association].push(candidate);
+      }
+    });
+    const selected = [];
+    const nonBigFiveTarget = DYNASTY_EUROPEAN_NON_BIG_FIVE_TARGETS[competition] || 12;
+    const bigFivePlan = dynastyEuropeanBigFiveSlotPlan(pools, competition);
+    const selectGroup = (associations, totalSlots, seededCount, rankOffsets = {}) => {
+      const groupPools = Object.fromEntries(associations.map((association) => [
+        association,
+        pools[association].slice(Number(rankOffsets[association] || 0))
+      ]));
+      const coefficients = Object.fromEntries(associations.map((association) => [
+        association,
+        europeanAssociationCoefficient(association)
+      ]));
+      const slots = G38SimulationCore.allocateWeightedAssociationSlots(
+        groupPools,
+        coefficients,
+        totalSlots,
+        seededCount
+      );
+      Object.entries(slots).forEach(([association, count]) => {
+        groupPools[association]
+          .sort((left, right) => right.clubCoefficient - left.clubCoefficient
+            || left.rankIndex - right.rankIndex
+            || left.name.localeCompare(right.name))
+          .slice(0, count)
+          .forEach((candidate) => selected.push(candidate));
+      });
+    };
+    const bigFiveAssociations = Object.keys(pools).filter((association) => BIG_FIVE_IDS.has(association));
+    const nonBigFiveAssociations = Object.keys(pools).filter((association) => !BIG_FIVE_IDS.has(association));
+    selectGroup(
+      bigFiveAssociations,
+      35 - nonBigFiveTarget,
+      bigFiveAssociations.length,
+      bigFivePlan.offsets
+    );
+    selectGroup(nonBigFiveAssociations, nonBigFiveTarget,
+      Math.min(nonBigFiveAssociations.length, { UCL: 10, UEL: 15, UECL: 20 }[competition] || 10));
+    if (selected.length < 35) {
+      const selectedNames = new Set(selected.map((candidate) => candidate.name));
+      candidates
+        .filter((candidate) => !selectedNames.has(candidate.name))
+        .sort((left, right) => right.clubCoefficient - left.clubCoefficient
+          || left.rankIndex - right.rankIndex
+          || left.name.localeCompare(right.name))
+        .slice(0, 35 - selected.length)
+        .forEach((candidate) => selected.push(candidate));
+    }
+    const calibrated = selected.map((candidate) => {
+      const profile = calibrateDynastyEuropeanProfile(candidate.profile, competition, candidate.association);
+      return {
+        ...candidate,
+        profile,
+        clubCoefficient: dynastyEuropeanClubCoefficient(candidate.association, profile)
+      };
+    });
+    return shuffleWithRng(calibrated, rng).slice(0, 35);
+  }
+
+  function buildDynastyEuropeanTeam(candidate) {
+    const strength = teamStrength(candidate.profile);
+    return {
+      name: candidate.name,
+      association: candidate.association,
+      strength,
+      profile: candidate.profile,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      points: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      awayGoals: 0,
+      awayWins: 0,
+      disciplinaryPoints: 0,
+      clubCoefficient: candidate.clubCoefficient,
+      isUser: false
+    };
+  }
+
   function createEuropeanSimulation(run, competition) {
-    const rng = makeRng(hashSeed(`europe-${run.id}-${competition}`));
+    const season = simulationSeason(run);
+    const rng = makeRng(hashSeed(`europe-${run.id}-${season}-${competition}`));
     const entries = (typeof EUROPE_2025_26 !== "undefined" && EUROPE_2025_26[competition]) || null;
     const teams = [];
     if (run.mode === "dynasty") {
-      const season = simulationSeason(run);
-      const rankOffset = competition === "UCL" ? 0 : competition === "UEL" ? 3 : 6;
-      const pool = ["eng", "esp", "ita", "ger", "fra"].flatMap((leagueId) => {
-        const standings = dynastyStandings(season, leagueId);
-        const clubs = clubsForLeague(leagueId, season);
-        return standings.slice(rankOffset, rankOffset + 7).map((name, index) => ({
-          name,
-          profile: dynastyRankProfile(name, rankOffset + index, standings.length, clubs)
-        }));
-      });
-      shuffleWithRng(pool, rng).slice(0, 35).forEach((entry) => {
-        teams.push({
-          name: entry.name,
-          strength: teamStrength(entry.profile),
-          profile: entry.profile,
-          played: 0,
-          wins: 0,
-          draws: 0,
-          losses: 0,
-          points: 0,
-          goalsFor: 0,
-          goalsAgainst: 0,
-          awayGoals: 0,
-          awayWins: 0,
-          disciplinaryPoints: 0,
-          clubCoefficient: teamStrength(entry.profile),
-          isUser: false
-        });
-      });
+      buildDynastyEuropeanCandidates(run, competition, rng)
+        .forEach((candidate) => teams.push(buildDynastyEuropeanTeam(candidate)));
     } else if (entries && entries.length) {
       const nonBigFive = entries.filter((entry) => !(
         entry.id
@@ -5469,6 +6296,7 @@
       rounds: sim.rounds,
       logs: sim.logs
     };
+    settleAchievements(sim.run);
     if (sim.run.mode === "dynasty" && sim.run.dynasty) {
       const seasonRecord = sim.run.dynasty.results.find((entry) => entry.season === simulationSeason(sim.run));
       if (seasonRecord) seasonRecord.europeResult = sim.run.europeResult;
@@ -5480,7 +6308,7 @@
     updateRun(sim.run);
     renderHomeHistory();
     renderChallengeSetup();
-    renderEuropeanResult(sim.run.europeResult);
+    renderResult(sim.run);
   }
 
   function europeStageLabel(stage) {

@@ -12,6 +12,8 @@ Keep data separate from behavior:
 - `player-identity.js`: cross-season duplicate-player detection.
 - `position-fit.js`: normal position compatibility and out-of-position midfielder penalties.
 - `european-clubs.js`: European competition entrants and profiles.
+- `cloud-config.js`, `cloud-storage.js`, `supabase-schema.sql`: optional Supabase account/cloud-save integration; never commit service keys.
+- `CLOUD_SETUP.md`: steps for enabling the optional cloud backend.
 - `scripts/`: validation, balance tests, and repeatable data-repair utilities.
 
 The browser edition has no build step or package manager. Keep the local `desktop/` wrapper out of Git; it is released separately and ignored at the repository root.
@@ -33,6 +35,7 @@ node scripts/random-test.js
 node scripts/player-identity-test.js
 node scripts/season-loader-test.js
 node scripts/position-fit-test.js
+node scripts/cloud-storage-test.js
 node scripts/dynasty-test.js
 node scripts/balance-test.js --runs=1000 --seed=review
 node scripts/cup-europe-balance-test.js --runs=1000 --seed=review

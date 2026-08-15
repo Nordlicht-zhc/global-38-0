@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-  <link rel="stylesheet" href="styles.css?v=20260813-05" />
+  <link rel="stylesheet" href="styles.css?v=20260815-01" />
 </head>
 <body>
   <header class="topbar">
@@ -19,6 +19,10 @@
     </a>
     <div class="topbar-actions">
       <button class="btn btn-ghost" id="langToggle" type="button">EN</button>
+      <button class="btn btn-ghost cloud-account-btn" id="accountBtn" type="button">
+        <span class="cloud-account-dot" id="accountStatusDot" aria-hidden="true"></span>
+        <span id="accountBtnText">云存档</span>
+      </button>
       <button class="btn btn-ghost" id="historyBtn" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
         <span id="historyBtnText">历史战绩</span>
@@ -432,6 +436,40 @@
   </footer>
 
   <div class="toast" id="toast" role="status"></div>
+  <div class="modal-backdrop hidden" id="accountModal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
+    <section class="modal-card cloud-account-modal">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow" id="accountModalEyebrow">在线账号</p>
+          <h2 id="accountModalTitle">云存档与账号</h2>
+        </div>
+        <button class="icon-btn" id="accountCloseBtn" type="button" aria-label="关闭">×</button>
+      </div>
+      <p class="cloud-account-status" id="accountStatus">云存档未配置，当前使用本地存档。</p>
+      <form id="accountForm" class="cloud-account-form">
+        <label class="field">
+          <span id="accountEmailLabel">邮箱</span>
+          <input id="accountEmail" type="email" autocomplete="email" required />
+        </label>
+        <label class="field">
+          <span id="accountPasswordLabel">密码</span>
+          <input id="accountPassword" type="password" autocomplete="current-password" minlength="6" required />
+        </label>
+        <label class="field" id="accountDisplayNameField">
+          <span id="accountDisplayNameLabel">昵称（可选）</span>
+          <input id="accountDisplayName" type="text" autocomplete="nickname" maxlength="32" />
+        </label>
+        <div class="cloud-account-actions">
+          <button class="btn btn-primary" id="accountSignInBtn" type="submit">登录</button>
+          <button class="btn btn-ghost" id="accountSignUpBtn" type="button">注册账号</button>
+        </div>
+      </form>
+      <button class="btn btn-primary hidden" id="accountUploadLocalBtn" type="button">上传当前本地存档</button>
+      <button class="text-btn cloud-reset-btn" id="accountResetBtn" type="button">发送重置密码邮件</button>
+      <button class="btn btn-ghost hidden" id="accountLogoutBtn" type="button">退出登录</button>
+      <p class="cloud-sync-info" id="accountSyncInfo"></p>
+    </section>
+  </div>
   <script src="data.js?v=20260809-21"></script>
   <script src="big-five.js?v=20260809-21"></script>
   <script src="big-five-italy.js?v=20260809-21"></script>
@@ -446,6 +484,8 @@
   <script src="simulation-core.js?v=20260813-04"></script>
   <script src="position-fit.js?v=20260813-01"></script>
   <script src="challenge-data.js?v=20260813-01"></script>
-  <script src="app.js?v=20260814-03"></script>
+  <script src="cloud-config.js?v=20260815-01"></script>
+  <script src="cloud-storage.js?v=20260815-01"></script>
+  <script src="app.js?v=20260815-01"></script>
 </body>
 </html>

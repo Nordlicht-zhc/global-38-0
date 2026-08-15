@@ -99,6 +99,28 @@ button {
   gap: 10px;
 }
 
+.cloud-account-btn {
+  position: relative;
+}
+
+.cloud-account-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(159, 180, 170, 0.6);
+  box-shadow: 0 0 0 3px rgba(159, 180, 170, 0.08);
+}
+
+.cloud-account-dot.is-configured {
+  background: var(--amber);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+
+.cloud-account-dot.is-online {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -2907,6 +2929,112 @@ button {
   transform: translate(-50%, 0);
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(2, 8, 6, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.modal-card {
+  width: min(100%, 470px);
+  max-height: min(700px, calc(100vh - 36px));
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(20, 43, 32, 0.98), rgba(12, 28, 22, 0.98));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.modal-head h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.cloud-account-status {
+  margin: 0 0 16px;
+  padding: 11px 12px;
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 8px;
+  color: #c9f8d9;
+  background: rgba(34, 197, 94, 0.08);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cloud-account-form {
+  display: grid;
+  gap: 12px;
+}
+
+.cloud-account-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  color: var(--text);
+  background: rgba(2, 8, 6, 0.35);
+}
+
+.cloud-account-form input:focus {
+  border-color: rgba(74, 222, 128, 0.65);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
+}
+
+.cloud-account-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.cloud-reset-btn {
+  margin-top: 14px;
+}
+
+.cloud-account-modal > #accountUploadLocalBtn {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.cloud-account-modal > #accountLogoutBtn {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.cloud-sync-info {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .footer {
   display: flex;
   flex-wrap: wrap;
@@ -2978,6 +3106,14 @@ button {
 
   .topbar {
     padding: 8px 12px;
+  }
+
+  .topbar-actions {
+    gap: 5px;
+  }
+
+  .cloud-account-btn {
+    padding-inline: 9px;
   }
 
   #backGameBtn.is-floating {

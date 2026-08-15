@@ -14,7 +14,13 @@ enabled only after configuring Supabase.
    ```
 
 5. In **Authentication → URL Configuration**, add the deployed site URL and
-   its `/global%2038-0.html` page to the allowed redirect URLs.
+   its `/global%2038-0.html` page to the allowed redirect URLs:
+
+   `https://nordlicht-zhc.github.io/global-38-0/global%2038-0.html`
+
+   The browser client always uses this production callback for email
+   confirmation and password reset. This prevents a locally started signup
+   from sending the confirmation link to `localhost`.
 6. Push the files and open the **Cloud Save** button in the game.
 
 The service-role key and database password must never be placed in this

@@ -19,7 +19,7 @@
     }
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3";
       script.async = true;
       script.onload = resolve;
       script.onerror = () => reject(new Error("Could not load the cloud account client."));

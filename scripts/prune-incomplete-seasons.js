@@ -3,7 +3,7 @@ const path = require("path");
 const vm = require("vm");
 
 const root = path.resolve(__dirname, "..");
-const dataPath = path.join(root, "legacy-seasons.js");
+const dataPath = path.join(root, "source-data", "legacy-seasons.js");
 const historyDir = path.join(root, "history-data");
 const minimumUsablePlayers = 11;
 const maximumIncompleteShare = 0.5;
@@ -11,7 +11,7 @@ const sandbox = {};
 
 vm.createContext(sandbox);
 vm.runInContext(`${fs.readFileSync(dataPath, "utf8")};this.data=LEGACY_SEASONS;`, sandbox, {
-  filename: "legacy-seasons.js"
+    filename: "source-data/legacy-seasons.js"
 });
 
 const removed = [];

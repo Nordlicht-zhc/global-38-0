@@ -87,7 +87,7 @@ def repair_season_players(data):
 
 
 def main():
-    legacy_path = ROOT / "legacy-seasons.js"
+    legacy_path = ROOT / "source-data" / "legacy-seasons.js"
     season_path = ROOT / "season-players.js"
     legacy = load_data(legacy_path, "LEGACY_SEASONS")
     seasons = load_data(season_path, "SEASON_PLAYERS")

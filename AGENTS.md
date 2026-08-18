@@ -6,14 +6,17 @@ This is a build-free browser football draft and simulation game. `global 38-0.ht
 
 Keep data separate from behavior:
 
-- `data.js` and `big-five*.js`: formations, leagues, and current club metadata. Do not re-enable the retired `big-five-squads.js` import.
+- `data.js` and `big-five*.js`: formations, leagues, and current club metadata. The retired squad import lives in `archive/` and must not be re-enabled.
 - `season-players.js`: active 2025-26 player pool. `season-data.js` lazily loads per-season JavaScript chunks from `history-data/`; regenerate them with `scripts/split-season-data.js`.
 - `season-standings.js`: generated historical league tables used by dynasty mode; regenerate it with `scripts/generate-season-standings.js`.
 - `player-identity.js`: cross-season duplicate-player detection.
 - `position-fit.js`: normal position compatibility and out-of-position midfielder penalties.
 - `european-clubs.js`: European competition entrants and profiles.
-- `cloud-config.js`, `cloud-storage.js`, `supabase-schema.sql`: optional Supabase account/cloud-save integration; never commit service keys.
-- `CLOUD_SETUP.md`: steps for enabling the optional cloud backend.
+- `cloud-config.js` and `cloud-storage.js`: optional Supabase account/cloud-save integration; never commit service keys.
+- `docs/`: contributor and service setup documentation, including `CLOUD_SETUP.md`.
+- `supabase/`: database schema used by the optional cloud backend.
+- `source-data/`: large source datasets used only by regeneration scripts.
+- `archive/`: retired reference code that is not loaded by the game.
 - `scripts/`: validation, balance tests, and repeatable data-repair utilities.
 
 The browser edition has no build step or package manager. Keep the local `desktop/` wrapper out of Git; it is released separately and ignored at the repository root.

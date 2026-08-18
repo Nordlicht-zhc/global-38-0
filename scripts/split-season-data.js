@@ -27,7 +27,7 @@ if (fs.existsSync(outputDir)) {
 }
 const seasons = {
   ...existingHistory,
-  ...loadGlobal("legacy-seasons.js", "LEGACY_SEASONS"),
+  ...loadGlobal(path.join("source-data", "legacy-seasons.js"), "LEGACY_SEASONS"),
   ...loadGlobal("season-players.js", "SEASON_PLAYERS")
 };
 

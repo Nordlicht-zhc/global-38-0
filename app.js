@@ -5,6 +5,7 @@
   const STORAGE_GAME = "g38-game-state-v4";
   const STORAGE_RUNS = "g38-runs-v2";
   const STORAGE_CLUB_PEAKS = "g38-club-peak-v1";
+  const STORAGE_ACHIEVEMENTS = "g38-achievements-v1";
   const STORAGE_CLOUD_META = "g38-cloud-meta-v1";
   const CLOUD_SCHEMA_VERSION = 1;
   const CURRENT_DATA_SEASON = "2025-26";
@@ -87,6 +88,72 @@
     ger: { name: "德国杯", nameEn: "DFB-Pokal", champion: "德国杯冠军", championEn: "DFB-Pokal Champion", lowerTeams: ["波鸿", "杜塞尔多夫", "汉诺威96", "柏林赫塔", "荷尔斯泰因基尔", "凯泽斯劳滕", "卡尔斯鲁厄", "马格德堡", "纽伦堡", "帕德博恩", "普鲁士明斯特", "沙尔克04", "艾禾斯堡", "布伦瑞克"] },
     fra: { name: "法国杯", nameEn: "Coupe de France", champion: "法国杯冠军", championEn: "Coupe de France Champion", lowerTeams: ["亚眠", "阿讷西", "巴斯蒂亚", "卡昂", "克莱蒙", "敦刻尔克", "格勒诺布尔", "甘冈", "拉瓦勒", "蒙彼利埃", "波城", "红星", "罗德兹", "特鲁瓦"] }
   };
+  const DOMESTIC_CUP_TEAM_NAMES_EN = Object.freeze({
+    "伯明翰城": "Birmingham City",
+    "布莱克本": "Blackburn Rovers",
+    "布里斯托尔城": "Bristol City",
+    "卡迪夫城": "Cardiff City",
+    "德比郡": "Derby County",
+    "赫尔城": "Hull City",
+    "米德尔斯堡": "Middlesbrough",
+    "米尔沃尔": "Millwall",
+    "诺维奇": "Norwich City",
+    "谢菲尔德联": "Sheffield United",
+    "斯托克城": "Stoke City",
+    "西布朗": "West Bromwich Albion",
+    "阿尔巴塞特": "Albacete",
+    "阿尔梅里亚": "Almeria",
+    "布尔戈斯": "Burgos",
+    "加的斯": "Cadiz",
+    "拉科鲁尼亚": "Deportivo La Coruna",
+    "埃瓦尔": "Eibar",
+    "格拉纳达": "Granada",
+    "韦斯卡": "Huesca",
+    "米兰德斯": "Mirandes",
+    "桑坦德竞技": "Racing Santander",
+    "萨拉戈萨": "Real Zaragoza",
+    "希洪竞技": "Sporting Gijon",
+    "巴里": "Bari",
+    "卡坦扎罗": "Catanzaro",
+    "切塞纳": "Cesena",
+    "弗罗西诺内": "Frosinone",
+    "曼托瓦": "Mantova",
+    "摩德纳": "Modena",
+    "巴勒莫": "Palermo",
+    "桑普多利亚": "Sampdoria",
+    "斯佩齐亚": "Spezia",
+    "南蒂罗尔": "Sudtirol",
+    "威尼斯": "Venezia",
+    "萨勒尼塔纳": "Salernitana",
+    "波鸿": "Bochum",
+    "杜塞尔多夫": "Fortuna Dusseldorf",
+    "汉诺威96": "Hannover 96",
+    "柏林赫塔": "Hertha Berlin",
+    "荷尔斯泰因基尔": "Holstein Kiel",
+    "凯泽斯劳滕": "Kaiserslautern",
+    "卡尔斯鲁厄": "Karlsruher SC",
+    "马格德堡": "Magdeburg",
+    "纽伦堡": "Nurnberg",
+    "帕德博恩": "Paderborn",
+    "普鲁士明斯特": "Preussen Munster",
+    "沙尔克04": "Schalke 04",
+    "艾禾斯堡": "Elversberg",
+    "布伦瑞克": "Eintracht Braunschweig",
+    "亚眠": "Amiens",
+    "阿讷西": "Annecy",
+    "巴斯蒂亚": "Bastia",
+    "卡昂": "Caen",
+    "克莱蒙": "Clermont Foot",
+    "敦刻尔克": "Dunkerque",
+    "格勒诺布尔": "Grenoble",
+    "甘冈": "Guingamp",
+    "拉瓦勒": "Laval",
+    "蒙彼利埃": "Montpellier",
+    "波城": "Pau FC",
+    "红星": "Red Star FC",
+    "罗德兹": "Rodez",
+    "特鲁瓦": "Troyes"
+  });
   const EUROPE_LIST_VERSION = "2025-26-v4";
   const SIM_VERSION = "2026-v5";
   const DYNASTY_TYPES = {
@@ -122,6 +189,11 @@
 
   const STATIC_TRANSLATIONS = [
     { sel: "#historyBtnText", en: "History" },
+    { sel: "#achievementBtnText", en: "Achievements" },
+    { sel: "#achievementModalEyebrow", en: "Hall of Honors" },
+    { sel: "#achievementModalTitle", en: "Achievements" },
+    { sel: "#achievementFilter [data-achievement-filter='all']", en: "All Achievements" },
+    { sel: "#achievementFilter [data-achievement-filter='unlocked']", en: "Unlocked by Me" },
     { sel: "#newGameBtnText", en: "New Game" },
     { sel: "#accountBtnText", en: "Cloud Save" },
     { sel: "#accountModalEyebrow", en: "Online Account" },
@@ -610,6 +682,21 @@
     translateDom();
   };
 
+  function localizedClubName(name) {
+    if (!name) return "--";
+    if (name === "我的球队") return uiText("我的球队", "My Team");
+    if (DOMESTIC_CUP_TEAM_NAMES_EN[name]) return DOMESTIC_CUP_TEAM_NAMES_EN[name];
+    let out = String(name);
+    const exactSorted = EXACT_PHRASES.slice().sort((a, b) => b[0].length - a[0].length);
+    for (const [zh, en] of exactSorted) out = out.split(zh).join(en);
+    return out;
+  }
+
+  function localizedTeamName(team) {
+    if (!team) return "--";
+    return team.isUser ? uiText("我的球队", "My Team") : localizedClubName(team.name);
+  }
+
 
   const EUROPE_COMPETITIONS = {
     UCL: { name: "欧洲冠军联赛", champion: "欧冠冠军", runnerUp: "欧冠亚军" },
@@ -633,7 +720,79 @@
     "铁幕防守": ["🔒", "联赛失球不超过 10 个", "Concede no more than 10 league goals"],
     "黑马夺冠": ["🐎", "阵容评分不高于 84 时夺冠", "Win the league with a squad rating of 84 or lower"],
     "世界级阵容": ["🌍", "阵容评分达到 90", "Build a squad rated 90 or higher"],
-    "国内杯赛冠军": ["🏆", "赢得所属联赛的国内杯赛", "Win the domestic cup for your league"]
+    "国内杯赛冠军": ["🏆", "赢得所属联赛的国内杯赛", "Win the domestic cup for your league"],
+    "征途杯冠军": ["🗺️", "赢得三级征途的全体球队杯赛", "Win the all-club Journey Cup"],
+    "火力全开": ["🔥", "场均进球达到 3 个", "Average at least 3 goals per match"],
+    "铜墙铁壁": ["🧱", "至少一半联赛比赛完成零封", "Keep clean sheets in at least half of league matches"],
+    "百分赛季": ["💯", "联赛积分达到 100 分", "Earn at least 100 league points"],
+    "大胜专家": ["🚀", "单场净胜至少 5 球", "Win a match by at least 5 goals"],
+    "十连胜": ["🔟", "联赛连续赢下 10 场比赛", "Win 10 league matches in a row"],
+    "进球机器": ["⚽", "一名球员联赛进球达到 30 个", "Have a player score at least 30 league goals"],
+    "助攻大师": ["🎯", "一名球员联赛助攻达到 20 次", "Have a player record at least 20 league assists"],
+    "零封之王": ["🧤", "一名门将或后卫完成 20 场零封", "Have a goalkeeper or defender record 20 clean sheets"],
+    "国内双冠": ["🏅", "赢得联赛和国内杯赛", "Win the league and domestic cup"],
+    "三冠王": ["👑", "赢得联赛、国内杯赛和欧冠", "Win the league, domestic cup and Champions League"],
+    "三星通关": ["🌟", "挑战模式获得 3 星", "Earn three stars in a challenge"],
+    "草根传奇": ["🐗", "以草根奇迹挑战获得 3 星", "Earn three stars in Underdog Miracle"],
+    "铁血冠军": ["🧱", "铁血经理挑战夺得联赛冠军", "Win the league in Iron Manager"],
+    "穿越冠军": ["⌛", "时空旅人挑战赢得冠军", "Win a title in Time Traveller"],
+    "世界联队": ["🌍", "环球更衣室挑战获得 3 星", "Earn three stars in Global Dressing Room"],
+    "超越历史": ["📈", "刷新俱乐部巅峰个人最佳成绩", "Set a new personal best in Club Peak"],
+    "成功升级": ["⬆️", "王朝赛季完成升级", "Earn a promotion in Dynasty"],
+    "连升两级": ["🚄", "连续两个赛季完成升级", "Earn promotions in two consecutive seasons"],
+    "登上顶级": ["🏟️", "三级征途升入顶级联赛", "Reach the top tier in Three-Tier Journey"],
+    "征途终点": ["🏁", "赢得顶级联赛冠军并完成三级征途", "Win the top-tier title and complete the journey"],
+    "成功卫冕": ["🔁", "连续两个赛季赢得联赛冠军", "Win the league in back-to-back seasons"],
+    "王朝初成": ["🏛️", "王朝期间赢得至少 3 座联赛冠军", "Win at least 3 league titles in Dynasty"],
+    "五冠王朝": ["🏆", "王朝期间累计赢得至少 5 座奖杯", "Win at least 5 trophies in Dynasty"],
+    "欧洲之王": ["🌐", "王朝期间赢得欧洲赛事冠军", "Win a European title in Dynasty"],
+    "欧战决赛": ["🎯", "打入欧洲赛事决赛", "Reach a European final"],
+    "欧洲冠军": ["🏆", "赢得任意一项欧洲赛事", "Win any European competition"],
+    "欧冠登顶": ["👑", "赢得欧洲冠军联赛", "Win the Champions League"],
+    "欧联登顶": ["🏆", "赢得欧足联欧洲联赛", "Win the Europa League"],
+    "欧协联登顶": ["🏆", "赢得欧足联欧洲协会联赛", "Win the Conference League"]
+  };
+  const ACHIEVEMENT_TITLES_EN = {
+    "完美赛季": "Perfect Season",
+    "不败赛季": "Undefeated Season",
+    "联赛冠军": "League Champion",
+    "进入欧冠区": "Champions League Places",
+    "进球破百": "100 Goals",
+    "钢铁防线": "Iron Defense",
+    "铁幕防守": "Iron Curtain Defense",
+    "黑马夺冠": "Cinderella Champion",
+    "世界级阵容": "World-Class Squad",
+    "国内杯赛冠军": "Domestic Cup Champion",
+    "征途杯冠军": "Journey Cup Champion",
+    "火力全开": "Firepower",
+    "铜墙铁壁": "Clean-Sheet Wall",
+    "百分赛季": "100-Point Season",
+    "大胜专家": "Big-Game Specialist",
+    "十连胜": "Ten-Game Winning Streak",
+    "进球机器": "Goal Machine",
+    "助攻大师": "Assist Master",
+    "零封之王": "Clean-Sheet King",
+    "国内双冠": "Domestic Double",
+    "三冠王": "Treble",
+    "三星通关": "Three-Star Challenge",
+    "草根传奇": "Underdog Legend",
+    "铁血冠军": "Iron Champion",
+    "穿越冠军": "Time-Travelling Champion",
+    "世界联队": "Global Dressing Room",
+    "超越历史": "Beyond History",
+    "成功升级": "Promotion Secured",
+    "连升两级": "Back-to-Back Promotions",
+    "登上顶级": "Top Tier Reached",
+    "征途终点": "Journey Complete",
+    "成功卫冕": "Successful Defence",
+    "王朝初成": "Dynasty Begins",
+    "五冠王朝": "Five-Trophy Dynasty",
+    "欧洲之王": "King of Europe",
+    "欧战决赛": "European Final",
+    "欧洲冠军": "European Champion",
+    "欧冠登顶": "Champions League Winner",
+    "欧联登顶": "Europa League Winner",
+    "欧协联登顶": "Conference League Winner"
   };
   const HISTORICAL_CLUB_IDS = {
     "arsenal": ["arsenal-fc", "arsenal"],
@@ -751,6 +910,7 @@
     dynastyType: "normal",
     selectedChallengeId: CHALLENGES[0]?.id || null,
     selectedPeakClubId: null,
+    achievementFilter: "all",
     difficultyBeforeIron: null,
     game: null,
     viewingRun: null,
@@ -811,6 +971,13 @@
     accountLogoutBtn: $("#accountLogoutBtn"),
     accountUploadLocalBtn: $("#accountUploadLocalBtn"),
     accountSyncInfo: $("#accountSyncInfo"),
+    achievementBtn: $("#achievementBtn"),
+    achievementBtnCount: $("#achievementBtnCount"),
+    achievementModal: $("#achievementModal"),
+    achievementCloseBtn: $("#achievementCloseBtn"),
+    achievementOverview: $("#achievementOverview"),
+    achievementFilter: $("#achievementFilter"),
+    achievementCatalog: $("#achievementCatalog"),
     hideRatingsSelect: $("#hideRatingsSelect"),
     formationSelect: $("#formationSelect"),
     playModeSwitch: $("#playModeSwitch"),
@@ -1340,8 +1507,27 @@
     renderHeroStats();
   };
 
-  const loadStorage = () => G38Storage.load([STORAGE_GAME, STORAGE_RUNS, STORAGE_CLUB_PEAKS, STORAGE_CLOUD_META]);
   const safeGet = (key) => G38Storage.get(key);
+
+  function normalizeLocalHistory() {
+    const helper = window.G38CloudPayload;
+    if (!helper?.needsTrim) return;
+    const game = safeGet(STORAGE_GAME);
+    if (game && helper.needsTrim(game)) {
+      const normalizedGame = helper.prepareGame ? helper.prepareGame(game) : helper.prepare(game);
+      G38Storage.set(STORAGE_GAME, normalizedGame);
+    }
+    const runs = safeGet(STORAGE_RUNS);
+    if (Array.isArray(runs) && helper.needsTrim(runs)) {
+      const normalizedRuns = helper.prepareRuns ? helper.prepareRuns(runs) : helper.prepare(runs);
+      G38Storage.set(STORAGE_RUNS, normalizedRuns);
+    }
+  }
+
+  const loadStorage = async () => {
+    await G38Storage.load([STORAGE_GAME, STORAGE_RUNS, STORAGE_CLUB_PEAKS, STORAGE_ACHIEVEMENTS, STORAGE_CLOUD_META]);
+    normalizeLocalHistory();
+  };
 
   function cloudMeta() {
     return safeGet(STORAGE_CLOUD_META) || {};
@@ -1351,18 +1537,24 @@
     const game = safeGet(STORAGE_GAME);
     const runs = safeGet(STORAGE_RUNS);
     const clubPeaks = safeGet(STORAGE_CLUB_PEAKS);
+    const achievements = safeGet(STORAGE_ACHIEVEMENTS);
     return Boolean(game || (Array.isArray(runs) && runs.length)
-      || (clubPeaks && typeof clubPeaks === "object" && Object.keys(clubPeaks).length));
+      || (clubPeaks && typeof clubPeaks === "object" && Object.keys(clubPeaks).length)
+      || (Array.isArray(achievements) && achievements.length));
   }
 
   function buildCloudPayload() {
-    return {
+    const payload = {
       schemaVersion: CLOUD_SCHEMA_VERSION,
       game: safeGet(STORAGE_GAME),
       runs: Array.isArray(safeGet(STORAGE_RUNS)) ? safeGet(STORAGE_RUNS) : [],
       clubPeaks: safeGet(STORAGE_CLUB_PEAKS) || {},
+      achievements: Array.isArray(safeGet(STORAGE_ACHIEVEMENTS)) ? safeGet(STORAGE_ACHIEVEMENTS) : [],
       localChangedAt: Number(state.cloud.localChangedAt || 0)
     };
+    return window.G38CloudPayload?.prepare
+      ? window.G38CloudPayload.prepare(payload)
+      : payload;
   }
 
   function touchLocalCloudData() {
@@ -1377,8 +1569,14 @@
   }
 
   const safeSet = (key, value) => {
-    const result = G38Storage.set(key, value);
-    if (key === STORAGE_GAME || key === STORAGE_RUNS || key === STORAGE_CLUB_PEAKS) touchLocalCloudData();
+    let normalizedValue = value;
+    if (key === STORAGE_GAME && window.G38CloudPayload?.prepareGame) {
+      normalizedValue = window.G38CloudPayload.prepareGame(value);
+    } else if (key === STORAGE_RUNS && window.G38CloudPayload?.prepareRuns) {
+      normalizedValue = window.G38CloudPayload.prepareRuns(value);
+    }
+    const result = G38Storage.set(key, normalizedValue);
+    if (key === STORAGE_GAME || key === STORAGE_RUNS || key === STORAGE_CLUB_PEAKS || key === STORAGE_ACHIEVEMENTS) touchLocalCloudData();
     return result;
   };
 
@@ -1453,21 +1651,28 @@
     if (!payload || Number(payload.schemaVersion || 0) > CLOUD_SCHEMA_VERSION) {
       throw new Error("Unsupported cloud save version.");
     }
+    const normalizedPayload = window.G38CloudPayload?.prepare
+      ? window.G38CloudPayload.prepare(payload)
+      : payload;
     state.cloud.suppressLocalTouch = true;
-    if (Object.prototype.hasOwnProperty.call(payload, "game")) {
-      G38Storage.set(STORAGE_GAME, payload.game || null);
+    if (Object.prototype.hasOwnProperty.call(normalizedPayload, "game")) {
+      G38Storage.set(STORAGE_GAME, normalizedPayload.game || null);
     }
-    if (Object.prototype.hasOwnProperty.call(payload, "runs")) {
-      G38Storage.set(STORAGE_RUNS, Array.isArray(payload.runs) ? payload.runs : []);
+    if (Object.prototype.hasOwnProperty.call(normalizedPayload, "runs")) {
+      G38Storage.set(STORAGE_RUNS, Array.isArray(normalizedPayload.runs) ? normalizedPayload.runs : []);
     }
     G38Storage.set(
       STORAGE_CLUB_PEAKS,
-      payload.clubPeaks && typeof payload.clubPeaks === "object" && !Array.isArray(payload.clubPeaks)
-        ? payload.clubPeaks
+      normalizedPayload.clubPeaks && typeof normalizedPayload.clubPeaks === "object" && !Array.isArray(normalizedPayload.clubPeaks)
+        ? normalizedPayload.clubPeaks
         : {}
     );
+    G38Storage.set(
+      STORAGE_ACHIEVEMENTS,
+      Array.isArray(normalizedPayload.achievements) ? [...new Set(normalizedPayload.achievements)] : []
+    );
     state.cloud.revision = Number(remote?.revision || 0);
-    state.cloud.localChangedAt = Number(payload.localChangedAt || Date.parse(remote?.updated_at || "") || Date.now());
+    state.cloud.localChangedAt = Number(normalizedPayload.localChangedAt || Date.parse(remote?.updated_at || "") || Date.now());
     G38Storage.set(STORAGE_CLOUD_META, {
       userId: state.cloud.user?.id || null,
       revision: state.cloud.revision,
@@ -1532,7 +1737,20 @@
         && Number(localMeta.localChangedAt || 0) > remoteChangedAt
       );
       if (remote?.payload && !localIsNewer) {
+        const remoteNeedsTrim = Boolean(window.G38CloudPayload?.needsTrim?.(remote.payload));
         applyCloudPayload(remote.payload, remote);
+        if (remoteNeedsTrim) {
+          const normalizedPayload = buildCloudPayload();
+          const row = await G38Cloud.save(normalizedPayload, Number(remote.revision || 0) + 1);
+          state.cloud.revision = Number(row.revision || Number(remote.revision || 0) + 1);
+          G38Storage.set(STORAGE_CLOUD_META, {
+            ...cloudMeta(),
+            userId: user.id,
+            revision: state.cloud.revision,
+            localChangedAt: Number(normalizedPayload.localChangedAt || Date.now()),
+            syncedAt: Date.now()
+          });
+        }
         state.cloud.localOnly = false;
       } else if (hasLocalCloudData() && !localBelongsToOtherUser) {
         const row = await G38Cloud.save(localPayload, Number(remote?.revision || 0) + 1);
@@ -1975,7 +2193,7 @@
       clubPeakOptions().forEach((club) => {
         const option = document.createElement("option");
         option.value = club.id;
-        option.textContent = `${getLeague(club.league)?.code || club.league.toUpperCase()} · ${club.name}`;
+        option.textContent = `${getLeague(club.league)?.code || club.league.toUpperCase()} · ${localizedClubName(club.name)}`;
         option.selected = club.id === state.selectedPeakClubId;
         select.appendChild(option);
       });
@@ -2000,7 +2218,7 @@
         card.type = "button";
         const record = records[club.id];
         const target = clubPeakBenchmark(club.id);
-        card.appendChild(el("strong", "", club.name));
+        card.appendChild(el("strong", "", localizedClubName(club.name)));
         card.appendChild(el("span", "", uiText(
           `队史 #${target?.bestFinish || "-"} · 个人 ${record ? `#${record.bestFinish}` : "--"}`,
           `Club #${target?.bestFinish || "-"} · Personal ${record ? `#${record.bestFinish}` : "--"}`
@@ -2102,6 +2320,17 @@
   function bindEvents() {
     ui.langToggle.addEventListener("click", toggleLanguage);
     ui.accountBtn?.addEventListener("click", openAccountModal);
+    ui.achievementBtn?.addEventListener("click", openAchievementModal);
+    ui.achievementCloseBtn?.addEventListener("click", closeAchievementModal);
+    ui.achievementModal?.addEventListener("click", (event) => {
+      if (event.target === ui.achievementModal) closeAchievementModal();
+    });
+    ui.achievementFilter?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-achievement-filter]");
+      if (!button) return;
+      state.achievementFilter = button.dataset.achievementFilter === "unlocked" ? "unlocked" : "all";
+      renderAchievementCatalog();
+    });
     ui.accountCloseBtn?.addEventListener("click", closeAccountModal);
     ui.accountModal?.addEventListener("click", (event) => {
       if (event.target === ui.accountModal) closeAccountModal();
@@ -2236,6 +2465,7 @@
   function renderHomeHistory() {
     const runs = loadRuns();
     ui.homeHistoryList.innerHTML = "";
+    renderAchievementCatalog();
     if (!runs.length) {
       ui.homeHistoryList.appendChild(el("div", "history-empty", "还没有赛季记录，先开始一场选秀吧。"));
       return;
@@ -2245,7 +2475,7 @@
       card.type = "button";
       const challenge = getChallenge(run.challengeId);
       const stars = Number(run.result?.challenge?.stars || 0);
-      const peakLabel = isClubPeakChallenge(run) ? ` · ${run.peakClubName || ""}` : "";
+      const peakLabel = isClubPeakChallenge(run) ? ` · ${localizedClubName(run.peakClubName || "")}` : "";
       card.appendChild(el("strong", "", run.mode === "dynasty"
         ? run.dynasty?.type === "tiered"
           ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.dynasty?.journey?.tier || 3} · ${run.dynasty?.results?.length || 0}`
@@ -2260,6 +2490,109 @@
       card.addEventListener("click", () => viewRun(run));
       ui.homeHistoryList.appendChild(card);
     });
+  }
+
+  function achievementTitle(name) {
+    return currentLang === "en"
+      ? ACHIEVEMENT_TITLES_EN[name] || translateText(name)
+      : name;
+  }
+
+  function achievementRuns() {
+    const runs = loadRuns();
+    const extra = [state.game, state.viewingRun]
+      .filter((run) => run?.result && !runs.some((saved) => saved.id === run.id));
+    return runs.concat(extra);
+  }
+
+  function loadUnlockedAchievementProgress() {
+    const raw = safeGet(STORAGE_ACHIEVEMENTS);
+    return new Set(Array.isArray(raw) ? raw.filter((name) => Object.prototype.hasOwnProperty.call(ACHIEVEMENT_DETAILS, name)) : []);
+  }
+
+  function runAchievementNames(run) {
+    const result = run?.result;
+    if (!result || result.achievementStatus === "pending-europe") return [];
+    const stored = Array.isArray(result.achievements) ? result.achievements : [];
+    const derived = collectSeasonAchievements(result, run.europeResult, result.dynastyAchievementContext);
+    return [...new Set(stored.concat(derived))];
+  }
+
+  function recordUnlockedAchievements(run) {
+    const names = runAchievementNames(run).filter((name) => Object.prototype.hasOwnProperty.call(ACHIEVEMENT_DETAILS, name));
+    if (!names.length) return;
+    const unlocked = loadUnlockedAchievementProgress();
+    const previousSize = unlocked.size;
+    names.forEach((name) => unlocked.add(name));
+    if (unlocked.size !== previousSize) safeSet(STORAGE_ACHIEVEMENTS, [...unlocked]);
+  }
+
+  function unlockedAchievementNames() {
+    const unlocked = loadUnlockedAchievementProgress();
+    achievementRuns().forEach((run) => {
+      runAchievementNames(run).forEach((name) => {
+        if (Object.prototype.hasOwnProperty.call(ACHIEVEMENT_DETAILS, name)) unlocked.add(name);
+      });
+    });
+    return unlocked;
+  }
+
+  function renderAchievementCatalog() {
+    if (!ui.achievementCatalog || !ui.achievementOverview) return;
+    const entries = Object.entries(ACHIEVEMENT_DETAILS);
+    const unlocked = unlockedAchievementNames();
+    const unlockedCount = unlocked.size;
+    const total = entries.length;
+    const percent = total ? Math.round((unlockedCount / total) * 100) : 0;
+    if (ui.achievementBtnCount) ui.achievementBtnCount.textContent = `${unlockedCount}/${total}`;
+    ui.achievementOverview.innerHTML = "";
+    const summary = el("div", "achievement-overview-summary", "");
+    summary.appendChild(el("strong", "", `${unlockedCount}/${total}`));
+    summary.appendChild(el("span", "", uiText("已获得成就", "Achievements unlocked")));
+    const progress = el("div", "achievement-overview-progress", "");
+    const fill = el("span", "", "");
+    fill.style.width = `${percent}%`;
+    progress.appendChild(fill);
+    const progressLabel = el("small", "", `${percent}%`);
+    ui.achievementOverview.append(summary, progress, progressLabel);
+
+    ui.achievementFilter?.querySelectorAll("[data-achievement-filter]").forEach((button) => {
+      const active = button.dataset.achievementFilter === state.achievementFilter;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    ui.achievementCatalog.innerHTML = "";
+    const visible = entries.filter(([name]) => state.achievementFilter !== "unlocked" || unlocked.has(name));
+    if (!visible.length) {
+      ui.achievementCatalog.appendChild(el("div", "achievement-catalog-empty", uiText(
+        "还没有获得成就，完成赛季目标后会显示在这里。",
+        "No achievements unlocked yet. Complete season objectives to see them here."
+      )));
+      return;
+    }
+    visible.forEach(([name, detail]) => {
+      const isUnlocked = unlocked.has(name);
+      const card = el("article", `achievement-catalog-card${isUnlocked ? " unlocked" : " locked"}`, "");
+      card.appendChild(el("span", "achievement-catalog-icon", isUnlocked ? detail[0] : "?"));
+      const copy = el("div", "achievement-catalog-copy", "");
+      copy.appendChild(el("strong", "", achievementTitle(name)));
+      copy.appendChild(el("small", "", uiText(detail[1], detail[2])));
+      card.appendChild(copy);
+      card.appendChild(el("span", "achievement-catalog-status", isUnlocked
+        ? uiText("已获得", "Unlocked")
+        : uiText("未获得", "Locked")));
+      ui.achievementCatalog.appendChild(card);
+    });
+  }
+
+  function openAchievementModal() {
+    renderAchievementCatalog();
+    ui.achievementModal?.classList.remove("hidden");
+    ui.achievementCloseBtn?.focus();
+  }
+
+  function closeAchievementModal() {
+    ui.achievementModal?.classList.add("hidden");
   }
 
   function renderSavedGamePrompt() {
@@ -2482,7 +2815,7 @@
     renderGame();
     toast(challenge
       ? isClubPeakChallenge(challenge)
-        ? uiText(`${peakClub.name}俱乐部巅峰挑战已开始。`, `${peakClub.name} Club Peak challenge started.`)
+        ? uiText(`${localizedClubName(peakClub.name)}俱乐部巅峰挑战已开始。`, `${localizedClubName(peakClub.name)} Club Peak challenge started.`)
         : uiText(`${challenge.name}挑战已开始。`, `${challenge.nameEn} challenge started.`)
       : dynastyMode
         ? uiText(`${dynastyStart} 王朝已开始。`, `${dynastyStart} dynasty started.`)
@@ -2549,9 +2882,10 @@
     const challenge = getChallenge(game.challengeId);
     const peakClub = isClubPeakChallenge(game) ? clubPeakClub(game.peakClubId) : null;
     const peakClubName = peakClub?.name || game.peakClubName || "";
+    const displayPeakClubName = localizedClubName(peakClubName);
     ui.gameLeagueLabel.textContent = challenge
       ? peakClubName
-        ? `${challengeName(challenge)} · ${peakClubName} · ${scopeText}`
+        ? `${challengeName(challenge)} · ${displayPeakClubName} · ${scopeText}`
         : `${challengeName(challenge)} · ${scopeText}`
       : game.mode === "dynasty"
         ? isTieredDynasty(game)
@@ -2593,12 +2927,13 @@
     if (!challenge) return;
     const peakClub = isClubPeakChallenge(game) ? clubPeakClub(game.peakClubId) : null;
     const peakClubName = peakClub?.name || game?.peakClubName || "";
+    const displayPeakClubName = localizedClubName(peakClubName);
     const title = el("div", "challenge-game-title", "");
     title.appendChild(el("span", "", challenge.icon));
     const copy = el("div", "", "");
     copy.appendChild(el("strong", "", challengeName(challenge)));
     copy.appendChild(el("small", "", peakClubName
-      ? uiText(`${peakClubName} · 队史最佳第 ${clubPeakBenchmark(peakClub?.id || game?.peakClubId)?.bestFinish || "-"} 名`, `${peakClubName} · Club best #${clubPeakBenchmark(peakClub?.id || game?.peakClubId)?.bestFinish || "-"}`)
+      ? uiText(`${displayPeakClubName} · 队史最佳第 ${clubPeakBenchmark(peakClub?.id || game?.peakClubId)?.bestFinish || "-"} 名`, `${displayPeakClubName} · Club best #${clubPeakBenchmark(peakClub?.id || game?.peakClubId)?.bestFinish || "-"}`)
       : uiText(challenge.description, challenge.descriptionEn)));
     title.appendChild(copy);
     ui.challengeGameBanner.appendChild(title);
@@ -3291,7 +3626,7 @@
     const box = el("div", "result-club", "");
     const copy = el("div", "", "");
     copy.appendChild(el("div", "result-league", `${league.name} · ${league.country}`));
-    copy.appendChild(el("strong", "", club.name));
+    copy.appendChild(el("strong", "", localizedClubName(club.name)));
     copy.appendChild(el("span", "", `${club.stadium ? `${club.stadium} · ` : ""}${game.currentSpin.season}`));
     const badge = el("span", "league-code", club.short.slice(0, 3));
     badge.style.background = club.colors?.[0] || league.color || "#0f766e";
@@ -3448,7 +3783,7 @@
       renderSpinResult();
       renderCandidates();
       updateSpinControls();
-      toast(`抽中 ${season} · ${club.name}`);
+      toast(`抽中 ${season} · ${localizedClubName(club.name)}`);
       ui.spinResult.scrollIntoView({ behavior: "smooth", block: "center" });
       if (state.autoSpinPending) {
         state.autoSpinPending = false;
@@ -3468,7 +3803,7 @@
       meta: uiText("赛季", "SEASON")
     }));
     const clubs = clubOptions.map((club) => ({
-      primary: club.name,
+      primary: localizedClubName(club.name),
       meta: `${getLeague(club.league)?.code || "CLB"} · ${club.short || "---"}`
     }));
     const seasonTarget = Math.max(0, seasonOptions.indexOf(targetSeason));
@@ -3749,7 +4084,7 @@
     } else {
       recent.forEach((match) => {
         const item = el("span", `transfer-form-result form-${match.result.toLowerCase()}`, match.result);
-        item.title = `${match.opponent} ${match.gf}-${match.ga}`;
+        item.title = `${localizedClubName(match.opponent)} ${match.gf}-${match.ga}`;
         form.appendChild(item);
       });
     }
@@ -4216,7 +4551,7 @@
     const box = el("div", "result-club", "");
     const copy = el("div", "", "");
     copy.appendChild(el("div", "result-league", `${league.name} · ${league.country}`));
-    copy.appendChild(el("strong", "", club.name));
+    copy.appendChild(el("strong", "", localizedClubName(club.name)));
     copy.appendChild(el("span", "", transfer.currentSpin.season));
     const badge = el("span", "league-code", club.short.slice(0, 3));
     badge.style.background = club.colors?.[0] || league.color || "#0f766e";
@@ -4255,7 +4590,7 @@
       button.type = "button";
       button.classList.toggle("pending", candidate.id === transfer.selectedCandidateId);
       button.appendChild(el("strong", "", candidate.name));
-      const sourceBits = [candidate.sourceSeason, candidate.sourceClubName].filter(Boolean);
+      const sourceBits = [candidate.sourceSeason, candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : ""].filter(Boolean);
       const clubLine = sourceBits.length ? `${sourceBits.join(" · ")} · ` : "";
       button.appendChild(el("small", "", `${clubLine}${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}`));
       button.appendChild(el("span", "rate", String(candidate.rate)));
@@ -4288,7 +4623,7 @@
     card.appendChild(el("strong", "", candidate.name));
     card.appendChild(el("small", "", [
       candidate.sourceSeason,
-      candidate.sourceClubName,
+      candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "",
       candidate.nat,
       candidate.pos.map((pos) => POSITION_NAMES[pos] || pos).join("/")
     ].filter(Boolean).join(" · ")));
@@ -4361,7 +4696,7 @@
       if (revealed) {
         button.appendChild(el("span", "mystery-risk", mysteryRiskName(candidate.mysteryRisk)));
         button.appendChild(el("strong", "", candidate.name));
-        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName, candidate.nat].filter(Boolean).join(" · ")));
+        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "", candidate.nat].filter(Boolean).join(" · ")));
         button.appendChild(el("small", "", candidate.pos.map((pos) => POSITION_NAMES[pos] || pos).join("/")));
         button.appendChild(el("span", "rate", String(candidate.rate)));
         button.appendChild(el("span", "mystery-locked", uiText("已锁定，必须签下这名球员", "Locked in — this player must be signed")));
@@ -4369,7 +4704,7 @@
         const unit = positionUnit(candidate.pos[0]);
         button.appendChild(el("span", "mystery-number", `0${index + 1}`));
         button.appendChild(el("strong", "", mysteryRiskName(candidate.mysteryRisk)));
-        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName, candidate.nat].filter(Boolean).join(" · ")));
+        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "", candidate.nat].filter(Boolean).join(" · ")));
         button.appendChild(el("span", "mystery-unit", transferUnitName(unit)));
         button.appendChild(el("span", "mystery-open", uiText("打开盲盒", "Open Mystery Box")));
       }
@@ -5163,7 +5498,8 @@
       match.home ? "主场" : "客场",
       match.home ? "Home" : "Away"
     ));
-    const matchup = el("strong", "", uiText(`我的球队 vs ${match.opponent}`, `My Team vs ${match.opponent}`));
+    const opponentName = localizedClubName(match.opponent);
+    const matchup = el("strong", "", uiText(`我的球队 vs ${opponentName}`, `My Team vs ${opponentName}`));
     row.append(score, round, venue, matchup);
     if (current) {
       row.appendChild(el(
@@ -5217,18 +5553,6 @@
     finish = leagueTable.find((row) => row.isUser)?.position || finish;
     const europeQualification = getEuropeanQualification(game, finish);
     const achievementsPending = Boolean(europeQualification.qualified);
-    const achievements = achievementsPending ? [] : collectAchievements({
-      wins: sim.wins,
-      draws: sim.draws,
-      losses: sim.losses,
-      goalsFor: sim.goalsFor,
-      goalsAgainst: sim.goalsAgainst,
-      points,
-      finish,
-      teamRating: sim.teamRating,
-      uclPlaces: europeQualification.allocation.ucl,
-      domesticCupChampion: Boolean(sim.domesticCup?.champion?.isUser)
-    });
     game.result = {
       matches: sim.matches,
       wins: sim.wins,
@@ -5243,7 +5567,7 @@
       seed: hashSeed(`${game.id}|${game.slots.map((s) => s.player.id).join(",")}`),
       simVersion: SIM_VERSION,
       topScorer,
-      achievements,
+      achievements: [],
       achievementStatus: achievementsPending ? "pending-europe" : "settled",
       playerStats,
       leagueTable,
@@ -5257,7 +5581,17 @@
     };
     game.result.challenge = evaluateChallenge(game, game.result);
     updateClubPeakRecord(game, game.result);
-    if (isTieredDynasty(game)) updateJourneyAfterSeason(game, game.result.leagueTable);
+    if (isTieredDynasty(game)) {
+      updateJourneyAfterSeason(game, game.result.leagueTable);
+      game.result.journeyMovement = game.dynasty.journey?.lastMovement
+        ? { ...game.dynasty.journey.lastMovement }
+        : null;
+    }
+    game.result.dynastyAchievementContext = buildDynastyAchievementContext(game, game.result);
+    if (!achievementsPending) {
+      game.result.achievements = collectSeasonAchievements(game.result);
+      game.result.achievementStatus = "settled";
+    }
     game.transferLog = sim.transferState?.log || [];
     game.transferSkipped = Boolean(sim.transferState?.skipped);
     game.phase = "complete";
@@ -5475,17 +5809,12 @@
 
   function getEuropeanQualification(game, finish) {
     if (isTieredDynasty(game)) {
-      const topTier = Number(game.dynasty?.journey?.tier || 3) === 1;
-      const allocation = topTier ? { ucl: 4, uel: 2, uecl: 1 } : { ucl: 0, uel: 0, uecl: 0 };
-      const competition = topTier && finish <= allocation.ucl ? "UCL"
-        : topTier && finish <= allocation.ucl + allocation.uel ? "UEL"
-          : topTier && finish <= allocation.ucl + allocation.uel + allocation.uecl ? "UECL" : null;
       return {
-        qualified: Boolean(competition),
-        competition,
-        competitionName: competition ? { UCL: "欧洲冠军联赛", UEL: "欧洲联赛", UECL: "欧洲协会联赛" }[competition] : "未获得欧战资格",
+        qualified: false,
+        competition: null,
+        competitionName: "三级征途不参加欧战",
         finish,
-        allocation,
+        allocation: { ucl: 0, uel: 0, uecl: 0 },
         allocationSeason: EUROPE_ALLOCATION_SEASON
       };
     }
@@ -5861,25 +6190,131 @@
     return assists;
   }
 
+  function summarizeAchievementMatches(matches) {
+    const list = Array.isArray(matches) ? matches : [];
+    let cleanSheets = 0;
+    let maxWinMargin = 0;
+    let winningStreak = 0;
+    let longestWinningStreak = 0;
+    list.forEach((match) => {
+      const gf = Number(match.gf || 0);
+      const ga = Number(match.ga || 0);
+      if (ga === 0) cleanSheets += 1;
+      if (gf > ga) {
+        maxWinMargin = Math.max(maxWinMargin, gf - ga);
+        winningStreak += 1;
+        longestWinningStreak = Math.max(longestWinningStreak, winningStreak);
+      } else {
+        winningStreak = 0;
+      }
+    });
+    return { cleanSheets, maxWinMargin, longestWinningStreak };
+  }
+
+  function buildDynastyAchievementContext(game, result, europeResult = result?.europeResult) {
+    if (game?.mode !== "dynasty" || !game.dynasty) return null;
+    const previous = (game.dynasty.results || []).filter((entry) => entry?.result && entry.result !== result);
+    const previousResults = previous.map((entry) => entry.result);
+    const currentLeague = result?.finish === 1;
+    const currentDomestic = result?.domesticCup?.champion === "我的球队";
+    const currentEurope = europeResult?.champion === "我的球队";
+    const priorLeagueTitles = previousResults.filter((entry) => entry.finish === 1).length;
+    const priorTrophies = previousResults.reduce((total, entry) => total
+      + (entry.finish === 1 ? 1 : 0)
+      + (entry.domesticCup?.champion === "我的球队" ? 1 : 0)
+      + (entry.europeResult?.champion === "我的球队" ? 1 : 0), 0);
+    const movement = result?.journeyMovement || (isTieredDynasty(game) ? game.dynasty.journey?.lastMovement : null);
+    const previousMovement = previousResults[previousResults.length - 1]?.journeyMovement;
+    return {
+      tiered: isTieredDynasty(game),
+      movement,
+      previousPromotion: Boolean(previousMovement && previousMovement.to < previousMovement.from),
+      previousChampion: previousResults[previousResults.length - 1]?.finish === 1,
+      priorLeagueTitles,
+      totalTrophies: priorTrophies
+        + (currentLeague ? 1 : 0)
+        + (currentDomestic ? 1 : 0)
+        + (currentEurope ? 1 : 0),
+      currentLeague,
+      currentEurope,
+      completed: Boolean(game.dynasty.journey?.completed)
+    };
+  }
+
   function collectAchievements(result) {
     const list = [];
+    const matchMetrics = summarizeAchievementMatches(result.matches);
     const played = Array.isArray(result.matches)
       ? result.matches.length
       : Number(result.wins || 0) + Number(result.draws || 0) + Number(result.losses || 0);
     if (played > 0 && result.wins === played) list.push("完美赛季");
     if (played > 0 && result.losses === 0 && result.wins < played) list.push("不败赛季");
     if (result.finish === 1) list.push("联赛冠军");
-    if (result.finish <= Number(result.uclPlaces || 4)) list.push("进入欧冠区");
+    const uclPlaces = result.uclPlaces == null ? 4 : Number(result.uclPlaces);
+    if (uclPlaces > 0 && result.finish <= uclPlaces) list.push("进入欧冠区");
     if (result.goalsFor >= 100) list.push("进球破百");
     if (result.goalsAgainst <= 20) list.push("钢铁防线");
     if (result.goalsAgainst <= 10) list.push("铁幕防守");
     if (result.finish === 1 && result.teamRating <= 84) list.push("黑马夺冠");
     if (result.teamRating >= 90) list.push("世界级阵容");
-    if (result.domesticCupChampion) list.push("国内杯赛冠军");
+    if (result.journeyCupChampion) list.push("征途杯冠军");
+    else if (result.domesticCupChampion) list.push("国内杯赛冠军");
+    if (played > 0 && Number(result.goalsFor || 0) / played >= 3) list.push("火力全开");
+    if (played > 0 && matchMetrics.cleanSheets >= Math.ceil(played / 2)) list.push("铜墙铁壁");
+    if (Number(result.points || 0) >= 100) list.push("百分赛季");
+    if (matchMetrics.maxWinMargin >= 5) list.push("大胜专家");
+    if (matchMetrics.longestWinningStreak >= 10) list.push("十连胜");
+    const playerStats = Array.isArray(result.playerStats) ? result.playerStats : [];
+    if (playerStats.some((stat) => Number(stat.goals || 0) >= 30)) list.push("进球机器");
+    if (playerStats.some((stat) => Number(stat.assists || 0) >= 20)) list.push("助攻大师");
+    if (playerStats.some((stat) => ["GK", "DEF"].includes(positionUnit(stat.position)) && Number(stat.cleanSheets || 0) >= 20)) {
+      list.push("零封之王");
+    }
+    const leagueChampion = result.finish === 1;
+    const domesticChampion = Boolean(result.domesticCupChampion || result.journeyCupChampion);
+    if (leagueChampion && domesticChampion) list.push("国内双冠");
+    const challenge = result.challenge;
+    if (challenge?.stars === 3) list.push("三星通关");
+    if (challenge?.id === "underdog" && challenge.stars === 3) list.push("草根传奇");
+    if (challenge?.id === "iron-manager" && challenge.completedIds?.includes("champion")) list.push("铁血冠军");
+    if (challenge?.id === "time-traveller" && challenge.completedIds?.includes("title")) list.push("穿越冠军");
+    if (challenge?.id === "global-dressing-room" && challenge.stars === 3) list.push("世界联队");
+    if (challenge?.id === "club-peak" && challenge.recordImproved) list.push("超越历史");
+    const dynasty = result.dynastyAchievementContext;
+    if (dynasty) {
+      const promoted = dynasty.tiered && dynasty.movement?.to < dynasty.movement?.from;
+      if (promoted) list.push("成功升级");
+      if (promoted && dynasty.previousPromotion) list.push("连升两级");
+      if (dynasty.tiered && dynasty.movement?.from > 1 && dynasty.movement?.to === 1) list.push("登上顶级");
+      if (dynasty.tiered && dynasty.completed && dynasty.currentLeague) list.push("征途终点");
+      if (dynasty.currentLeague && dynasty.previousChampion) list.push("成功卫冕");
+      if (dynasty.priorLeagueTitles + (dynasty.currentLeague ? 1 : 0) >= 3) list.push("王朝初成");
+      if (dynasty.totalTrophies >= 5) list.push("五冠王朝");
+      if (dynasty.currentEurope) list.push("欧洲之王");
+    }
+    const europe = result.europeResult;
+    if (europe) {
+      const info = EUROPE_COMPETITIONS[europe.competition];
+      const reachedFinal = europe.champion === "我的球队"
+        || (info && europe.userStage === info.runnerUp);
+      if (reachedFinal) list.push("欧战决赛");
+      if (europe.champion === "我的球队") {
+        list.push("欧洲冠军");
+        const competitionAchievement = {
+          UCL: "欧冠登顶",
+          UEL: "欧联登顶",
+          UECL: "欧协联登顶"
+        }[europe.competition];
+        if (competitionAchievement) list.push(competitionAchievement);
+      }
+      if (leagueChampion && domesticChampion && europe.champion === "我的球队" && europe.competition === "UCL") {
+        list.push("三冠王");
+      }
+    }
     return list;
   }
 
-  function collectSeasonAchievements(result) {
+  function collectSeasonAchievements(result, europeResult = result?.europeResult, dynastyContext = null) {
     return collectAchievements({
       matches: result?.matches,
       wins: result?.wins,
@@ -5891,14 +6326,20 @@
       finish: result?.finish,
       teamRating: result?.teamRating,
       uclPlaces: result?.europeQualification?.allocation?.ucl,
-      domesticCupChampion: result?.domesticCup?.champion === "我的球队"
+      domesticCupChampion: result?.domesticCup?.champion === "我的球队",
+      journeyCupChampion: Boolean(result?.domesticCup?.journeyCup && result?.domesticCup?.champion === "我的球队"),
+      playerStats: result?.playerStats,
+      challenge: result?.challenge,
+      dynastyAchievementContext: dynastyContext || result?.dynastyAchievementContext,
+      europeResult
     });
   }
 
   function settleAchievements(run) {
     const result = run?.result;
     if (!result || result.achievementStatus !== "pending-europe" || !run.europeResult) return false;
-    result.achievements = collectSeasonAchievements(result);
+    result.dynastyAchievementContext = buildDynastyAchievementContext(run, result, run.europeResult);
+    result.achievements = collectSeasonAchievements(result, run.europeResult, result.dynastyAchievementContext);
     result.achievementStatus = "settled";
     return true;
   }
@@ -5924,7 +6365,8 @@
     const metrics = challengeSquadMetrics(game);
     const domesticChampion = result.domesticCup?.champion === "我的球队";
     const leagueChampion = result.finish === 1;
-    const uclPlaces = Number(result.europeQualification?.allocation?.ucl || 4);
+    const uclPlacesValue = result.europeQualification?.allocation?.ucl;
+    const uclPlaces = Number(uclPlacesValue == null ? 4 : uclPlacesValue);
     let valid = true;
     let completedIds = [];
     let benchmark = null;
@@ -6000,9 +6442,10 @@
       const benchmark = evaluation.benchmark || clubPeakBenchmark(run.peakClubId);
       const record = evaluation.personalBest;
       const summary = el("div", "club-peak-result-summary", "");
+      const benchmarkClubName = benchmark?.clubName || run.peakClubName || "目标球队";
       summary.appendChild(el("strong", "", uiText(
-        `${benchmark?.clubName || run.peakClubName || "目标球队"} · 队史最佳第 ${benchmark?.bestFinish || "-"} 名`,
-        `${benchmark?.clubName || run.peakClubName || "Target Club"} · Club best #${benchmark?.bestFinish || "-"}`
+        `${localizedClubName(benchmarkClubName)} · 队史最佳第 ${benchmark?.bestFinish || "-"} 名`,
+        `${localizedClubName(benchmarkClubName)} · Club best #${benchmark?.bestFinish || "-"}`
       )));
       summary.appendChild(el("span", "", uiText(
         `本次第 ${run.result.finish} 名${record?.bestFinish ? ` · 个人最佳第 ${record.bestFinish} 名` : ""}`,
@@ -6139,10 +6582,15 @@
         `王朝进度 · ${run.dynasty.results.length}/${run.dynasty.seasons.length} 赛季`,
         `Dynasty progress · ${run.dynasty.results.length}/${run.dynasty.seasons.length} seasons`
       )));
-    block.appendChild(el("small", "", uiText(
-      `奖杯：联赛 ${trophies.league || 0} · 国内杯赛 ${trophies.domesticCup || 0} · 欧战 ${trophies.europe || 0}`,
-      `Trophies: League ${trophies.league || 0} · Domestic cup ${trophies.domesticCup || 0} · Europe ${trophies.europe || 0}`
-    )));
+    block.appendChild(el("small", "", tiered
+      ? uiText(
+        `奖杯：联赛 ${trophies.league || 0} · 征途杯 ${trophies.domesticCup || 0}`,
+        `Trophies: League ${trophies.league || 0} · Journey Cup ${trophies.domesticCup || 0}`
+      )
+      : uiText(
+        `奖杯：联赛 ${trophies.league || 0} · 国内杯赛 ${trophies.domesticCup || 0} · 欧战 ${trophies.europe || 0}`,
+        `Trophies: League ${trophies.league || 0} · Domestic cup ${trophies.domesticCup || 0} · Europe ${trophies.europe || 0}`
+      )));
     if (tiered && run.dynasty.journey?.lastMovement) {
       const movement = run.dynasty.journey.lastMovement;
       block.appendChild(el("small", "", uiText(
@@ -6186,11 +6634,12 @@
     const europePending = result.achievementStatus === "pending-europe" && !run.europeResult;
     const peakClub = isClubPeakChallenge(run) ? clubPeakClub(run.peakClubId) : null;
     const peakClubName = peakClub?.name || run.peakClubName || "";
+    const displayPeakClubName = localizedClubName(peakClubName);
     ui.postSeasonTransferBtn?.classList.toggle("hidden", !postSeasonTransferPending);
     ui.nextDynastySeasonBtn?.classList.toggle("hidden", !dynastyHasNext || postSeasonTransferPending || europePending);
     $("#resultMatchEyebrow").textContent = `${result.matches.length} 场比赛`;
     $("#resultBadge").textContent = challenge
-      ? `${challengeName(challenge)}${peakClubName ? ` · ${peakClubName}` : ""} · ${run.formation}`
+      ? `${challengeName(challenge)}${peakClubName ? ` · ${displayPeakClubName}` : ""} · ${run.formation}`
       : run.mode === "dynasty"
         ? isTieredDynasty(run)
           ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.result.journey?.tier || run.dynasty?.journey?.tier || 3} · ${simulationSeason(run)}`
@@ -6266,7 +6715,7 @@
       row.classList.add(match.result === "W" ? "result-win" : match.result === "D" ? "result-draw" : "result-loss");
       row.appendChild(el("span", "match-round", `R${match.round}`));
       const teams = el("div", "match-teams", "");
-      teams.appendChild(el("span", "", `${match.home ? "主" : "客"} vs ${match.opponent}`));
+      teams.appendChild(el("span", "", `${match.home ? "主" : "客"} vs ${localizedClubName(match.opponent)}`));
       teams.appendChild(el("span", "", match.scorers.length ? `进球：${match.scorers.join("、")}` : "无进球"));
       const score = el("div", "match-score", `${match.gf}-${match.ga}`);
       const resultLabel = match.result === "W" ? "胜" : match.result === "D" ? "平" : "负";
@@ -6318,7 +6767,7 @@
       else if (leagueId === "ger" && row.position === teamCount - 2) tr.classList.add("league-zone-playoff");
       else if (row.position > teamCount - (leagueId === "ger" ? 2 : 3)) tr.classList.add("league-zone-relegation");
       const goalDiff = Number(row.goalDiff || 0);
-      [row.position, row.isUser && userTeamName ? userTeamName : row.name, row.played, row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst, goalDiff > 0 ? `+${goalDiff}` : goalDiff, row.points]
+      [row.position, row.isUser && userTeamName ? localizedClubName(userTeamName) : localizedClubName(row.name), row.played, row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst, goalDiff > 0 ? `+${goalDiff}` : goalDiff, row.points]
         .forEach((value) => tr.appendChild(el("span", "", String(value))));
       body.appendChild(tr);
     });
@@ -6331,6 +6780,7 @@
   }
 
   function createDomesticCupSimulation(sim) {
+    if (isTieredDynasty(sim.game)) return createJourneyCupSimulation(sim);
     const info = DOMESTIC_CUPS[sim.game.league];
     if (!info) return null;
     const teams = Object.entries(sim.profileMap).map(([name, profile]) => ({
@@ -6363,6 +6813,45 @@
     };
   }
 
+  function createJourneyCupSimulation(sim) {
+    const journey = sim.game?.dynasty?.journey;
+    if (!journey) return null;
+    const stages = ["预选赛", "64强", "32强", "16强", "八强", "半决赛", "决赛"];
+    const roundTargets = [64, 32, 16, 8, 4, 2, 1];
+    const teamIds = [...new Set((journey.tiers || []).flat())];
+    const teams = teamIds.map((id) => {
+      const record = journey.clubs?.[id];
+      const name = id === JOURNEY_USER_ID ? JOURNEY_USER_NAME : record?.name;
+      const profile = id === JOURNEY_USER_ID ? sim.profileMap?.[JOURNEY_USER_NAME] : record?.profile;
+      return {
+        name,
+        profile: profile || { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 },
+        strength: teamStrength(profile || { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 }),
+        isUser: id === JOURNEY_USER_ID,
+        lowerLeague: false
+      };
+    }).filter((team) => team.name);
+    const matchCount = sim.matchCount;
+    const ratios = [0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 0.95];
+    return {
+      name: "征途杯",
+      nameEn: "Journey Cup",
+      championLabel: "征途杯冠军",
+      championLabelEn: "Journey Cup Champion",
+      journeyCup: true,
+      stages,
+      roundTargets,
+      teams,
+      currentTeams: teams,
+      roundIndex: 0,
+      milestones: ratios.map((ratio) => Math.max(1, Math.round(matchCount * ratio))),
+      rounds: [],
+      userStage: stages[0],
+      champion: null,
+      finished: false
+    };
+  }
+
   function shouldPlayDomesticCupRound(sim) {
     const cup = sim?.domesticCup;
     return Boolean(cup && !cup.finished && sim.matches.length >= cup.milestones[cup.roundIndex]);
@@ -6384,14 +6873,28 @@
   function simulateDomesticCupRound(sim) {
     const cup = sim.domesticCup;
     if (!cup || cup.finished) return null;
-    const stage = DOMESTIC_CUP_STAGES[cup.roundIndex] || "决赛";
+    const stageNames = cup.stages || DOMESTIC_CUP_STAGES;
+    const stage = stageNames[cup.roundIndex] || "决赛";
     const shuffled = shuffleWithRng(cup.currentTeams, sim.rng);
     const ties = [];
-    const winners = [];
+    const targetSize = Math.max(1, Math.min(
+      Number(cup.roundTargets?.[cup.roundIndex]) || Math.ceil(shuffled.length / 2),
+      shuffled.length
+    ));
+    const matchCount = Math.max(0, shuffled.length - targetSize);
+    const byeCount = Math.max(0, shuffled.length - matchCount * 2);
+    const byes = shuffled.slice(0, byeCount);
+    const participants = shuffled.slice(byeCount);
+    const winners = [...byes];
     let userMatch = null;
-    for (let index = 0; index < shuffled.length; index += 2) {
-      const home = shuffled[index];
-      const away = shuffled[index + 1];
+    const userBye = byes.find((team) => team.isUser);
+    if (userBye) {
+      const nextStage = stageNames[cup.roundIndex + 1];
+      cup.userStage = targetSize === 1 ? cup.championLabel : `晋级${nextStage || "下一轮"}`;
+    }
+    for (let index = 0; index < participants.length; index += 2) {
+      const home = participants[index];
+      const away = participants[index + 1];
       const neutral = stage === "决赛";
       const tie = createEuropeanTie(home, away, false, neutral);
       const played = simulateEuropeanTie(home, away, sim.rng, neutral);
@@ -6412,11 +6915,11 @@
       if (result.isUser) {
         userMatch = { cup, stage, tie, played };
         cup.userStage = tie.winner.isUser
-          ? (stage === "决赛" ? cup.championLabel : `晋级${DOMESTIC_CUP_STAGES[cup.roundIndex + 1]}`)
+          ? (stage === "决赛" ? cup.championLabel : `晋级${stageNames[cup.roundIndex + 1] || "下一轮"}`)
           : `${stage}出局`;
       }
     }
-    cup.rounds.push({ name: stage, ties });
+    cup.rounds.push({ name: stage, ties, byes: byes.map((team) => team.name) });
     cup.currentTeams = winners;
     cup.roundIndex += 1;
     if (winners.length === 1) {
@@ -6434,6 +6937,7 @@
       nameEn: cup.nameEn,
       championLabel: cup.championLabel,
       championLabelEn: cup.championLabelEn,
+      journeyCup: Boolean(cup.journeyCup),
       userStage: cup.userStage,
       champion: cup.champion?.name || null,
       rounds: cup.rounds
@@ -6441,7 +6945,7 @@
   }
 
   function domesticCupTieText(tie) {
-    let text = `${tie.home} ${tie.homeGoals}-${tie.awayGoals} ${tie.away}`;
+    let text = `${localizedClubName(tie.home)} ${tie.homeGoals}-${tie.awayGoals} ${localizedClubName(tie.away)}`;
     if (tie.extraTime) text += uiText(`（加时 ${tie.extraTime.homeGoals}-${tie.extraTime.awayGoals}）`, ` (AET ${tie.extraTime.homeGoals}-${tie.extraTime.awayGoals})`);
     if (tie.penalties) text += uiText(`（点球 ${tie.penalties.home}-${tie.penalties.away}）`, ` (Pens ${tie.penalties.home}-${tie.penalties.away})`);
     return text;
@@ -6449,6 +6953,8 @@
 
   function domesticCupStageText(stage) {
     const names = {
+      "预选赛": "Preliminary Round",
+      "64强": "Round of 64",
       "32强": "Round of 32",
       "16强": "Round of 16",
       "八强": "Quarter-finals",
@@ -6476,15 +6982,26 @@
     ui.domesticCupTitle.textContent = uiText(cup.name, cup.nameEn || cup.name);
     ui.domesticCupStatus.innerHTML = "";
     const summary = el("div", "cup-summary", "");
-    summary.appendChild(el("span", "", uiText("本队国内杯赛成绩", "Domestic cup result")));
+    summary.appendChild(el("span", "", cup.journeyCup
+      ? uiText("本队征途杯成绩", "Journey Cup result")
+      : uiText("本队国内杯赛成绩", "Domestic cup result")));
     summary.appendChild(el("strong", "", domesticCupUserStageText(cup)));
-    summary.appendChild(el("small", "", uiText(`${cup.championLabel}：${cup.champion || "--"}`, `${cup.championLabelEn || cup.championLabel}: ${cup.champion || "--"}`)));
+    summary.appendChild(el("small", "", uiText(
+      `${cup.championLabel}：${localizedClubName(cup.champion)}`,
+      `${cup.championLabelEn || cup.championLabel}: ${localizedClubName(cup.champion)}`
+    )));
     ui.domesticCupStatus.appendChild(summary);
     ui.domesticCupResults.innerHTML = "";
     [...cup.rounds].reverse().forEach((round) => {
       const block = el("details", "cup-round", "");
       block.open = round.name === "决赛" || round.ties.some((tie) => tie.isUser);
       block.appendChild(el("summary", "", domesticCupStageText(round.name)));
+      if (round.byes?.length) {
+        block.appendChild(el("small", "cup-byes", uiText(
+          `${round.byes.length} 支球队轮空晋级`,
+          `${round.byes.length} clubs received byes`
+        )));
+      }
       round.ties.forEach((tie) => {
         const row = el("div", "cup-team-row", domesticCupTieText(tie));
         if (tie.isUser) row.classList.add("user-row");
@@ -7200,10 +7717,10 @@
       return row;
     }
     const userFirst = match.homeIsUser || match.awayIsUser;
-    const firstTeam = userFirst ? "我的球队" : match.home;
+    const firstTeam = userFirst ? "我的球队" : localizedClubName(match.home);
     const secondTeam = userFirst
-      ? match.homeIsUser ? match.away : match.home
-      : match.away;
+      ? match.homeIsUser ? localizedClubName(match.away) : localizedClubName(match.home)
+      : localizedClubName(match.away);
     const firstGoals = userFirst && match.awayIsUser ? match.awayGoals : match.homeGoals;
     const secondGoals = userFirst && match.awayIsUser ? match.homeGoals : match.awayGoals;
     if (userFirst) {
@@ -7312,9 +7829,9 @@
     live.appendChild(heading);
 
     const scoreboard = el("div", "europe-live-scoreboard", "");
-    const homeName = el("span", "europe-live-team home", uiText(played.home.name, played.home.isUser ? "My Team" : played.home.name));
+    const homeName = el("span", "europe-live-team home", localizedTeamName(played.home));
     const score = el("strong", "europe-live-score", "0 - 0");
-    const awayName = el("span", "europe-live-team away", uiText(played.away.name, played.away.isUser ? "My Team" : played.away.name));
+    const awayName = el("span", "europe-live-team away", localizedTeamName(played.away));
     scoreboard.append(homeName, score, awayName);
     live.appendChild(scoreboard);
 
@@ -7335,7 +7852,7 @@
     const markers = events.map((event) => {
       const marker = el("span", `europe-goal-marker ${event.side}`, "⚽");
       marker.style.left = `${(event.minute / maxMinute) * 100}%`;
-      marker.title = `${event.minute}′ · ${event.side === "home" ? played.home.name : played.away.name}`;
+      marker.title = `${event.minute}′ · ${localizedTeamName(event.side === "home" ? played.home : played.away)}`;
       track.appendChild(marker);
       return marker;
     });
@@ -7369,7 +7886,7 @@
         eventFeed.appendChild(el(
           "span",
           `europe-goal-event ${event.side}`,
-          `⚽ ${event.minute}′ · ${uiText(team.name, team.isUser ? "My Team" : team.name)}`
+          `⚽ ${event.minute}′ · ${localizedTeamName(team)}`
         ));
         revealedCount += 1;
       }
@@ -7379,8 +7896,8 @@
       if (stage.twoLeg) {
         const total = europeanAggregateAtMinute(tie, played, homeGoals, awayGoals);
         aggregate.textContent = uiText(
-          `总比分：${tie.teamA.name} ${total.teamAGoals}-${total.teamBGoals} ${tie.teamB.name}`,
-          `Aggregate: ${tie.teamA.isUser ? "My Team" : tie.teamA.name} ${total.teamAGoals}-${total.teamBGoals} ${tie.teamB.isUser ? "My Team" : tie.teamB.name}`
+          `总比分：${localizedTeamName(tie.teamA)} ${total.teamAGoals}-${total.teamBGoals} ${localizedTeamName(tie.teamB)}`,
+          `Aggregate: ${localizedTeamName(tie.teamA)} ${total.teamAGoals}-${total.teamBGoals} ${localizedTeamName(tie.teamB)}`
         );
       }
     };
@@ -7500,7 +8017,7 @@
           const row = el("div", "europe-bracket-team", "");
           row.classList.toggle("winner", Boolean(winner.name && winner.name === team.name));
           row.classList.toggle("user-team", Boolean(team.isUser));
-          row.appendChild(el("span", "", uiText(team.name || "--", team.isUser ? "My Team" : (team.name || "--"))));
+          row.appendChild(el("span", "", localizedTeamName(team)));
           row.appendChild(el("strong", "", String(goals ?? "-")));
           card.appendChild(row);
         });
@@ -7622,7 +8139,7 @@
         const goalDiff = Number(team.goalsFor || 0) - Number(team.goalsAgainst || 0);
         const values = [
           team.position,
-          team.name,
+          localizedTeamName(team),
           team.played ?? "-",
           team.wins ?? "-",
           team.draws ?? "-",
@@ -7658,6 +8175,7 @@
     const runs = loadRuns();
     runs.unshift({ ...game });
     safeSet(STORAGE_RUNS, runs.slice(0, 20));
+    recordUnlockedAchievements(game);
   }
 
   function updateRun(game) {
@@ -7667,6 +8185,7 @@
     if (index >= 0) runs[index] = saved;
     else runs.unshift(saved);
     safeSet(STORAGE_RUNS, runs.slice(0, 20));
+    recordUnlockedAchievements(game);
   }
 
   function loadRuns() {
@@ -7705,7 +8224,7 @@
     const challenge = getChallenge(run.challengeId);
     const peakClub = isClubPeakChallenge(run) ? clubPeakClub(run.peakClubId) : null;
     const challengeText = challenge
-      ? `，完成${challenge.name}${peakClub ? `（${peakClub.name}）` : ""}挑战 ${result.challenge?.stars || 0}/3 星`
+      ? `，完成${challenge.name}${peakClub ? `（${localizedClubName(peakClub.name)}）` : ""}挑战 ${result.challenge?.stars || 0}/3 星`
       : "";
     const text = `Global 38-0：我用了 ${run.formation} 阵容，${result.wins}-${result.draws}-${result.losses}，${result.points} 分，第 ${result.finish} 名${challengeText}。敢来挑战吗？`;
     if (navigator.clipboard && navigator.clipboard.writeText) {

@@ -17,6 +17,10 @@ assert(appSource.includes('dynastyType === "tiered" ? CURRENT_DATA_SEASON'),
   "Tiered dynasty should start directly from 2025-26.");
 assert(appSource.includes("swapJourneyBoundary"), "Promotion and relegation logic is missing.");
 assert(appSource.includes("doubleRound: false"), "Three-tier mode must use a single round robin.");
+assert(appSource.includes("createJourneyCupSimulation"), "Three-tier mode must create the Journey Cup.");
+assert(appSource.includes('roundTargets = [64, 32, 16, 8, 4, 2, 1]'), "Journey Cup must include all 96 clubs in a knockout path.");
+assert(appSource.includes('qualified: false,\n        competition: null,\n        competitionName: "三级征途不参加欧战"'),
+  "Three-tier mode must not allocate European competition places.");
 assert(html.includes('data-dynasty-type="normal"'), "Big Five dynasty selector is missing.");
 assert(html.includes('data-dynasty-type="tiered"'), "Three-tier dynasty selector is missing.");
 

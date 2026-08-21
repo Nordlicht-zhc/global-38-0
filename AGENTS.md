@@ -39,6 +39,7 @@ node scripts/player-identity-test.js
 node scripts/season-loader-test.js
 node scripts/position-fit-test.js
 node scripts/cloud-storage-test.js
+node scripts/cloud-history-limit-test.js
 node scripts/dynasty-test.js
 node scripts/balance-test.js --runs=1000 --seed=review
 node scripts/cup-europe-balance-test.js --runs=1000 --seed=review

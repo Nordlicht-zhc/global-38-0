@@ -616,6 +616,94 @@ button {
   color: var(--text);
 }
 
+.challenge-club-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(251, 191, 36, 0.18);
+}
+
+.challenge-club-field > span {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.challenge-club-select {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.challenge-club-benchmark {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.club-peak-progress {
+  display: grid;
+  gap: 7px;
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(251, 191, 36, 0.18);
+}
+
+.club-peak-progress > strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.club-peak-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.club-peak-progress-card {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: rgba(15, 23, 42, 0.36);
+  text-align: left;
+}
+
+.club-peak-progress-card:hover,
+.club-peak-progress-card.selected {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.09);
+}
+
+.club-peak-progress-card strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.club-peak-progress-card span,
+.club-peak-progress-card small {
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.club-peak-progress-card small {
+  color: #fbbf24;
+}
+
 .field select:disabled {
   cursor: not-allowed;
   opacity: 0.65;
@@ -733,6 +821,31 @@ button {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.saved-game-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(74, 222, 128, 0.34);
+  border-radius: var(--radius);
+  background: rgba(22, 163, 74, 0.1);
+}
+
+.saved-game-box strong {
+  color: var(--green);
+}
+
+.saved-game-box span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.saved-game-box .btn {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .history-list {
@@ -1880,6 +1993,30 @@ button {
 .challenge-result-head h3 {
   margin: 0;
   font-size: 17px;
+}
+
+.club-peak-result-summary {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.club-peak-result-summary strong {
+  color: #fde68a;
+  font-size: 12px;
+}
+
+.club-peak-result-summary span,
+.club-peak-result-summary small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.club-peak-result-summary .club-peak-new-record {
+  color: #86efac;
 }
 
 .challenge-stars {

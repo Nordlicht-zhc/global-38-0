@@ -16,7 +16,7 @@ sandbox.document = {
   head: {
     appendChild: (script) => {
       requests.push(script.src);
-      const file = path.join(root, decodeURIComponent(script.src));
+      const file = path.join(root, decodeURIComponent(script.src.split("?")[0]));
       if (!fs.existsSync(file)) {
         setTimeout(script.onerror, 0);
         return;
@@ -55,10 +55,22 @@ async function run() {
     rejected = true;
   }
   if (!rejected) throw new Error("Missing history file did not reject");
+  const standingsRequestsBefore = requests.length;
+  const [standings, cachedStandings] = await Promise.all([
+    loader.loadHistoricalStandings(),
+    loader.loadHistoricalStandings()
+  ]);
+  if (standings !== cachedStandings || !standings["2025-26"]?.eng?.length) {
+    throw new Error("Historical standings cache is invalid");
+  }
+  if (requests.length !== standingsRequestsBefore + 1) {
+    throw new Error("Historical standings request was not shared");
+  }
   console.log("Initial current-season load: PASS");
   console.log("Lazy history request and cache: PASS");
   console.log("Bounded range loading: PASS");
   console.log("Missing season rejection: PASS");
+  console.log("Lazy standings request and cache: PASS");
 }
 
 run().catch((error) => {

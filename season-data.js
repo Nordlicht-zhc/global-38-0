@@ -4,6 +4,7 @@
   const CURRENT_SEASON = "2025-26";
   const cache = new Map();
   const pending = new Map();
+  let standingsPromise = null;
   window.G38_HISTORY_DATA = window.G38_HISTORY_DATA || {};
 
   if (typeof SEASON_PLAYERS !== "undefined" && SEASON_PLAYERS[CURRENT_SEASON]) {
@@ -56,11 +57,37 @@
     return seasons.map((season) => getSeasonData(season));
   }
 
+  function loadHistoricalStandings() {
+    if (typeof HISTORICAL_STANDINGS !== "undefined") {
+      return Promise.resolve(HISTORICAL_STANDINGS);
+    }
+    if (standingsPromise) return standingsPromise;
+    standingsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "season-standings.js?v=20260821-02";
+      script.async = true;
+      script.onload = () => {
+        if (typeof HISTORICAL_STANDINGS === "undefined") {
+          reject(new Error("Historical standings were not initialized"));
+          return;
+        }
+        resolve(HISTORICAL_STANDINGS);
+      };
+      script.onerror = () => reject(new Error("Historical standings could not be loaded"));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      standingsPromise = null;
+      throw error;
+    });
+    return standingsPromise;
+  }
+
   window.G38SeasonData = {
     currentSeason: CURRENT_SEASON,
     getSeasonData,
     hasSeasonData,
     loadSeasonData,
-    loadSeasonRange
+    loadSeasonRange,
+    loadHistoricalStandings
   };
 })();

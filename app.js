@@ -4,6 +4,7 @@
   const $ = (sel) => document.querySelector(sel);
   const STORAGE_GAME = "g38-game-state-v4";
   const STORAGE_RUNS = "g38-runs-v2";
+  const STORAGE_CLUB_PEAKS = "g38-club-peak-v1";
   const STORAGE_CLOUD_META = "g38-cloud-meta-v1";
   const CLOUD_SCHEMA_VERSION = 1;
   const CURRENT_DATA_SEASON = "2025-26";
@@ -650,12 +651,12 @@
     "nottingham-forest": ["nottingham-forest", "nott-m-forest", "nottingham-forest-fc"],
     "sunderland": ["sunderland", "sunderland-afc"],
     "tottenham": ["tottenham-hotspur", "spurs", "tottenham-hotspur-fc"],
-    "athletic-bilbao": ["athletic-bilbao", "athletic-club"],
-    "atletico": ["atl-tico-de-madrid", "atletico-de-madrid", "club-atletico-de-madrid"],
+    "athletic-bilbao": ["athletic-bilbao", "athletic-club", "ath-bilbao"],
+    "atletico": ["atl-tico-de-madrid", "atletico-de-madrid", "club-atletico-de-madrid", "ath-madrid"],
     "barcelona": ["fc-barcelona"],
     "celta": ["celta-de-vigo", "rc-celta-de-vigo"],
     "deportivo": ["deportivo-de-la-coru-a"],
-    "espanyol": ["rcd-espanyol-barcelona", "rcd-espanyol"],
+    "espanyol": ["rcd-espanyol-barcelona", "rcd-espanyol", "espanol"],
     "getafe": ["getafe"],
     "levante": ["levante"],
     "malaga": ["m-laga-cf", "malaga-cf"],
@@ -693,6 +694,7 @@
     "stuttgart": ["vfb-stuttgart"],
     "werder-bremen": ["sv-werder-bremen"],
     "auxerre": ["aj-auxerre"],
+    "havre-ac": ["le-havre", "havre", "le-havre-ac"],
     "lemans": ["le-mans-union-club-72"],
     "lens": ["rc-lens"],
     "lille": ["losc-lille", "lille-osc"],
@@ -714,8 +716,9 @@
     "man-united": 84,
     "tottenham": 83,
     "newcastle": 82,
-    "real-madrid": 89,
-    "barcelona": 91,
+    // Keep the La Liga top end aligned with the other Big Five leagues.
+    "real-madrid": 88,
+    "barcelona": 89,
     "atletico": 86,
     "sevilla": 82,
     "athletic-bilbao": 81,
@@ -747,6 +750,7 @@
     setupMode: "classic",
     dynastyType: "normal",
     selectedChallengeId: CHALLENGES[0]?.id || null,
+    selectedPeakClubId: null,
     difficultyBeforeIron: null,
     game: null,
     viewingRun: null,
@@ -757,6 +761,7 @@
     transfer: null,
     cloud: {
       configured: false,
+      initializing: true,
       ready: false,
       user: null,
       syncing: false,
@@ -774,6 +779,10 @@
     leagueGrid: $("#leagueGrid"),
     heroStats: $("#heroStats"),
     homeHistoryList: $("#homeHistoryList"),
+    savedGameBox: $("#savedGameBox"),
+    savedGameTitle: $("#savedGameTitle"),
+    savedGameStatus: $("#savedGameStatus"),
+    continueGameBtn: $("#continueGameBtn"),
     seasonRangeStart: $("#seasonRangeStart"),
     seasonRangeEnd: $("#seasonRangeEnd"),
     seasonRangeStartLabel: $("#seasonRangeStartLabel"),
@@ -910,6 +919,11 @@
       ? [...historical]
       : clubsForLeague(game?.league, season).map((club) => club.name);
     if (!real.length) return ["我的球队"];
+    const peakClub = isClubPeakChallenge(game) ? clubPeakClub(game.peakClubId) : null;
+    const peakName = peakClub
+      ? real.find((name) => name === peakClub.name || peakHistoricalNameMatches(name, peakClub))
+      : null;
+    if (peakName) return real.map((name) => (name === peakName ? "我的球队" : name));
     const rng = makeRng(hashSeed(`replace-${game?.id}-${game?.league}`));
     const promoted = (PROMOTED_TEAMS[game?.league] || []).filter((name) => real.includes(name));
     const replaceName = promoted.length
@@ -973,6 +987,7 @@
   };
   const clubsForLeague = (id, season = CURRENT_DATA_SEASON) => getSeasonData(season).clubs.filter((c) => c.league === id);
   const allClubs = (season) => getSeasonData(season).clubs;
+  const loadHistoricalStandings = () => G38SeasonData.loadHistoricalStandings();
   const simulationSeason = (game) => game?.mode === "dynasty"
     ? game.dynasty?.currentSeason || game.season || CURRENT_DATA_SEASON
     : CURRENT_DATA_SEASON;
@@ -1060,6 +1075,10 @@
     if (game?.mode !== "dynasty") return false;
     if (isTieredDynasty(game)) return Number(game.dynasty?.results?.length || 0) > 0;
     return Number(game.dynasty?.currentIndex || 0) > 0 || Number(game.dynasty?.results?.length || 0) > 0;
+  }
+
+  function shouldHideLeagueChoice(game) {
+    return isClubPeakChallenge(game) || shouldHideDynastyLeagueChoice(game);
   }
 
   function journeyClubKey(club) {
@@ -1284,7 +1303,7 @@
     renderHeroStats();
   };
 
-  const loadStorage = () => G38Storage.load([STORAGE_GAME, STORAGE_RUNS, STORAGE_CLOUD_META]);
+  const loadStorage = () => G38Storage.load([STORAGE_GAME, STORAGE_RUNS, STORAGE_CLUB_PEAKS, STORAGE_CLOUD_META]);
   const safeGet = (key) => G38Storage.get(key);
 
   function cloudMeta() {
@@ -1294,7 +1313,9 @@
   function hasLocalCloudData() {
     const game = safeGet(STORAGE_GAME);
     const runs = safeGet(STORAGE_RUNS);
-    return Boolean(game || (Array.isArray(runs) && runs.length));
+    const clubPeaks = safeGet(STORAGE_CLUB_PEAKS);
+    return Boolean(game || (Array.isArray(runs) && runs.length)
+      || (clubPeaks && typeof clubPeaks === "object" && Object.keys(clubPeaks).length));
   }
 
   function buildCloudPayload() {
@@ -1302,6 +1323,7 @@
       schemaVersion: CLOUD_SCHEMA_VERSION,
       game: safeGet(STORAGE_GAME),
       runs: Array.isArray(safeGet(STORAGE_RUNS)) ? safeGet(STORAGE_RUNS) : [],
+      clubPeaks: safeGet(STORAGE_CLUB_PEAKS) || {},
       localChangedAt: Number(state.cloud.localChangedAt || 0)
     };
   }
@@ -1319,7 +1341,7 @@
 
   const safeSet = (key, value) => {
     const result = G38Storage.set(key, value);
-    if (key === STORAGE_GAME || key === STORAGE_RUNS) touchLocalCloudData();
+    if (key === STORAGE_GAME || key === STORAGE_RUNS || key === STORAGE_CLUB_PEAKS) touchLocalCloudData();
     return result;
   };
 
@@ -1346,7 +1368,9 @@
     ui.accountBtnText.textContent = user
       ? uiText("账号", "Account")
       : uiText("云存档", "Cloud Save");
-    ui.accountStatus.textContent = !configured
+    ui.accountStatus.textContent = state.cloud.initializing
+      ? uiText("正在加载云存档…", "Loading cloud save…")
+      : !configured
       ? uiText("云存档未配置，当前使用本地存档。", "Cloud sync is not configured. Local saves remain active.")
       : user
         ? uiText(`已登录：${user.email || "账号"}`, `Signed in: ${user.email || "Account"}`)
@@ -1381,6 +1405,7 @@
     renderCloudAccount();
     ui.accountModal?.classList.remove("hidden");
     ui.accountEmail?.focus();
+    initializeCloudOnce().then(() => renderCloudAccount());
   }
 
   function closeAccountModal() {
@@ -1398,6 +1423,12 @@
     if (Object.prototype.hasOwnProperty.call(payload, "runs")) {
       G38Storage.set(STORAGE_RUNS, Array.isArray(payload.runs) ? payload.runs : []);
     }
+    G38Storage.set(
+      STORAGE_CLUB_PEAKS,
+      payload.clubPeaks && typeof payload.clubPeaks === "object" && !Array.isArray(payload.clubPeaks)
+        ? payload.clubPeaks
+        : {}
+    );
     state.cloud.revision = Number(remote?.revision || 0);
     state.cloud.localChangedAt = Number(payload.localChangedAt || Date.parse(remote?.updated_at || "") || Date.now());
     G38Storage.set(STORAGE_CLOUD_META, {
@@ -1536,7 +1567,44 @@
     }
   }
 
+  let cloudInitPromise = null;
+
+  function initializeCloudOnce() {
+    if (!cloudInitPromise) {
+      state.cloud.initializing = true;
+      cloudInitPromise = initializeCloud().finally(() => {
+        state.cloud.initializing = false;
+        renderCloudAccount();
+      });
+    }
+    return cloudInitPromise;
+  }
+
+  function scheduleCloudInitialization(startupGameId) {
+    const start = () => {
+      initializeCloudOnce().then(async () => {
+        const setupVisible = !document.querySelector("#setupView")?.classList.contains("hidden");
+        const stateChangedDuringInit = Boolean(state.game && state.game.id !== startupGameId);
+        if (stateChangedDuringInit && state.cloud.initialSyncDone) touchLocalCloudData();
+        if (!setupVisible || stateChangedDuringInit) return;
+        const previousGame = state.game;
+        state.game = null;
+        await loadSavedGame();
+        if (state.game !== previousGame) {
+          renderHomeHistory();
+          renderSavedGamePrompt();
+        }
+      });
+    };
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(start, { timeout: 2000 });
+    } else {
+      setTimeout(start, 100);
+    }
+  }
+
   async function submitAccount(mode) {
+    await initializeCloudOnce();
     if (!state.cloud.configured || !window.G38Cloud) {
       renderCloudAccount();
       return;
@@ -1576,6 +1644,11 @@
   }
 
   async function resetAccountPassword() {
+    await initializeCloudOnce();
+    if (!state.cloud.configured || !window.G38Cloud) {
+      renderCloudAccount();
+      return;
+    }
     const email = ui.accountEmail.value.trim();
     if (!email) {
       ui.accountStatus.textContent = uiText("请先填写邮箱。", "Enter your email first.");
@@ -1639,6 +1712,144 @@
     return challenge ? uiText(challenge.name, challenge.nameEn) : uiText("经典模式", "Classic");
   }
 
+  function isClubPeakChallenge(gameOrChallenge) {
+    const id = typeof gameOrChallenge === "string"
+      ? gameOrChallenge
+      : gameOrChallenge?.challengeId || gameOrChallenge?.id;
+    return id === "club-peak";
+  }
+
+  function clubPeakOptions() {
+    const leagueOrder = new Map(LEAGUES.map((league, index) => [league.id, index]));
+    return allClubs(CURRENT_DATA_SEASON)
+      .filter((club) => BIG_FIVE_IDS.has(club.league))
+      .sort((left, right) => leagueOrder.get(left.league) - leagueOrder.get(right.league)
+        || String(left.name).localeCompare(String(right.name), "zh-CN"));
+  }
+
+  function clubPeakClub(clubId) {
+    return clubPeakOptions().find((club) => club.id === clubId) || null;
+  }
+
+  const clubPeakBenchmarkCache = new Map();
+
+  function peakHistoricalNameMatches(name, club) {
+    if (!club) return false;
+    const canonicalId = findDynastyCanonicalClubId(name);
+    if (canonicalId && (canonicalId === club.id || (HISTORICAL_CLUB_IDS[canonicalId] || []).includes(club.id))) return true;
+    const historicalName = normalizeDynastyClubName(name);
+    const aliases = [club.id, club.short, ...(HISTORICAL_CLUB_IDS[club.id] || [])]
+      .filter(Boolean)
+      .map((value) => normalizeDynastyClubName(value));
+    return aliases.some((alias) => alias === historicalName
+      || (alias.length >= 6 && (alias.includes(historicalName) || historicalName.includes(alias))));
+  }
+
+  function clubPeakBenchmark(clubId) {
+    if (clubPeakBenchmarkCache.has(clubId)) return clubPeakBenchmarkCache.get(clubId);
+    const club = clubPeakClub(clubId);
+    if (!club) return null;
+    const standingsLoaded = typeof HISTORICAL_STANDINGS !== "undefined";
+    const seasons = Object.entries(standingsLoaded ? HISTORICAL_STANDINGS : {})
+      .sort(([left], [right]) => seasonKeyToIndex(left) - seasonKeyToIndex(right));
+    const currentSize = clubsForLeague(club.league, CURRENT_DATA_SEASON).length || 20;
+    let bestFinish = currentSize;
+    let bestSeason = null;
+    let appearances = 0;
+    seasons.forEach(([season, leagueTables]) => {
+      const table = Array.isArray(leagueTables?.[club.league]) ? leagueTables[club.league] : [];
+      const index = table.findIndex((name) => peakHistoricalNameMatches(name, club));
+      if (index < 0) return;
+      appearances += 1;
+      const finish = index + 1;
+      if (finish < bestFinish || (finish === bestFinish && seasonKeyToIndex(season) > seasonKeyToIndex(bestSeason))) {
+        bestFinish = finish;
+        bestSeason = season;
+      }
+    });
+    const benchmark = {
+      clubId: club.id,
+      clubName: club.name,
+      league: club.league,
+      bestFinish,
+      bestSeason,
+      appearances
+    };
+    if (standingsLoaded) clubPeakBenchmarkCache.set(clubId, benchmark);
+    return benchmark;
+  }
+
+  function loadClubPeakRecords() {
+    const records = safeGet(STORAGE_CLUB_PEAKS);
+    return records && typeof records === "object" && !Array.isArray(records) ? records : {};
+  }
+
+  function clubPeakObjectiveTexts(evaluation) {
+    const benchmark = evaluation?.benchmark;
+    const championBenchmark = Number(benchmark?.bestFinish) === 1;
+    return [
+      {
+        id: "match-best",
+        text: `达到队史最佳联赛排名（第 ${benchmark?.bestFinish || "-"} 名）`,
+        textEn: `Match the club's best league finish (#${benchmark?.bestFinish || "-"})`
+      },
+      {
+        id: "new-best",
+        text: championBenchmark ? "完成联赛不败赛季" : "刷新队史最佳排名",
+        textEn: championBenchmark ? "Finish the league season unbeaten" : "Set a new club-best finish"
+      },
+      {
+        id: "double",
+        text: "联赛与国内杯双冠",
+        textEn: "Win the league and domestic cup"
+      }
+    ];
+  }
+
+  function updateClubPeakRecord(game, result) {
+    if (!isClubPeakChallenge(game) || !result?.challenge) return;
+    const benchmark = result.challenge.benchmark || clubPeakBenchmark(game.peakClubId);
+    if (!benchmark) return;
+    const records = loadClubPeakRecords();
+    const previous = records[benchmark.clubId] || null;
+    const finish = Number(result.finish || 99);
+    const points = Number(result.points || 0);
+    const improved = !previous
+      || finish < Number(previous.bestFinish || 99)
+      || (finish === Number(previous.bestFinish || 99) && points > Number(previous.bestPoints || -1));
+    const record = {
+      clubId: benchmark.clubId,
+      clubName: benchmark.clubName,
+      league: benchmark.league,
+      attempts: Number(previous?.attempts || 0) + 1,
+      bestFinish: improved ? finish : Number(previous.bestFinish),
+      bestPoints: improved ? points : Number(previous.bestPoints || 0),
+      bestGoalDiff: improved ? Number(result.goalsFor || 0) - Number(result.goalsAgainst || 0) : Number(previous.bestGoalDiff || 0),
+      bestStars: Math.max(Number(previous?.bestStars || 0), Number(result.challenge.stars || 0)),
+      lastFinish: finish,
+      lastPoints: points,
+      updatedAt: Date.now()
+    };
+    records[benchmark.clubId] = record;
+    safeSet(STORAGE_CLUB_PEAKS, records);
+    result.challenge.personalBest = record;
+    result.challenge.recordImproved = improved;
+  }
+
+  let setupStandingsLoad = null;
+
+  function ensureHistoricalStandingsForSetup() {
+    const needsStandings = state.setupMode === "dynasty"
+      || isClubPeakChallenge(activeSetupChallenge());
+    if (!needsStandings || typeof HISTORICAL_STANDINGS !== "undefined" || setupStandingsLoad) return;
+    setupStandingsLoad = loadHistoricalStandings()
+      .then(() => renderChallengeSetup())
+      .catch((error) => console.error("Historical standings setup load failed", error))
+      .finally(() => {
+        setupStandingsLoad = null;
+      });
+  }
+
   function renderChallengeSetup() {
     if (!ui.playModeSwitch || !ui.challengePicker) return;
     ui.playModeSwitch.querySelectorAll("[data-play-mode]").forEach((button) => {
@@ -1648,6 +1859,7 @@
     const dynastyMode = state.setupMode === "dynasty";
     const dynastyType = DYNASTY_TYPES[state.dynastyType] || DYNASTY_TYPES.normal;
     const challenge = challengeMode ? activeSetupChallenge() : null;
+    if (dynastyMode || isClubPeakChallenge(challenge)) ensureHistoricalStandingsForSetup();
     const ironManager = challenge?.id === "iron-manager";
     if (!ironManager && ui.difficultySelect.disabled) {
       ui.difficultySelect.value = state.difficultyBeforeIron || "normal";
@@ -1685,19 +1897,86 @@
     });
     ui.challengeRules.innerHTML = "";
     if (!challenge) return;
+    if (isClubPeakChallenge(challenge) && !clubPeakClub(state.selectedPeakClubId)) {
+      state.selectedPeakClubId = clubPeakOptions()[0]?.id || null;
+    }
     const best = loadRuns()
       .filter((run) => run.challengeId === challenge.id)
       .reduce((max, run) => Math.max(max, Number(run.result?.challenge?.stars || 0)), 0);
-    ui.challengeBest.textContent = uiText(`最佳：${"★".repeat(best) || "--"}`, `Best: ${"★".repeat(best) || "--"}`);
+    if (isClubPeakChallenge(challenge)) {
+      const records = loadClubPeakRecords();
+      const completed = Object.keys(records).length;
+      ui.challengeBest.textContent = uiText(
+        `已挑战：${completed}/${clubPeakOptions().length} 队 · 最佳 ${"★".repeat(best) || "--"}`,
+        `${completed}/${clubPeakOptions().length} clubs · Best ${"★".repeat(best) || "--"}`
+      );
+    } else {
+      ui.challengeBest.textContent = uiText(`最佳：${"★".repeat(best) || "--"}`, `Best: ${"★".repeat(best) || "--"}`);
+    }
     const description = el("p", "challenge-description", uiText(challenge.description, challenge.descriptionEn));
     const rules = el("ul", "challenge-rule-list", "");
     const ruleTexts = currentLang === "en" ? challenge.rulesEn : challenge.rules;
     ruleTexts.forEach((rule) => rules.appendChild(el("li", "", rule)));
     const goals = el("ol", "challenge-objective-list", "");
-    challenge.objectives.forEach((objective) => {
+    const benchmark = isClubPeakChallenge(challenge) ? clubPeakBenchmark(state.selectedPeakClubId) : null;
+    const objectives = isClubPeakChallenge(challenge)
+      ? clubPeakObjectiveTexts({ benchmark })
+      : challenge.objectives;
+    objectives.forEach((objective) => {
       goals.appendChild(el("li", "", uiText(objective.text, objective.textEn)));
     });
     ui.challengeRules.append(description, rules, goals);
+    if (isClubPeakChallenge(challenge)) {
+      const field = el("label", "challenge-club-field", "");
+      field.appendChild(el("span", "", uiText("选择目标球队", "Target Club")));
+      const select = document.createElement("select");
+      select.className = "challenge-club-select";
+      select.id = "peakClubSelect";
+      clubPeakOptions().forEach((club) => {
+        const option = document.createElement("option");
+        option.value = club.id;
+        option.textContent = `${getLeague(club.league)?.code || club.league.toUpperCase()} · ${club.name}`;
+        option.selected = club.id === state.selectedPeakClubId;
+        select.appendChild(option);
+      });
+      select.addEventListener("change", () => {
+        state.selectedPeakClubId = select.value;
+        renderChallengeSetup();
+      });
+      field.appendChild(select);
+      if (benchmark) {
+        field.appendChild(el("small", "challenge-club-benchmark", uiText(
+          `队史最佳：第 ${benchmark.bestFinish} 名${benchmark.bestSeason ? `（${benchmark.bestSeason}）` : ""} · 已收录 ${benchmark.appearances} 个赛季`,
+          `Club best: #${benchmark.bestFinish}${benchmark.bestSeason ? ` (${benchmark.bestSeason})` : ""} · ${benchmark.appearances} seasons found`
+        )));
+      }
+      ui.challengeRules.appendChild(field);
+      const progress = el("div", "club-peak-progress", "");
+      progress.appendChild(el("strong", "", uiText("球队进度", "Club Progress")));
+      const progressGrid = el("div", "club-peak-progress-grid", "");
+      const records = loadClubPeakRecords();
+      clubPeakOptions().forEach((club) => {
+        const card = el("button", `club-peak-progress-card${club.id === state.selectedPeakClubId ? " selected" : ""}`, "");
+        card.type = "button";
+        const record = records[club.id];
+        const target = clubPeakBenchmark(club.id);
+        card.appendChild(el("strong", "", club.name));
+        card.appendChild(el("span", "", uiText(
+          `队史 #${target?.bestFinish || "-"} · 个人 ${record ? `#${record.bestFinish}` : "--"}`,
+          `Club #${target?.bestFinish || "-"} · Personal ${record ? `#${record.bestFinish}` : "--"}`
+        )));
+        card.appendChild(el("small", "", record
+          ? `${"★".repeat(Number(record.bestStars || 0))}${"☆".repeat(Math.max(0, 3 - Number(record.bestStars || 0)))} · ${record.attempts || 0}`
+          : uiText("未挑战", "Not attempted")));
+        card.addEventListener("click", () => {
+          state.selectedPeakClubId = club.id;
+          renderChallengeSetup();
+        });
+        progressGrid.appendChild(card);
+      });
+      progress.appendChild(progressGrid);
+      ui.challengeRules.appendChild(progress);
+    }
     if (ironManager && !ui.difficultySelect.disabled) {
       state.difficultyBeforeIron = ui.difficultySelect.value;
       ui.difficultySelect.value = "hard";
@@ -1772,15 +2051,12 @@
       }).observe(document.body, { childList: true, subtree: true, characterData: true });
     }
     bindEvents();
-    await initializeCloud();
     await loadSavedGame();
     state.cloud.suppressLocalTouch = false;
-    if (state.game?.mode === "dynasty" && state.game.phase === "complete" && state.game.result) {
-      renderResult(state.game);
-    } else if (state.game) {
-      renderGame();
-    }
+    renderSavedGamePrompt();
+    showView("setup");
     drawWheel();
+    scheduleCloudInitialization(state.game?.id || null);
   }
 
   function bindEvents() {
@@ -1818,6 +2094,7 @@
     });
     ui.dynastyStartSeason?.addEventListener("change", updateDynastySeasonHint);
     $("#startBtn").addEventListener("click", startGame);
+    ui.continueGameBtn?.addEventListener("click", resumeSavedGame);
     $("#newGameBtn").addEventListener("click", showNewGameSetup);
     $("#historyBtn").addEventListener("click", showHomeHistory);
     $("#backSetupBtn").addEventListener("click", () => showView("setup"));
@@ -1928,12 +2205,13 @@
       card.type = "button";
       const challenge = getChallenge(run.challengeId);
       const stars = Number(run.result?.challenge?.stars || 0);
+      const peakLabel = isClubPeakChallenge(run) ? ` · ${run.peakClubName || ""}` : "";
       card.appendChild(el("strong", "", run.mode === "dynasty"
         ? run.dynasty?.type === "tiered"
           ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.dynasty?.journey?.tier || 3} · ${run.dynasty?.results?.length || 0}`
           : `${uiText("王朝模式", "Dynasty")} · ${run.dynasty?.results?.length || 0}/${run.dynasty?.seasons?.length || 1}`
         : challenge
-        ? `${challenge.icon} ${challengeName(challenge)} · ${"★".repeat(stars)}${"☆".repeat(3 - stars)}`
+        ? `${challenge.icon} ${challengeName(challenge)}${peakLabel} · ${"★".repeat(stars)}${"☆".repeat(3 - stars)}`
         : `${uiText("经典模式", "Classic")} · ${run.formation}`));
       const res = run.result || {};
       card.appendChild(el("span", "record-line", `${res.wins ?? 0}-${res.draws ?? 0}-${res.losses ?? 0} · ${res.points ?? 0} 分`));
@@ -1942,6 +2220,40 @@
       card.addEventListener("click", () => viewRun(run));
       ui.homeHistoryList.appendChild(card);
     });
+  }
+
+  function renderSavedGamePrompt() {
+    if (!ui.savedGameBox) return;
+    const game = state.game;
+    const resumable = Boolean(game?.slots
+      && (game.phase === "drafting" || game.mode === "dynasty"));
+    ui.savedGameBox.classList.toggle("hidden", !resumable);
+    if (!resumable) return;
+    const mode = game.mode === "dynasty"
+      ? uiText("王朝模式", "Dynasty")
+      : uiText("经典模式", "Classic");
+    const season = game.season || game.seasonRange?.end || "";
+    const drafted = Array.isArray(game.draftedPlayers)
+      ? game.draftedPlayers.length
+      : game.slots.filter((slot) => slot.player).length;
+    const total = game.slots.length || 11;
+    const progress = game.phase === "complete"
+      ? uiText("赛季已完成，可继续查看", "Season complete, ready to continue")
+      : uiText(`已选 ${drafted}/${total} 名球员`, `${drafted}/${total} players drafted`);
+    ui.savedGameTitle.textContent = uiText("检测到本地存档", "Saved game found");
+    ui.savedGameStatus.textContent = [mode, season, progress].filter(Boolean).join(" · ");
+    ui.continueGameBtn.textContent = uiText("继续上次游戏", "Continue saved game");
+  }
+
+  function resumeSavedGame() {
+    const game = state.game;
+    if (!game?.slots) return;
+    state.viewingRun = null;
+    if (game.mode === "dynasty" && game.phase === "complete" && game.result) {
+      renderResult(game);
+    } else {
+      renderGame();
+    }
   }
 
   function showHomeHistory() {
@@ -1963,6 +2275,10 @@
   async function loadSavedGame() {
     const saved = safeGet(STORAGE_GAME);
     const resumableDynasty = saved?.mode === "dynasty" && saved?.slots;
+    const resumableHistoricalChallenge = saved?.challengeId === "club-peak" && saved?.slots;
+    if (resumableDynasty || resumableHistoricalChallenge) {
+      await loadHistoricalStandings().catch((error) => console.error(error));
+    }
     if (saved?.phase === "drafting" || resumableDynasty) {
       await loadSeasonData(saved.currentSpin?.season || saved.season || CURRENT_DATA_SEASON).catch((error) => {
         console.error(error);
@@ -2010,7 +2326,10 @@
   }
 
   async function startGame() {
-    if (!state.selectedLeagues.size && !(state.setupMode === "dynasty" && state.dynastyType === "tiered")) {
+    const setupChallenge = activeSetupChallenge();
+    if (!state.selectedLeagues.size
+      && !(state.setupMode === "dynasty" && state.dynastyType === "tiered")
+      && !isClubPeakChallenge(setupChallenge)) {
       toast("请至少选择一个联赛。");
       return;
     }
@@ -2022,9 +2341,26 @@
     }));
     const gameId = uid();
     const randomSeed = createRandomSeed(gameId);
-    const challenge = activeSetupChallenge();
+    const challenge = setupChallenge;
+    const peakClub = isClubPeakChallenge(challenge) ? clubPeakClub(state.selectedPeakClubId) : null;
+    if (state.setupMode === "dynasty" || isClubPeakChallenge(challenge)) {
+      try {
+        await loadHistoricalStandings();
+      } catch (error) {
+        toast(uiText("Historical standings load failed.", "Could not load historical standings. Please retry."));
+        console.error(error);
+        return;
+      }
+    }
+    if (isClubPeakChallenge(challenge) && !peakClub) {
+      toast(uiText("请选择一支目标球队。", "Choose a target club first."));
+      return;
+    }
     const dynastyMode = state.setupMode === "dynasty";
     const dynastyType = dynastyMode ? state.dynastyType : null;
+    const gameLeagues = dynastyType === "tiered"
+      ? [...BIG_FIVE_IDS]
+      : state.selectedLeagues.size ? [...state.selectedLeagues] : [peakClub.league];
     const dynastySeasons = dynastyMode && dynastyType !== "tiered"
       ? dynastySeasonsFrom(ui.dynastyStartSeason?.value || "2023-24")
       : [];
@@ -2035,15 +2371,18 @@
     state.game = {
       id: gameId,
       createdAt: Date.now(),
-      leagues: dynastyType === "tiered" ? [...BIG_FIVE_IDS] : [...state.selectedLeagues],
+      leagues: gameLeagues,
       seasonRange: {
         start: dynastyStart || seasonIndexToKey(Number(ui.seasonRangeStart.value || 0)),
         end: dynastyStart || seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1))
       },
       season: null,
-      league: dynastyType === "tiered" ? journeyLeagueId(3) : null,
+      league: dynastyType === "tiered" ? journeyLeagueId(3) : peakClub?.league || null,
       mode: dynastyMode ? "dynasty" : challenge ? "challenge" : "classic",
       challengeId: challenge?.id || null,
+      peakClubId: peakClub?.id || null,
+      peakClubLeague: peakClub?.league || null,
+      peakClubName: peakClub?.name || null,
       dynasty: dynastyMode ? {
         type: dynastyType || "normal",
         seasons: dynastyType === "tiered" ? [] : dynastySeasons,
@@ -2095,7 +2434,9 @@
     saveGame();
     renderGame();
     toast(challenge
-      ? uiText(`${challenge.name}挑战已开始。`, `${challenge.nameEn} challenge started.`)
+      ? isClubPeakChallenge(challenge)
+        ? uiText(`${peakClub.name}俱乐部巅峰挑战已开始。`, `${peakClub.name} Club Peak challenge started.`)
+        : uiText(`${challenge.name}挑战已开始。`, `${challenge.nameEn} challenge started.`)
       : dynastyMode
         ? uiText(`${dynastyStart} 王朝已开始。`, `${dynastyStart} dynasty started.`)
       : uiText("新选秀已开始，请抽取赛季和球队。", "New draft started. Draw a season and club."));
@@ -2125,6 +2466,7 @@
     ["setupView", "gameView", "resultView"].forEach((id) => {
       document.getElementById(id).classList.toggle("hidden", id !== `${name}View`);
     });
+    if (name === "setup") renderSavedGamePrompt();
     if (options.scroll !== false) {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -2155,8 +2497,12 @@
       ? `五大联赛 · ${rangeText}`
       : `${game.leagues.map((id) => getLeague(id)?.name).filter(Boolean).join(" / ")} · ${rangeText}`;
     const challenge = getChallenge(game.challengeId);
+    const peakClub = isClubPeakChallenge(game) ? clubPeakClub(game.peakClubId) : null;
+    const peakClubName = peakClub?.name || game.peakClubName || "";
     ui.gameLeagueLabel.textContent = challenge
-      ? `${challengeName(challenge)} · ${scopeText}`
+      ? peakClubName
+        ? `${challengeName(challenge)} · ${peakClubName} · ${scopeText}`
+        : `${challengeName(challenge)} · ${scopeText}`
       : game.mode === "dynasty"
         ? isTieredDynasty(game)
           ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${game.dynasty?.journey?.tier || 3} · ${simulationSeason(game)}`
@@ -2176,7 +2522,7 @@
     ui.rerollBtn.classList.toggle("hidden", retainedDynastySquad);
     ui.rerollBtn.textContent = uiText("使用 1 次重转", "Use Reroll");
     updateSpinControls();
-    const showLeagueChoice = game.draftedPlayers.length >= game.slots.length && !shouldHideDynastyLeagueChoice(game);
+    const showLeagueChoice = game.draftedPlayers.length >= game.slots.length && !shouldHideLeagueChoice(game);
     ui.leagueChoice.classList.toggle("hidden", !showLeagueChoice);
     if (showLeagueChoice) {
       renderLeagueChoice();
@@ -2195,11 +2541,15 @@
     ui.challengeGameBanner.innerHTML = "";
     ui.challengeGameBanner.classList.toggle("hidden", !challenge);
     if (!challenge) return;
+    const peakClub = isClubPeakChallenge(game) ? clubPeakClub(game.peakClubId) : null;
+    const peakClubName = peakClub?.name || game?.peakClubName || "";
     const title = el("div", "challenge-game-title", "");
     title.appendChild(el("span", "", challenge.icon));
     const copy = el("div", "", "");
     copy.appendChild(el("strong", "", challengeName(challenge)));
-    copy.appendChild(el("small", "", uiText(challenge.description, challenge.descriptionEn)));
+    copy.appendChild(el("small", "", peakClubName
+      ? uiText(`${peakClubName} · 队史最佳第 ${clubPeakBenchmark(peakClub?.id || game?.peakClubId)?.bestFinish || "-"} 名`, `${peakClubName} · Club best #${clubPeakBenchmark(peakClub?.id || game?.peakClubId)?.bestFinish || "-"}`)
+      : uiText(challenge.description, challenge.descriptionEn)));
     title.appendChild(copy);
     ui.challengeGameBanner.appendChild(title);
     const rules = currentLang === "en" ? challenge.rulesEn : challenge.rules;
@@ -2470,6 +2820,24 @@
     parent.appendChild(item);
   }
 
+  function calcUnitAverageRatings(game) {
+    const groups = { ATT: [], MID: [], DEF: [], GK: [] };
+    (game?.slots || []).forEach((slot) => {
+      if (!slot.player) return;
+      const unit = positionUnit(slot.pos);
+      if (groups[unit]) groups[unit].push(Number(slot.player.rate || 0));
+    });
+    const average = (values) => values.length
+      ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+      : null;
+    return {
+      attack: average(groups.ATT),
+      midfield: average(groups.MID),
+      defense: average(groups.DEF),
+      goalkeeper: average(groups.GK)
+    };
+  }
+
   function renderUnitRatings() {
     const game = state.game;
     if (!game || !ui.unitRatings) return;
@@ -2497,6 +2865,7 @@
     }
     ui.resultLineupPanel.classList.remove("hidden");
     const profile = calcTeamProfile(run);
+    const averages = calcUnitAverageRatings(run);
     const teamRating = run.result?.teamRating || calcTeamRating(run) || profile.overall || "--";
     ui.resultLineupTitle.textContent = `${run.formation || "赛季"}阵容`;
     ui.resultLineupRating.textContent = String(teamRating);
@@ -2530,10 +2899,10 @@
     }
     const bars = el("div", "lineup-info-bars", "");
     [
-      ["进攻", profile.attack],
-      ["中场", profile.midfield],
-      ["防守", profile.defense],
-      ["门将", profile.goalkeeper]
+      ["进攻", averages.attack ?? "--"],
+      ["中场", averages.midfield ?? "--"],
+      ["防守", averages.defense ?? "--"],
+      ["门将", averages.goalkeeper ?? "--"]
     ].forEach(([label, value]) => appendAbilityRating(bars, label, value));
     ui.resultLineupInfo.appendChild(bars);
     renderResultTransferLog(run);
@@ -4830,6 +5199,7 @@
         : null
     };
     game.result.challenge = evaluateChallenge(game, game.result);
+    updateClubPeakRecord(game, game.result);
     if (isTieredDynasty(game)) updateJourneyAfterSeason(game, game.result.leagueTable);
     game.transferLog = sim.transferState?.log || [];
     game.transferSkipped = Boolean(sim.transferState?.skipped);
@@ -5500,6 +5870,7 @@
     const uclPlaces = Number(result.europeQualification?.allocation?.ucl || 4);
     let valid = true;
     let completedIds = [];
+    let benchmark = null;
     if (challenge.id === "underdog") {
       valid = result.teamRating <= 84;
       completedIds = [
@@ -5528,6 +5899,15 @@
         valid && result.finish <= 4 ? "top4" : null,
         valid && (leagueChampion || domesticChampion) ? "title" : null
       ];
+    } else if (challenge.id === "club-peak") {
+      benchmark = clubPeakBenchmark(game.peakClubId);
+      valid = Boolean(benchmark);
+      const bestFinish = Number(benchmark?.bestFinish || result.leagueTable?.length || 20);
+      completedIds = [
+        valid && result.finish <= bestFinish ? "match-best" : null,
+        valid && (bestFinish === 1 ? result.losses === 0 : result.finish < bestFinish) ? "new-best" : null,
+        valid && leagueChampion && domesticChampion ? "double" : null
+      ];
     } else if (challenge.id === "defensive-master") {
       completedIds = [
         result.goalsAgainst <= 30 ? "concede30" : null,
@@ -5541,7 +5921,8 @@
       valid,
       stars: completedIds.length,
       completedIds,
-      metrics
+      metrics,
+      benchmark
     };
   }
 
@@ -5558,6 +5939,23 @@
     head.appendChild(title);
     head.appendChild(el("strong", "challenge-stars", `${"★".repeat(evaluation.stars)}${"☆".repeat(3 - evaluation.stars)}`));
     ui.challengeResult.appendChild(head);
+    if (isClubPeakChallenge(run)) {
+      const benchmark = evaluation.benchmark || clubPeakBenchmark(run.peakClubId);
+      const record = evaluation.personalBest;
+      const summary = el("div", "club-peak-result-summary", "");
+      summary.appendChild(el("strong", "", uiText(
+        `${benchmark?.clubName || run.peakClubName || "目标球队"} · 队史最佳第 ${benchmark?.bestFinish || "-"} 名`,
+        `${benchmark?.clubName || run.peakClubName || "Target Club"} · Club best #${benchmark?.bestFinish || "-"}`
+      )));
+      summary.appendChild(el("span", "", uiText(
+        `本次第 ${run.result.finish} 名${record?.bestFinish ? ` · 个人最佳第 ${record.bestFinish} 名` : ""}`,
+        `Finished #${run.result.finish}${record?.bestFinish ? ` · Personal best #${record.bestFinish}` : ""}`
+      )));
+      if (evaluation.recordImproved) {
+        summary.appendChild(el("small", "club-peak-new-record", uiText("本次刷新了你的个人最佳成绩。", "New personal best for this club.")));
+      }
+      ui.challengeResult.appendChild(summary);
+    }
     if (!evaluation.valid) {
       ui.challengeResult.appendChild(el("p", "challenge-invalid", uiText(
         "核心阵容条件未满足，本次排名目标不计星。",
@@ -5565,7 +5963,10 @@
       )));
     }
     const list = el("div", "challenge-result-objectives", "");
-    challenge.objectives.forEach((objective, index) => {
+    const objectives = isClubPeakChallenge(run)
+      ? clubPeakObjectiveTexts(evaluation)
+      : challenge.objectives;
+    objectives.forEach((objective, index) => {
       const completed = evaluation.completedIds.includes(objective.id);
       const row = el("div", `challenge-objective${completed ? " completed" : ""}`, "");
       row.appendChild(el("span", "", completed ? "★" : "☆"));
@@ -5726,11 +6127,13 @@
     const dynastyHasNext = dynastyActive && dynastyHasNextSeason(run);
     const postSeasonTransferPending = dynastyHasNext && run.postSeasonTransfer?.status !== "resolved";
     const europePending = result.achievementStatus === "pending-europe" && !run.europeResult;
+    const peakClub = isClubPeakChallenge(run) ? clubPeakClub(run.peakClubId) : null;
+    const peakClubName = peakClub?.name || run.peakClubName || "";
     ui.postSeasonTransferBtn?.classList.toggle("hidden", !postSeasonTransferPending);
     ui.nextDynastySeasonBtn?.classList.toggle("hidden", !dynastyHasNext || postSeasonTransferPending || europePending);
     $("#resultMatchEyebrow").textContent = `${result.matches.length} 场比赛`;
     $("#resultBadge").textContent = challenge
-      ? `${challengeName(challenge)} · ${run.formation}`
+      ? `${challengeName(challenge)}${peakClubName ? ` · ${peakClubName}` : ""} · ${run.formation}`
       : run.mode === "dynasty"
         ? isTieredDynasty(run)
           ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.result.journey?.tier || run.dynasty?.journey?.tier || 3} · ${simulationSeason(run)}`
@@ -5794,7 +6197,7 @@
       empty.appendChild(el("small", "", uiText("继续挑战更高排名与特殊赛季目标。", "Aim for a higher finish and special season objectives next time.")));
       achievements.appendChild(empty);
     }
-    renderLeagueTable(result, leagueName, run.league);
+    renderLeagueTable(result, leagueName, run.league, peakClub?.name);
     renderDomesticCup(result.domesticCup);
     renderResultLineup(run);
     renderEurope(result, run);
@@ -5817,7 +6220,7 @@
     showView("result");
   }
 
-  function renderLeagueTable(result, leagueName, leagueId) {
+  function renderLeagueTable(result, leagueName, leagueId, userTeamName = "") {
     if (!result.leagueTable || !result.leagueTable.length) {
       ui.resultTablePanel.classList.add("hidden");
       return;
@@ -5858,7 +6261,7 @@
       else if (leagueId === "ger" && row.position === teamCount - 2) tr.classList.add("league-zone-playoff");
       else if (row.position > teamCount - (leagueId === "ger" ? 2 : 3)) tr.classList.add("league-zone-relegation");
       const goalDiff = Number(row.goalDiff || 0);
-      [row.position, row.name, row.played, row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst, goalDiff > 0 ? `+${goalDiff}` : goalDiff, row.points]
+      [row.position, row.isUser && userTeamName ? userTeamName : row.name, row.played, row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst, goalDiff > 0 ? `+${goalDiff}` : goalDiff, row.points]
         .forEach((value) => tr.appendChild(el("span", "", String(value))));
       body.appendChild(tr);
     });
@@ -7243,8 +7646,9 @@
     if (!run?.result) return;
     const result = run.result;
     const challenge = getChallenge(run.challengeId);
+    const peakClub = isClubPeakChallenge(run) ? clubPeakClub(run.peakClubId) : null;
     const challengeText = challenge
-      ? `，完成${challenge.name}挑战 ${result.challenge?.stars || 0}/3 星`
+      ? `，完成${challenge.name}${peakClub ? `（${peakClub.name}）` : ""}挑战 ${result.challenge?.stars || 0}/3 星`
       : "";
     const text = `Global 38-0：我用了 ${run.formation} 阵容，${result.wins}-${result.draws}-${result.losses}，${result.points} 分，第 ${result.finish} 名${challengeText}。敢来挑战吗？`;
     if (navigator.clipboard && navigator.clipboard.writeText) {

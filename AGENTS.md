@@ -19,7 +19,7 @@ Keep data separate from behavior:
 - `archive/`: retired reference code that is not loaded by the game.
 - `scripts/`: validation, balance tests, and repeatable data-repair utilities.
 
-The browser edition has no build step or package manager. Keep the local `desktop/` wrapper out of Git; it is released separately and ignored at the repository root.
+The browser edition has no build step or package manager. Keep the local `desktop/` wrapper out of Git; it is released separately and ignored at the repository root. Build the desktop edition with `desktop/build-portable.ps1`; portable EXEs are the only desktop artifacts produced, and installers are not generated.
 
 ## Build, Test, and Development Commands
 

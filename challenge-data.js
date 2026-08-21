@@ -76,6 +76,21 @@
         { id: "concede20", text: "失球不超过 20", textEn: "Concede no more than 20" },
         { id: "concede10-champion", text: "失球不超过 10 且联赛夺冠", textEn: "Concede no more than 10 and win the league" }
       ]
+    },
+    {
+      id: "club-peak",
+      icon: "🏛️",
+      name: "俱乐部巅峰",
+      nameEn: "Club Peak",
+      description: "选择一支五大联赛球队，挑战它在历史数据中的最佳联赛成绩。",
+      descriptionEn: "Choose a Big Five club and challenge its best league finish in the historical database.",
+      rules: ["目标球队固定参加所属联赛", "队史最佳排名按现有历史赛季数据计算", "每支球队单独记录你的最高成绩"],
+      rulesEn: ["The target club stays in its own league", "The benchmark uses the available historical seasons", "Your best result is tracked for every club"],
+      objectives: [
+        { id: "match-best", text: "达到队史最佳联赛排名", textEn: "Match the club's best league finish" },
+        { id: "new-best", text: "刷新队史最佳排名", textEn: "Set a new club-best finish" },
+        { id: "double", text: "联赛与国内杯双冠", textEn: "Win the league and domestic cup" }
+      ]
     }
   ];
 })();

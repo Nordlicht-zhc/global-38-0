@@ -77,5 +77,8 @@ assert.equal(missingBenchmarks.length, 0, `Missing historical benchmarks: ${miss
 ].forEach((token) => assert(app.includes(token), `Club Peak implementation token is missing: ${token}`));
 assert(html.includes("data-play-mode=\"challenge\""), "Challenge mode entry is missing.");
 assert(html.includes("challengeRules"), "Challenge setup container is missing.");
+assert.match(app, /league: dynastyType === "tiered" \? journeyLeagueId\(3\) : peakClub\?\.league \|\| null/, "Club Peak must start in the target club's league.");
+assert.match(app, /state\.game\.league = peakLeague \|\| null/, "Changing formation must preserve the locked Club Peak league.");
+assert.match(app, /const leagueLocked = shouldHideLeagueChoice\(game\);/, "Club Peak must not reopen league choice after drafting.");
 
 console.log(`Club Peak challenge: PASS (${currentClubs.length} clubs, ${seasons.length} historical seasons)`);

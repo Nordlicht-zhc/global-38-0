@@ -337,9 +337,15 @@ button {
 
 .setup-grid {
   display: grid;
+  align-items: start;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 20px;
   margin-bottom: 20px;
+}
+
+.setup-grid.club-peak-layout,
+.setup-grid.setup-unified-layout {
+  grid-template-columns: minmax(300px, 0.58fr) minmax(0, 1.42fr);
 }
 
 .panel {
@@ -358,6 +364,75 @@ button {
   padding: 20px;
 }
 
+.setup-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  column-gap: 12px;
+  row-gap: 0;
+}
+
+.setup-panel > .panel-head,
+.setup-panel > .play-mode-switch,
+.setup-panel > .challenge-picker,
+.setup-panel > .dynasty-type-picker,
+.setup-panel > .dynasty-season-field,
+.setup-panel > #startBtn,
+.setup-panel > .hint,
+.setup-panel > .saved-game-box {
+  grid-column: 1 / -1;
+}
+
+.setup-panel > .field:nth-of-type(2),
+.setup-panel > .field:nth-of-type(5) {
+  grid-column: 1 / -1;
+}
+
+.setup-panel > .field {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  margin-bottom: 12px;
+}
+
+.setup-panel > #startBtn {
+  margin-top: 2px;
+}
+
+.setup-panel > .hint {
+  margin-top: 8px;
+}
+
+.league-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(56, 189, 248, 0.1), transparent 25%),
+    linear-gradient(155deg, rgba(16, 36, 30, 0.98), rgba(9, 24, 19, 0.94));
+}
+
+.league-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.25;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(145deg, #000, transparent 75%);
+}
+
+.league-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
 .panel-head {
   display: flex;
   align-items: flex-start;
@@ -373,8 +448,8 @@ button {
 
 .league-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(166px, 1fr));
+  gap: 12px;
 }
 
 .league-option {
@@ -382,23 +457,42 @@ button {
   display: flex;
   align-items: center;
   gap: 9px;
-  min-height: 54px;
-  padding: 10px 12px;
+  min-height: 72px;
+  padding: 12px 13px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 13px;
+  background: rgba(4, 16, 12, 0.42);
   color: var(--text);
   text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .league-option:hover {
+  transform: translateY(-2px);
   border-color: rgba(74, 222, 128, 0.45);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
 }
 
 .league-option.active {
-  border-color: rgba(74, 222, 128, 0.7);
-  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(134, 239, 172, 0.75);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(13, 55, 37, 0.82));
+  box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.08), 0 10px 24px rgba(3, 18, 10, 0.22);
+}
+
+.league-option.active::after {
+  content: "✓";
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(134, 239, 172, 0.18);
+  color: #bbf7d0;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .league-option input {
@@ -410,24 +504,56 @@ button {
 .league-code {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border-radius: 7px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 12px;
   color: #fff;
   font-size: 11px;
   font-weight: 900;
+  letter-spacing: 0.03em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 6px 14px rgba(0, 0, 0, 0.2);
 }
 
 .league-option strong {
   display: block;
-  font-size: 13px;
+  padding-right: 12px;
+  font-size: 14px;
 }
 
 .league-option small {
   display: block;
   color: var(--muted);
   font-size: 11px;
+}
+
+.setup-unified-layout .challenge-picker,
+.club-peak-layout .challenge-picker {
+  grid-template-columns: minmax(230px, 0.65fr) minmax(0, 1.35fr);
+  align-items: start;
+  column-gap: 16px;
+}
+
+.setup-unified-layout .challenge-picker-head,
+.club-peak-layout .challenge-picker-head {
+  grid-column: 1 / -1;
+}
+
+.setup-unified-layout .challenge-cards,
+.club-peak-layout .challenge-cards {
+  max-height: 520px;
+  padding-right: 6px;
+}
+
+.setup-unified-layout .challenge-rules,
+.club-peak-layout .challenge-rules {
+  min-width: 0;
+}
+
+.setup-unified-layout .club-peak-progress-grid,
+.club-peak-layout .club-peak-progress-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-height: 324px;
 }
 
 .field {
@@ -3191,6 +3317,16 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .setup-grid.setup-unified-layout,
+  .setup-grid.club-peak-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-unified-layout .challenge-picker,
+  .club-peak-layout .challenge-picker {
+    grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+  }
+
   .hero-pitch {
     width: min(240px, 64vw);
     min-height: 220px;
@@ -3199,6 +3335,7 @@ button {
   .game-layout {
     align-items: stretch;
   }
+
 }
 
 @media (max-width: 640px) {
@@ -3222,6 +3359,49 @@ button {
 
   .league-choice-options {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .league-panel,
+  .setup-panel {
+    padding: 15px;
+  }
+
+  .league-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .league-option {
+    min-height: 64px;
+    padding: 10px;
+  }
+
+  .league-code {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
+
+  .setup-unified-layout .challenge-picker,
+  .club-peak-layout .challenge-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-unified-layout .challenge-picker-head,
+  .club-peak-layout .challenge-picker-head {
+    grid-column: auto;
+  }
+
+  .setup-unified-layout .challenge-cards,
+  .club-peak-layout .challenge-cards {
+    max-height: 278px;
+  }
+
+  .setup-unified-layout .club-peak-progress-grid,
+  .club-peak-layout .club-peak-progress-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .table-row {

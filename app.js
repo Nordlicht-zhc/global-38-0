@@ -902,10 +902,47 @@
     const game = typeof leagueOrGame === "object" ? leagueOrGame : null;
     return isTieredDynasty(game) ? Math.max(1, leagueTeamCount(game) - 1) : (leagueTeamCount(leagueOrGame) - 1) * 2;
   };
-  const expectedPointsForRating = (rating, played) => {
-    const base = rating >= 80 ? 71 + (rating - 80) * 4.8 : 42 + (rating - 76) * 7.25;
-    return clamp(Math.round(base), 18, Math.max(18, played * 3 - 8));
-  };
+  // Forecast from the same ELO and strength probabilities used by league simulation.
+  function expectedMatchPoints(homeProfile, awayProfile, eloHome, eloAway) {
+    const homeStrength = teamStrength(homeProfile);
+    const awayStrength = teamStrength(awayProfile);
+    const baseDiff = homeStrength - awayStrength + 1;
+    const strengthExpected = clamp(1 / (1 + Math.pow(10, -baseDiff / 8)), 0.06, 0.88);
+    const hasElo = Number.isFinite(eloHome) && Number.isFinite(eloAway);
+    const expectedHome = hasElo
+      ? clamp(eloExpected(eloHome + HOME_ELO_ADVANTAGE, eloAway) * 0.7
+        + strengthExpected * 0.3, 0.06, 0.94)
+      : strengthExpected;
+    const diff = hasElo ? eloHome - eloAway : baseDiff;
+    const drawChance = clamp(0.3 - Math.abs(diff) * 0.00035, 0.19, 0.3);
+    return {
+      home: drawChance + (1 - drawChance) * expectedHome * 3,
+      away: drawChance + (1 - drawChance) * (1 - expectedHome) * 3
+    };
+  }
+
+  function buildExpectedLeagueTable(game, userProfile) {
+    const names = [...new Set(getLeagueTeams(game))];
+    const profiles = buildProfileMap(game, names);
+    profiles["我的球队"] = userProfile;
+    const eloMap = createEloMap(profiles);
+    const points = Object.fromEntries(names.map((name) => [name, 0]));
+    const schedule = createLeagueSchedule(names, isTieredDynasty(game) ? { doubleRound: false } : {});
+    schedule.forEach((fixture) => {
+      const expected = expectedMatchPoints(
+        profiles[fixture.home],
+        profiles[fixture.away],
+        eloMap[fixture.home],
+        eloMap[fixture.away]
+      );
+      points[fixture.home] += expected.home;
+      points[fixture.away] += expected.away;
+    });
+    return names
+      .map((name) => ({ name, points: points[name] }))
+      .sort((left, right) => right.points - left.points || left.name.localeCompare(right.name));
+  }
+
   const rankFromPoints = (points, size) => {
     const topPoints = size >= 20 ? 85 : 80;
     const step = size >= 20 ? 4.2 : 4.5;
@@ -1859,6 +1896,12 @@
     const dynastyMode = state.setupMode === "dynasty";
     const dynastyType = DYNASTY_TYPES[state.dynastyType] || DYNASTY_TYPES.normal;
     const challenge = challengeMode ? activeSetupChallenge() : null;
+    if (isClubPeakChallenge(challenge) && !clubPeakClub(state.selectedPeakClubId)) {
+      state.selectedPeakClubId = clubPeakOptions()[0]?.id || null;
+    }
+    const clubPeakMode = isClubPeakChallenge(challenge);
+    const setupGrid = document.querySelector(".setup-grid");
+    setupGrid?.classList.toggle("club-peak-layout", clubPeakMode);
     if (dynastyMode || isClubPeakChallenge(challenge)) ensureHistoricalStandingsForSetup();
     const ironManager = challenge?.id === "iron-manager";
     if (!ironManager && ui.difficultySelect.disabled) {
@@ -1897,9 +1940,6 @@
     });
     ui.challengeRules.innerHTML = "";
     if (!challenge) return;
-    if (isClubPeakChallenge(challenge) && !clubPeakClub(state.selectedPeakClubId)) {
-      state.selectedPeakClubId = clubPeakOptions()[0]?.id || null;
-    }
     const best = loadRuns()
       .filter((run) => run.challengeId === challenge.id)
       .reduce((max, run) => Math.max(max, Number(run.result?.challenge?.stars || 0)), 0);
@@ -2298,6 +2338,13 @@
       if (!saved.seasonRange) {
         saved.seasonRange = { start: "1994-95", end: "2025-26" };
       }
+      if (isClubPeakChallenge(saved)) {
+        const peakLeague = saved.peakClubLeague || clubPeakClub(saved.peakClubId)?.league;
+        if (peakLeague && saved.league !== peakLeague) {
+          saved.league = peakLeague;
+          safeSet(STORAGE_GAME, saved);
+        }
+      }
       if (isBadRun(saved)) {
         saved.result = null;
         saved.simulation = null;
@@ -2453,7 +2500,10 @@
     }));
     state.game.draftedPlayers = [];
     state.game.candidates = [];
-    state.game.league = null;
+    const peakLeague = isClubPeakChallenge(state.game)
+      ? state.game.peakClubLeague || clubPeakClub(state.game.peakClubId)?.league
+      : null;
+    state.game.league = peakLeague || null;
     state.selectedSlotIndex = null;
     state.pendingDraftPlayerId = null;
     state.autoSpinPending = false;
@@ -2710,13 +2760,15 @@
       ? Number(fallbackRating)
       : profile.overall || 80;
     const matches = leagueMatchCount(game);
-    const points = expectedPointsForRating(rating, matches);
-    const rank = clamp(
-      Math.round(1 + (matches * 3 * 0.88 - points) / 6.5),
-      1,
-      leagueTeamCount(game)
-    );
-    return { rating, matches, points, rank };
+    const table = buildExpectedLeagueTable(game, profile);
+    const userRow = table.find((row) => row.name === "我的球队");
+    if (!userRow) return null;
+    return {
+      rating,
+      matches,
+      points: Math.round(userRow.points),
+      rank: table.indexOf(userRow) + 1
+    };
   }
 
   function renderSeasonPrediction() {
@@ -3189,11 +3241,16 @@
     updateSpinControls();
     ui.gameProgress.textContent = `${game.draftedPlayers.length}/${game.slots.length}`;
     if (game.draftedPlayers.length === game.slots.length) {
-      ui.simulateBtn.disabled = false;
-      ui.leagueChoice.classList.remove("hidden");
-      renderLeagueChoice();
-      toast("阵容完成，请选择参赛联赛。");
-      document.querySelector("#leagueChoice")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const leagueLocked = shouldHideLeagueChoice(game);
+      ui.simulateBtn.disabled = !game.league;
+      ui.leagueChoice.classList.toggle("hidden", leagueLocked);
+      if (leagueLocked) {
+        toast(uiText("阵容完成，已固定参加目标俱乐部所属联赛。", "Squad complete. Your target club's league is locked in."));
+      } else {
+        renderLeagueChoice();
+        toast("阵容完成，请选择参赛联赛。");
+        document.querySelector("#leagueChoice")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     } else {
       state.autoSpinPending = true;
       updateSpinControls();

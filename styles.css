@@ -364,6 +364,30 @@ button {
   grid-template-columns: minmax(300px, 0.58fr) minmax(0, 1.42fr);
 }
 
+.test-console {
+  grid-column: 1 / -1;
+  padding: 18px 20px;
+  border-color: rgba(250, 204, 21, 0.42);
+  background:
+    radial-gradient(circle at 95% 10%, rgba(250, 204, 21, 0.12), transparent 32%),
+    rgba(16, 29, 25, 0.94);
+}
+
+.test-console-copy {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+.test-console-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.test-console .hint {
+  margin: 12px 0 0;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);

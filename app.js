@@ -199,6 +199,12 @@
     { sel: ".hero-sub", en: "Spin separate season and club reels, pick players from that real squad, assign positions, then test your team over a full league season. Covers England, Spain, Italy, Germany and France." },
     { sel: ".league-panel .eyebrow", en: "Database" },
     { sel: ".league-panel h2", en: "Select Leagues" },
+    { sel: ".test-console .eyebrow", en: "Local Debugging" },
+    { sel: ".test-console h2", en: "Test Console" },
+    { sel: ".test-console-copy", en: "Generate a complete squad in one click and skip manual drafting. Test runs do not overwrite your real save, enter season history, or unlock achievements." },
+    { sel: "#testClassicBtn", en: "Quick Classic Game" },
+    { sel: "#testDynastyBtn", en: "Quick Three-Tier Journey" },
+    { sel: "#testConsoleStatus", en: "The squad uses 2025-26 players selected by position-adjusted rating." },
     { sel: "#toggleAllLeagues", en: "All / Clear" },
     { sel: ".setup-panel .eyebrow", en: "New Season" },
     { sel: ".setup-panel h2", en: "Draft Setup" },
@@ -217,7 +223,7 @@
     { sel: "#hideRatingsSelect option[value='1']", en: "Hide ratings" },
     { sel: ".setup-panel label.field:nth-of-type(5) > span", en: "Formation" },
     { sel: "#startBtn", en: "Start Game" },
-    { sel: ".hint", en: "Your save is stored locally and survives a page refresh." },
+    { sel: ".setup-panel > .hint", en: "Your save is stored locally and survives a page refresh." },
     { sel: ".history-home .eyebrow", en: "Recent Results" },
     { sel: ".history-home h2", en: "Local Season History" },
     { sel: "#backSetupBtn", en: "Back to Setup" },
@@ -973,6 +979,10 @@
     savedGameTitle: $("#savedGameTitle"),
     savedGameStatus: $("#savedGameStatus"),
     continueGameBtn: $("#continueGameBtn"),
+    testConsole: $("#testConsole"),
+    testClassicBtn: $("#testClassicBtn"),
+    testDynastyBtn: $("#testDynastyBtn"),
+    testConsoleStatus: $("#testConsoleStatus"),
     seasonRangeStart: $("#seasonRangeStart"),
     seasonRangeEnd: $("#seasonRangeEnd"),
     seasonRangeStartLabel: $("#seasonRangeStartLabel"),
@@ -2321,6 +2331,7 @@
     renderHeroStats();
     renderHomeHistory();
     renderChallengeSetup();
+    initializeTestConsole();
     applyLanguage();
     if (typeof MutationObserver !== "undefined") {
       new MutationObserver(() => {
@@ -2386,6 +2397,8 @@
       if (button) setSetupMode(button.dataset.playMode);
     });
     $("#startBtn").addEventListener("click", startGame);
+    ui.testClassicBtn?.addEventListener("click", () => startTestGame("classic"));
+    ui.testDynastyBtn?.addEventListener("click", () => startTestGame("dynasty"));
     ui.continueGameBtn?.addEventListener("click", resumeSavedGame);
     $("#newGameBtn").addEventListener("click", showNewGameSetup);
     $("#historyBtn").addEventListener("click", showHomeHistory);
@@ -2828,10 +2841,10 @@
   }
 
   function saveGame() {
-    if (state.game) safeSet(STORAGE_GAME, state.game);
+    if (state.game && !state.game.testMode) safeSet(STORAGE_GAME, state.game);
   }
 
-  async function startGame() {
+  async function startGame(options = {}) {
     const setupChallenge = activeSetupChallenge();
     if (!state.selectedLeagues.size
       && state.setupMode !== "dynasty"
@@ -2910,6 +2923,7 @@
       randomDraws: 0,
       selectedSlotIndex: null,
       phase: "drafting",
+      testMode: Boolean(options.testMode),
       result: null,
       postSeasonTransfer: null,
       freeAgentMarket: dynastyMode ? {
@@ -2985,6 +2999,95 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     requestAnimationFrame(updateBackHomeButtonFloating);
+  }
+
+  function initializeTestConsole() {
+    const enabled = new URLSearchParams(window.location.search).get("test") === "1";
+    ui.testConsole?.classList.toggle("hidden", !enabled);
+    document.body.classList.toggle("test-mode", enabled);
+  }
+
+  function testPlayerPool(game) {
+    const season = CURRENT_DATA_SEASON;
+    const leagueIds = game.leagues?.length ? game.leagues : BIG_FIVE_IDS;
+    return leagueIds.flatMap((leagueId) => clubsForLeague(leagueId, season).flatMap((club) => (
+      (getClub(club.id, season)?.players || club.players || []).map((player) => ({
+        ...player,
+        id: `${season}|${club.id}|${player.name}`,
+        sourceClubId: club.id,
+        sourceClubName: club.name,
+        sourceLeagueId: leagueId,
+        sourceSeason: season,
+        baseRate: calibrateRate(Number(player.rate || 80), season)
+      }))
+    )));
+  }
+
+  function fillTestSquad(game) {
+    const available = testPlayerPool(game);
+    const used = new Set();
+    const orderedSlots = game.slots
+      .map((slot, index) => ({ slot, index }))
+      .sort((a, b) => {
+        const aCount = available.filter((player) => canPlaySlot(player, a.slot.pos)).length;
+        const bCount = available.filter((player) => canPlaySlot(player, b.slot.pos)).length;
+        return aCount - bCount;
+      });
+    orderedSlots.forEach(({ slot }) => {
+      const candidate = available
+        .filter((player) => !used.has(playerIdentity(player)) && canPlaySlot(player, slot.pos))
+        .map((player) => ({
+          ...player,
+          rate: clamp(player.baseRate + fitBonus(slot.pos, player.pos), 40, 99)
+        }))
+        .sort((a, b) => b.rate - a.rate)[0];
+      if (!candidate) return;
+      used.add(playerIdentity(candidate));
+      slot.player = candidate;
+    });
+    game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
+    game.playerIdentityHistory = game.draftedPlayers.map((player) => playerIdentity(player));
+    game.currentSpin = null;
+    game.candidates = [];
+    game.league = isTieredDynasty(game) ? journeyLeagueId(3) : game.leagues[0] || "eng";
+    game.coachId = game.challengeId === "iron-manager" ? null : game.coachCandidates[0] || null;
+  }
+
+  async function startTestGame(mode) {
+    if (!ui.testConsole || ui.testConsole.classList.contains("hidden")) return;
+    const buttons = [ui.testClassicBtn, ui.testDynastyBtn].filter(Boolean);
+    buttons.forEach((button) => { button.disabled = true; });
+    if (ui.testConsoleStatus) {
+      ui.testConsoleStatus.textContent = uiText("正在加载 2025-26 球员数据……", "Loading 2025-26 player data...");
+    }
+    try {
+      setSetupMode(mode === "dynasty" ? "dynasty" : "classic");
+      if (mode !== "dynasty" && !state.selectedLeagues.size) {
+        state.selectedLeagues = new Set(BIG_FIVE_IDS);
+        renderLeagueGrid();
+      }
+      await loadSeasonData(CURRENT_DATA_SEASON);
+      await startGame({ testMode: true });
+      if (!state.game?.testMode) return;
+      fillTestSquad(state.game);
+      renderGame();
+      renderPitch();
+      renderCandidates();
+      renderTeamRating();
+      renderLeagueChoice();
+      toast(uiText("测试阵容已生成，可直接开始模拟。", "Test squad generated. You can start the simulation now."));
+    } catch (error) {
+      console.error(error);
+      toast(uiText("测试阵容生成失败，请查看控制台。", "Could not generate the test squad. Check the console."));
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; });
+      if (ui.testConsoleStatus) {
+        ui.testConsoleStatus.textContent = uiText(
+          "阵容使用 2025-26 球员，并自动选择位置适配后的高评分球员。",
+          "The squad uses 2025-26 players selected by position-adjusted rating."
+        );
+      }
+    }
   }
 
   function updateBackHomeButtonFloating() {
@@ -8893,6 +8996,7 @@
   }
 
   function addRun(game) {
+    if (game?.testMode) return;
     const runs = loadRuns();
     runs.unshift({ ...game });
     safeSet(STORAGE_RUNS, runs.slice(0, 20));
@@ -8900,6 +9004,7 @@
   }
 
   function updateRun(game) {
+    if (game?.testMode) return;
     const runs = loadRuns();
     const index = runs.findIndex((run) => run.id === game.id);
     const saved = { ...game, europeSim: null };

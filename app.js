@@ -1374,6 +1374,49 @@
       .filter(Boolean);
   }
 
+  function journeyTransferClubsForSeason(game, season) {
+    if (!isTieredDynasty(game)) return null;
+    const journey = game.dynasty?.journey;
+    const tier = clamp(Number(journey?.tier) || 3, 1, 3);
+    const tierIds = (journey?.tiers?.[tier - 1] || [])
+      .filter((id) => id !== JOURNEY_USER_ID);
+    if (!tierIds.length) return null;
+    const clubs = allClubs(season);
+    const allowed = tierIds
+      .map((id) => journey.clubs?.[id])
+      .filter(Boolean)
+      .map((record) => findDynastySeasonClub(record.name, clubs)
+        || clubs.find((club) => club.id === record.sourceClubId && club.league === record.league))
+      .filter(Boolean);
+    return allowed.length ? allowed : null;
+  }
+
+  function transferClubsForSeason(game, season) {
+    const clubs = allClubs(season);
+    const allowed = journeyTransferClubsForSeason(game, season);
+    if (!allowed) return clubs;
+    const allowedKeys = new Set(allowed.map((club) => journeyClubKey(club)));
+    return clubs.filter((club) => allowedKeys.has(journeyClubKey(club)));
+  }
+
+  function isTransferCandidateFromAllowedClub(candidate, game, allowed = undefined) {
+    if (!isTieredDynasty(game)) return true;
+    const season = candidate?.sourceSeason || simulationSeason(game);
+    const allowedClubs = allowed === undefined
+      ? journeyTransferClubsForSeason(game, season)
+      : allowed;
+    if (!allowedClubs) return true;
+    return allowedClubs.some((club) => {
+      const sameId = candidate?.sourceClubId
+        && candidate.sourceLeagueId
+        && club.id === candidate.sourceClubId
+        && club.league === candidate.sourceLeagueId;
+      const sameName = normalizeDynastyClubName(club.name)
+        === normalizeDynastyClubName(candidate?.sourceClubName);
+      return sameId || sameName;
+    });
+  }
+
   function journeyRecordForName(game, name) {
     const journey = game?.dynasty?.journey;
     if (!journey) return null;
@@ -4246,10 +4289,10 @@
     ui.transferWeakText.appendChild(el("strong", "", uiText(`当前最弱位置：${unit}`, `Weakest area: ${unit}`)));
     ui.transferWeakText.appendChild(el("span", "", uiText(
       state.game?.mode === "dynasty"
-        ? "第一次只会提供能够提升弱项位置评分的球员；王朝模式第 2 次转会会从四种方式中随机抽取。"
+        ? "第一次只会提供能够提升弱项位置评分的球员；王朝模式第 2 次转会会从四种方式中随机抽取，候选人只来自当前级别。"
         : "第一次只会提供能够提升弱项位置评分的球员；第 2 次转会方式将随机抽取。",
       state.game?.mode === "dynasty"
-        ? "The first transfer only offers players who improve a weak-area slot; Dynasty's second transfer is drawn from four methods."
+        ? "The first transfer only offers players who improve a weak-area slot; Dynasty's second transfer is drawn from four methods, with candidates limited to the current tier."
         : "The first transfer only offers players who improve a weak-area slot; the second transfer method is randomized."
     )));
   }
@@ -4547,7 +4590,7 @@
     const target = transfer.mode === "weak" ? transfer.targetUnit || getWeakestUnit(state.game) : null;
     if (target) ui.transferStatus.appendChild(el("span", "", uiText(`目标位置：${target}`, `Target area: ${target}`)));
     const instruction = transfer.postSeason
-      ? uiText("从 5 名当前赛季的自由签约候选人中选择一人，再点击球场上的兼容位置完成签约。", "Choose one of five current-season free-signing candidates, then click a compatible slot to complete the signing.")
+      ? uiText("从 5 名当前赛季、当前级别的自由签约候选人中选择一人，再点击球场上的兼容位置完成签约。", "Choose one of five current-season free-signing candidates from the current tier, then click a compatible slot to complete the signing.")
       : transfer.mode === "free"
       ? uiText("从 5 名完全随机的候选人中选择一人，再点击球场上的兼容位置。", "Choose one of five fully random candidates, then click a compatible slot.")
       : transfer.mode === "mystery"
@@ -4697,8 +4740,9 @@
     const seasons = seasonsInRange(game.seasonRange);
     const leagueIds = game.leagues.length ? game.leagues : [...state.selectedLeagues];
     const identities = new Set();
-    return seasons.flatMap((season) => leagueIds.flatMap((leagueId) => (
-      allClubs(season)
+    return seasons.flatMap((season) => {
+      const seasonClubs = transferClubsForSeason(game, season);
+      return leagueIds.flatMap((leagueId) => seasonClubs
         .filter((club) => club.league === leagueId)
         .flatMap((club) => (club.players || []).map((player) => ({
           ...player,
@@ -4708,8 +4752,8 @@
           sourceClubName: club.name,
           sourceLeagueId: club.league,
           sourceSeason: season
-        })))
-    )))
+        }))));
+    })
       .filter((player) => !isOwnedPlayer(player, game))
       .filter((player) => {
         const identity = playerIdentity(player);
@@ -4723,8 +4767,16 @@
   function buildFreeAgentMarketPool(transfer, game) {
     const market = ensureFreeAgentMarket(game);
     if (!market) return [];
+    const allowedBySeason = new Map();
     return market.available
       .filter((player) => !isOwnedPlayer(player, game))
+      .filter((player) => {
+        const season = player.sourceSeason || simulationSeason(game);
+        if (!allowedBySeason.has(season)) {
+          allowedBySeason.set(season, journeyTransferClubsForSeason(game, season));
+        }
+        return isTransferCandidateFromAllowedClub(player, game, allowedBySeason.get(season));
+      })
       .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)))
       .map((player) => ({ ...player }));
   }
@@ -4732,7 +4784,7 @@
   function buildWeakTransferClubPool(transfer, game) {
     const leagueIds = new Set(game.leagues.length ? game.leagues : [...state.selectedLeagues]);
     return seasonsInRange(game.seasonRange).flatMap((season) => (
-      allClubs(season)
+      transferClubsForSeason(game, season)
         .filter((club) => leagueIds.has(club.league))
         .map((club) => ({
           season,
@@ -4769,7 +4821,7 @@
       return;
     }
     if (transfer.mode === "loan") {
-      transfer.candidates = buildLoanCandidates(pool, rng);
+      transfer.candidates = buildLoanCandidates(pool, rng, transfer, game);
       return;
     }
     transfer.candidates = buildMysteryCandidates(pool, rng);
@@ -4825,13 +4877,18 @@
     ].filter(Boolean);
   }
 
-  function buildLoanCandidates(pool, rng) {
+  function buildLoanCandidates(pool, rng, transfer, game) {
     if (!pool.length) return [];
-    const ordered = [...pool].sort((a, b) => b.rate - a.rate);
+    const upgradePool = pool.filter((player) => bestTransferFit(player, game, transfer)?.change > 0);
+    if (!upgradePool.length) return [];
+    const ordered = [...upgradePool].sort((a, b) => {
+      const change = bestTransferFit(b, game, transfer).change - bestTransferFit(a, game, transfer).change;
+      return change || b.rate - a.rate;
+    });
     const emergencyPool = ordered.slice(0, Math.max(3, Math.ceil(ordered.length * 0.35)));
     const excludedIds = new Set();
     return [0, 1, 2]
-      .map(() => takeRandomCandidate(emergencyPool, excludedIds, pool, rng))
+      .map(() => takeRandomCandidate(emergencyPool, excludedIds, upgradePool, rng))
       .filter(Boolean)
       .map((candidate) => ({ ...candidate, loanTerm: "season" }));
   }
@@ -5049,8 +5106,8 @@
       const box = el("div", "direct-transfer-summary loan-summary", "");
       box.appendChild(el("strong", "", uiText("租借救火", "Emergency Loan")));
       box.appendChild(el("span", "", uiText(
-        "从当前赛季的高质量候选人中选择一名租借球员；他只效力到本赛季结束。",
-        "Choose one high-quality player from the current season. The loan lasts until the end of this season."
+        "从当前级别中能提升首发评分的候选人里选择一名租借球员；他只效力到本赛季结束。",
+        "Choose a current-tier player who improves the starting rating. The loan lasts until the end of this season."
       )));
       ui.spinResult.appendChild(box);
       return;

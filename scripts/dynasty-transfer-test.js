@@ -18,5 +18,10 @@ assert(app.includes("if (transfer.postSeason) {\n      transfer.mode = \"free\";
 assert(app.includes("if (game.postSeasonTransfer?.status !== \"resolved\")"), "Next-season entry is not gated by the transfer window.");
 assert(app.includes("shouldHideDynastyLeagueChoice(game)"), "Dynasty continuation does not hide league selection.");
 assert(app.includes("game.postSeasonTransfer = dynastyHasNextSeason(game)"), "Season completion does not create the next-season transfer window.");
+assert(app.includes("function journeyTransferClubsForSeason(game, season)"), "Dynasty transfer candidates are not tier-aware.");
+assert(app.includes("const seasonClubs = transferClubsForSeason(game, season);"), "Direct transfer pools do not use the current journey tier.");
+assert(app.includes("isTransferCandidateFromAllowedClub(player, game, allowedBySeason.get(season))"), "Free-agent offers are not limited to the current journey tier.");
+assert(app.includes("const upgradePool = pool.filter((player) => bestTransferFit(player, game, transfer)?.change > 0);"), "Emergency loans are not restricted to positive upgrades.");
+assert(app.includes("buildLoanCandidates(pool, rng, transfer, game)"), "Emergency loans are not evaluated against the current lineup.");
 
-console.log("Dynasty transfer window: PASS (post-season free signings, gating, and league-choice skip)");
+console.log("Dynasty transfer window: PASS (post-season free signings, tier-aware pools, loan upgrades, and gating)");

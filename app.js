@@ -13,6 +13,7 @@
   const BIG_FIVE_IDS = new Set(["eng", "esp", "ita", "ger", "fra"]);
   const { canPlaySlot, isForceableMidfielder, midfielderForcedPenalty } = G38PositionFit;
   const SECOND_TRANSFER_MODE_KEYS = ["free", "mystery", "deadline"];
+  const DYNASTY_SECOND_TRANSFER_MODE_KEYS = [...SECOND_TRANSFER_MODE_KEYS, "loan"];
   const TRANSFER_CHEMISTRY_LOSS = 0.03;
   const TRANSFER_CHEMISTRY_RECOVERY = 0.01;
   const CHEMISTRY_RATING_FLOOR = 60;
@@ -156,22 +157,8 @@
   });
   const EUROPE_LIST_VERSION = "2025-26-v4";
   const SIM_VERSION = "2026-v5";
-  const DYNASTY_TYPES = {
-    normal: {
-      name: "正常五大联赛",
-      nameEn: "Big Five Dynasty",
-      hint: "固定连续执教 3 个赛季，起始赛季最晚为 2023-24。",
-      hintEn: "Manage exactly 3 consecutive seasons. Start no later than 2023-24."
-    },
-    tiered: {
-      name: "三级征途",
-      nameEn: "Three-Tier Journey",
-      hint: "固定使用 2025-26 赛季五大联赛球队按强度分为三级，从第三级开始，直到赢得顶级联赛冠军。",
-      hintEn: "Use the 2025-26 Big Five clubs, split by strength into three tiers. Start in Tier 3 and climb to the title."
-    }
-  };
-  // Keep normal dynasty league opponents in the same overall band as Classic.
-  // The shared dynasty rank profile remains unchanged for Europe and the tiered journey.
+  const FREE_AGENT_MARKET_VERSION = 1;
+  // Keep the dynasty opponent rank profile stable across the Three-Tier Journey.
   const DYNASTY_LEAGUE_PROFILE = Object.freeze({
     rankTop: 90,
     rankBottom: 66,
@@ -218,11 +205,6 @@
     { sel: "#playModeSwitch [data-play-mode='classic']", en: "Classic" },
     { sel: "#playModeSwitch [data-play-mode='challenge']", en: "Challenges" },
     { sel: "#playModeSwitch [data-play-mode='dynasty']", en: "Dynasty" },
-    { sel: "#dynastyTypePicker [data-dynasty-type='normal'] strong", en: "Big Five Dynasty" },
-    { sel: "#dynastyTypePicker [data-dynasty-type='tiered'] strong", en: "Three-Tier Journey" },
-    { sel: "#dynastyTypePicker [data-dynasty-type='normal'] small", en: "3 consecutive seasons" },
-    { sel: "#dynastyTypePicker [data-dynasty-type='tiered'] small", en: "Climb from Tier 3 to the title" },
-    { sel: "#dynastySeasonField > span", en: "Dynasty Start Season" },
     { sel: "#nextDynastySeasonBtn", en: "Start Next Season" },
     { sel: ".challenge-picker-head strong", en: "Choose a Challenge" },
     { sel: ".setup-panel label.field:nth-of-type(2) > span", en: "Season Range" },
@@ -750,8 +732,55 @@
     "欧洲冠军": ["🏆", "赢得任意一项欧洲赛事", "Win any European competition"],
     "欧冠登顶": ["👑", "赢得欧洲冠军联赛", "Win the Champions League"],
     "欧联登顶": ["🏆", "赢得欧足联欧洲联赛", "Win the Europa League"],
-    "欧协联登顶": ["🏆", "赢得欧足联欧洲协会联赛", "Win the Conference League"]
+    "欧协联登顶": ["🏆", "赢得欧足联欧洲协会联赛", "Win the Conference League"],
+    "自由市场猎手": ["🛒", "单个王朝赛季完成两次自由签约", "Complete two free-agent signings in one Dynasty season"]
   };
+  const ACHIEVEMENT_CATEGORY_GROUPS = [
+    {
+      id: "league",
+      label: "联赛表现",
+      labelEn: "League Performance",
+      names: [
+        "完美赛季", "不败赛季", "联赛冠军", "进入欧冠区", "进球破百", "钢铁防线", "铁幕防守",
+        "黑马夺冠", "火力全开", "铜墙铁壁", "百分赛季", "大胜专家", "十连胜"
+      ]
+    },
+    {
+      id: "squad",
+      label: "阵容与球员",
+      labelEn: "Squad & Players",
+      names: ["世界级阵容", "进球机器", "助攻大师", "零封之王"]
+    },
+    {
+      id: "cups",
+      label: "杯赛荣誉",
+      labelEn: "Cup Honours",
+      names: ["国内杯赛冠军", "征途杯冠军", "国内双冠", "三冠王"]
+    },
+    {
+      id: "challenge",
+      label: "挑战模式",
+      labelEn: "Challenges",
+      names: ["三星通关", "草根传奇", "铁血冠军", "穿越冠军", "世界联队", "超越历史"]
+    },
+    {
+      id: "dynasty",
+      label: "王朝与征途",
+      labelEn: "Dynasty & Journey",
+      names: ["成功升级", "连升两级", "登上顶级", "征途终点", "成功卫冕", "王朝初成", "五冠王朝", "自由市场猎手"]
+    },
+    {
+      id: "europe",
+      label: "欧战荣耀",
+      labelEn: "European Glory",
+      names: ["欧洲之王", "欧战决赛", "欧洲冠军", "欧冠登顶", "欧联登顶", "欧协联登顶"]
+    }
+  ];
+  const ACHIEVEMENT_CATEGORY_BY_NAME = Object.freeze(
+    Object.fromEntries(ACHIEVEMENT_CATEGORY_GROUPS.flatMap((group) => (
+      group.names.map((name) => [name, group.id])
+    )))
+  );
   const ACHIEVEMENT_TITLES_EN = {
     "完美赛季": "Perfect Season",
     "不败赛季": "Undefeated Season",
@@ -792,7 +821,8 @@
     "欧洲冠军": "European Champion",
     "欧冠登顶": "Champions League Winner",
     "欧联登顶": "Europa League Winner",
-    "欧协联登顶": "Conference League Winner"
+    "欧协联登顶": "Conference League Winner",
+    "自由市场猎手": "Free-Agent Hunter"
   };
   const HISTORICAL_CLUB_IDS = {
     "arsenal": ["arsenal-fc", "arsenal"],
@@ -907,10 +937,10 @@
   const state = {
     selectedLeagues: new Set(["eng", "esp", "ita", "ger", "fra"]),
     setupMode: "classic",
-    dynastyType: "normal",
     selectedChallengeId: CHALLENGES[0]?.id || null,
     selectedPeakClubId: null,
     achievementFilter: "all",
+    achievementCategory: "all",
     difficultyBeforeIron: null,
     game: null,
     viewingRun: null,
@@ -948,10 +978,6 @@
     seasonRangeStartLabel: $("#seasonRangeStartLabel"),
     seasonRangeEndLabel: $("#seasonRangeEndLabel"),
     seasonRangeFill: $("#seasonRangeFill"),
-    dynastySeasonField: $("#dynastySeasonField"),
-    dynastyTypePicker: $("#dynastyTypePicker"),
-    dynastyStartSeason: $("#dynastyStartSeason"),
-    dynastySeasonHint: $("#dynastySeasonHint"),
     difficultySelect: $("#difficultySelect"),
     langToggle: $("#langToggle"),
     accountBtn: $("#accountBtn"),
@@ -977,6 +1003,7 @@
     achievementCloseBtn: $("#achievementCloseBtn"),
     achievementOverview: $("#achievementOverview"),
     achievementFilter: $("#achievementFilter"),
+    achievementCategoryFilter: $("#achievementCategoryFilter"),
     achievementCatalog: $("#achievementCatalog"),
     hideRatingsSelect: $("#hideRatingsSelect"),
     formationSelect: $("#formationSelect"),
@@ -1209,7 +1236,6 @@
     const end = start + 1;
     SEASON_KEYS.push(`${start}-${String(end % 100).padStart(2, "0")}`);
   }
-  const DYNASTY_START_SEASON_KEYS = SEASON_KEYS.filter((season) => season <= "2023-24");
   const seasonIndexToKey = (index) => SEASON_KEYS[clamp(index, 0, SEASON_KEYS.length - 1)];
   const seasonKeyToIndex = (key) => Math.max(0, SEASON_KEYS.indexOf(key));
   const randomSeasonInRange = (range, rng) => {
@@ -1238,24 +1264,6 @@
     ui.seasonRangeEnd.value = String(max);
     updateSeasonRangeLabels();
   };
-
-  function initDynastySeasonSelect() {
-    if (!ui.dynastyStartSeason) return;
-    ui.dynastyStartSeason.innerHTML = "";
-    DYNASTY_START_SEASON_KEYS.forEach((season) => {
-      const option = document.createElement("option");
-      option.value = season;
-      option.textContent = season;
-      ui.dynastyStartSeason.appendChild(option);
-    });
-    ui.dynastyStartSeason.value = "2023-24";
-    updateDynastySeasonHint();
-  }
-
-  function dynastySeasonsFrom(startSeason) {
-    const startIndex = Math.max(0, SEASON_KEYS.indexOf(startSeason));
-    return SEASON_KEYS.slice(startIndex, startIndex + 3);
-  }
 
   const JOURNEY_USER_ID = "__journey_user__";
   const JOURNEY_USER_NAME = "我的球队";
@@ -1470,19 +1478,6 @@
       movement: journey.lastMovement
     };
     game.dynasty.currentIndex = Number(journey.seasonNumber || 1) - 1;
-  }
-
-  function updateDynastySeasonHint() {
-    if (!ui.dynastySeasonHint || !ui.dynastyStartSeason) return;
-    if (state.dynastyType === "tiered") {
-      ui.dynastySeasonHint.textContent = uiText(DYNASTY_TYPES.tiered.hint, DYNASTY_TYPES.tiered.hintEn);
-      return;
-    }
-    const seasons = dynastySeasonsFrom(ui.dynastyStartSeason.value);
-    ui.dynastySeasonHint.textContent = uiText(
-      `固定连续执教 3 个赛季：${seasons[0]} 至 ${seasons[seasons.length - 1]}。`,
-      `Manage exactly 3 consecutive seasons: ${seasons[0]} to ${seasons[seasons.length - 1]}.`
-    );
   }
 
   const updateSeasonRangeLabels = (active = null) => {
@@ -2112,7 +2107,6 @@
     });
     const challengeMode = state.setupMode === "challenge";
     const dynastyMode = state.setupMode === "dynasty";
-    const dynastyType = DYNASTY_TYPES[state.dynastyType] || DYNASTY_TYPES.normal;
     const challenge = challengeMode ? activeSetupChallenge() : null;
     if (isClubPeakChallenge(challenge) && !clubPeakClub(state.selectedPeakClubId)) {
       state.selectedPeakClubId = clubPeakOptions()[0]?.id || null;
@@ -2127,16 +2121,9 @@
       state.difficultyBeforeIron = null;
     }
     ui.challengePicker.classList.toggle("hidden", !challengeMode);
-    ui.dynastyTypePicker?.classList.toggle("hidden", !dynastyMode);
-    ui.dynastySeasonField?.classList.toggle("hidden", !dynastyMode || state.dynastyType === "tiered");
+    // Dynasty now has one route only: the fixed 2025-26 Three-Tier Journey.
     document.querySelector("#seasonRange")?.closest("label.field")?.classList.toggle("hidden", dynastyMode);
     ui.challengeCards.innerHTML = "";
-    ui.dynastyTypePicker?.querySelectorAll("[data-dynasty-type]").forEach((button) => {
-      button.classList.toggle("active", button.dataset.dynastyType === state.dynastyType);
-    });
-    if (ui.dynastySeasonHint && dynastyMode) {
-      ui.dynastySeasonHint.textContent = uiText(dynastyType.hint, dynastyType.hintEn);
-    }
     if (!challengeMode) {
       ui.difficultySelect.disabled = false;
       return;
@@ -2247,13 +2234,6 @@
     renderChallengeSetup();
   }
 
-  function setDynastyType(type) {
-    if (!DYNASTY_TYPES[type]) return;
-    state.dynastyType = type;
-    renderChallengeSetup();
-  }
-
-
   function toggleLanguage() {
     const activeView = ["setup", "game", "result"].find((name) => (
       !document.getElementById(`${name}View`)?.classList.contains("hidden")
@@ -2271,13 +2251,13 @@
       renderCandidates();
       renderTeamRating();
       if (state.transfer) {
-        const directMode = ["free", "mystery", "deadline"].includes(state.transfer.mode);
+        const directMode = ["free", "mystery", "deadline", "loan"].includes(state.transfer.mode);
         ui.transferPanel.classList.remove("hidden");
         ui.simulationPanel.classList.add("hidden");
         ui.leagueChoice.classList.add("hidden");
         if (state.transfer.postSeason) ui.simulateBtn.disabled = true;
-        document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
-        ui.rerollBtn.classList.toggle("hidden", directMode);
+        document.querySelector(".wheel-card")?.classList.toggle("hidden", false);
+        ui.rerollBtn.classList.toggle("hidden", directMode || state.transfer.modeDrawPending);
         renderTransferIntro();
         renderTransferHeader();
         renderTransferSpinResult();
@@ -2294,7 +2274,6 @@
     await loadStorage();
     pruneData();
     initSeasonRange();
-    initDynastySeasonSelect();
     renderLeagueGrid();
     renderHeroStats();
     renderHomeHistory();
@@ -2331,6 +2310,12 @@
       state.achievementFilter = button.dataset.achievementFilter === "unlocked" ? "unlocked" : "all";
       renderAchievementCatalog();
     });
+    ui.achievementCategoryFilter?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-achievement-category]");
+      if (!button) return;
+      state.achievementCategory = button.dataset.achievementCategory || "all";
+      renderAchievementCatalog();
+    });
     ui.accountCloseBtn?.addEventListener("click", closeAccountModal);
     ui.accountModal?.addEventListener("click", (event) => {
       if (event.target === ui.accountModal) closeAccountModal();
@@ -2357,11 +2342,6 @@
       const button = event.target.closest("[data-play-mode]");
       if (button) setSetupMode(button.dataset.playMode);
     });
-    ui.dynastyTypePicker?.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-dynasty-type]");
-      if (button) setDynastyType(button.dataset.dynastyType);
-    });
-    ui.dynastyStartSeason?.addEventListener("change", updateDynastySeasonHint);
     $("#startBtn").addEventListener("click", startGame);
     ui.continueGameBtn?.addEventListener("click", resumeSavedGame);
     $("#newGameBtn").addEventListener("click", showNewGameSetup);
@@ -2518,6 +2498,66 @@
     return [...new Set(stored.concat(derived))];
   }
 
+  function dynastyAchievementNames(run) {
+    if (run?.mode !== "dynasty" || !run.dynasty) return [];
+    const names = [];
+    const records = Array.isArray(run.dynasty.results) ? run.dynasty.results : [];
+    records.forEach((entry) => {
+      const result = entry?.result;
+      if (!result || result.achievementStatus === "pending-europe") return;
+      const stored = Array.isArray(result.achievements) ? result.achievements : [];
+      const derived = collectSeasonAchievements(
+        result,
+        entry.europeResult || result.europeResult,
+        result.dynastyAchievementContext
+      );
+      names.push(...stored, ...derived);
+    });
+    if (!records.some((entry) => entry?.result === run.result)) names.push(...runAchievementNames(run));
+    return [...new Set(names)].filter((name) => Object.prototype.hasOwnProperty.call(ACHIEVEMENT_DETAILS, name));
+  }
+
+  function renderDynastyAchievementHistory(run, section) {
+    if (!section) return;
+    section.querySelector(".dynasty-achievement-history")?.remove();
+    if (run?.mode !== "dynasty") return;
+    const names = dynastyAchievementNames(run);
+    const archive = el("div", "dynasty-achievement-history", "");
+    const heading = el("div", "achievement-heading dynasty-achievement-heading", "");
+    const title = el("div", "", "");
+    title.appendChild(el("p", "eyebrow", uiText("王朝成就", "Dynasty Honors")));
+    title.appendChild(el("h4", "", uiText("历届赛季累计成就", "Achievements across this dynasty")));
+    heading.appendChild(title);
+    heading.appendChild(el("span", "chip chip-gold", uiText(`${names.length} 项累计成就`, `${names.length} cumulative`)));
+    archive.appendChild(heading);
+    const list = el("div", "achievements dynasty-achievements", "");
+    names.forEach((name) => {
+      const detail = ACHIEVEMENT_DETAILS[name] || ["🎖️", "完成特殊赛季目标", "Complete a special season objective"];
+      const card = el("div", "achievement-card dynasty-achievement-card", "");
+      card.appendChild(el("span", "achievement-icon", detail[0]));
+      const copy = el("div", "achievement-copy", "");
+      copy.appendChild(el("strong", "", achievementTitle(name)));
+      const category = ACHIEVEMENT_CATEGORY_GROUPS.find((group) => group.names.includes(name));
+      copy.appendChild(el("small", "dynasty-achievement-category", category
+        ? uiText(category.label, category.labelEn)
+        : uiText("赛季成就", "Season achievement")));
+      copy.appendChild(el("small", "", uiText(detail[1], detail[2])));
+      card.appendChild(copy);
+      list.appendChild(card);
+    });
+    if (!names.length) {
+      const empty = el("div", "achievement-empty", "");
+      empty.appendChild(el("strong", "", uiText("暂未获得王朝成就", "No dynasty achievements yet")));
+      empty.appendChild(el("small", "", uiText(
+        "随着王朝赛季推进，获得的成就会累计显示在这里。",
+        "Achievements earned across the dynasty will be collected here."
+      )));
+      list.appendChild(empty);
+    }
+    archive.appendChild(list);
+    section.appendChild(archive);
+  }
+
   function recordUnlockedAchievements(run) {
     const names = runAchievementNames(run).filter((name) => Object.prototype.hasOwnProperty.call(ACHIEVEMENT_DETAILS, name));
     if (!names.length) return;
@@ -2561,27 +2601,70 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
     });
+    if (ui.achievementCategoryFilter) {
+      ui.achievementCategoryFilter.innerHTML = "";
+      const categoryButtons = [
+        { id: "all", label: "全部分类", labelEn: "All Categories", total: entries.length, unlocked: unlocked.size },
+        ...ACHIEVEMENT_CATEGORY_GROUPS.map((group) => ({
+          ...group,
+          total: group.names.length,
+          unlocked: group.names.filter((name) => unlocked.has(name)).length
+        }))
+      ];
+      categoryButtons.forEach((category) => {
+        const button = el("button", "achievement-category-btn", "");
+        button.type = "button";
+        button.dataset.achievementCategory = category.id;
+        button.classList.toggle("active", category.id === state.achievementCategory);
+        button.setAttribute("aria-selected", String(category.id === state.achievementCategory));
+        button.appendChild(el("strong", "", uiText(category.label, category.labelEn)));
+        button.appendChild(el("small", "", `${category.unlocked}/${category.total}`));
+        ui.achievementCategoryFilter.appendChild(button);
+      });
+    }
     ui.achievementCatalog.innerHTML = "";
-    const visible = entries.filter(([name]) => state.achievementFilter !== "unlocked" || unlocked.has(name));
-    if (!visible.length) {
+    const categoryFilter = state.achievementCategory || "all";
+    const groups = ACHIEVEMENT_CATEGORY_GROUPS.map((group) => {
+      const visible = group.names
+        .map((name) => [name, ACHIEVEMENT_DETAILS[name]])
+        .filter(([, detail]) => detail)
+        .filter(([name]) => state.achievementFilter !== "unlocked" || unlocked.has(name));
+      return { ...group, visible };
+    }).filter((group) => categoryFilter === "all" || group.id === categoryFilter);
+    const visibleCount = groups.reduce((total, group) => total + group.visible.length, 0);
+    if (!visibleCount) {
       ui.achievementCatalog.appendChild(el("div", "achievement-catalog-empty", uiText(
         "还没有获得成就，完成赛季目标后会显示在这里。",
         "No achievements unlocked yet. Complete season objectives to see them here."
       )));
       return;
     }
-    visible.forEach(([name, detail]) => {
-      const isUnlocked = unlocked.has(name);
-      const card = el("article", `achievement-catalog-card${isUnlocked ? " unlocked" : " locked"}`, "");
-      card.appendChild(el("span", "achievement-catalog-icon", isUnlocked ? detail[0] : "?"));
-      const copy = el("div", "achievement-catalog-copy", "");
-      copy.appendChild(el("strong", "", achievementTitle(name)));
-      copy.appendChild(el("small", "", uiText(detail[1], detail[2])));
-      card.appendChild(copy);
-      card.appendChild(el("span", "achievement-catalog-status", isUnlocked
-        ? uiText("已获得", "Unlocked")
-        : uiText("未获得", "Locked")));
-      ui.achievementCatalog.appendChild(card);
+    groups.forEach((group) => {
+      if (!group.visible.length) return;
+      const section = el("section", "achievement-category-group", "");
+      const heading = el("div", "achievement-category-heading", "");
+      const headingCopy = el("div", "", "");
+      headingCopy.appendChild(el("strong", "", uiText(group.label, group.labelEn)));
+      headingCopy.appendChild(el("small", "", uiText("按类别查看成就", "Browse by category")));
+      heading.appendChild(headingCopy);
+      heading.appendChild(el("span", "achievement-category-count", `${group.visible.filter(([name]) => unlocked.has(name)).length}/${group.names.length}`));
+      section.appendChild(heading);
+      const cards = el("div", "achievement-category-cards", "");
+      group.visible.forEach(([name, detail]) => {
+        const isUnlocked = unlocked.has(name);
+        const card = el("article", `achievement-catalog-card${isUnlocked ? " unlocked" : " locked"}`, "");
+        card.appendChild(el("span", "achievement-catalog-icon", isUnlocked ? detail[0] : "?"));
+        const copy = el("div", "achievement-catalog-copy", "");
+        copy.appendChild(el("strong", "", achievementTitle(name)));
+        copy.appendChild(el("small", "", uiText(detail[1], detail[2])));
+        card.appendChild(copy);
+        card.appendChild(el("span", "achievement-catalog-status", isUnlocked
+          ? uiText("已获得", "Unlocked")
+          : uiText("未获得", "Locked")));
+        cards.appendChild(card);
+      });
+      section.appendChild(cards);
+      ui.achievementCatalog.appendChild(section);
     });
   }
 
@@ -2708,7 +2791,7 @@
   async function startGame() {
     const setupChallenge = activeSetupChallenge();
     if (!state.selectedLeagues.size
-      && !(state.setupMode === "dynasty" && state.dynastyType === "tiered")
+      && state.setupMode !== "dynasty"
       && !isClubPeakChallenge(setupChallenge)) {
       toast("请至少选择一个联赛。");
       return;
@@ -2737,16 +2820,11 @@
       return;
     }
     const dynastyMode = state.setupMode === "dynasty";
-    const dynastyType = dynastyMode ? state.dynastyType : null;
+    const dynastyType = dynastyMode ? "tiered" : null;
     const gameLeagues = dynastyType === "tiered"
       ? [...BIG_FIVE_IDS]
       : state.selectedLeagues.size ? [...state.selectedLeagues] : [peakClub.league];
-    const dynastySeasons = dynastyMode && dynastyType !== "tiered"
-      ? dynastySeasonsFrom(ui.dynastyStartSeason?.value || "2023-24")
-      : [];
-    const dynastyStart = dynastyMode
-      ? dynastyType === "tiered" ? CURRENT_DATA_SEASON : dynastySeasons[0]
-      : null;
+    const dynastyStart = dynastyMode ? CURRENT_DATA_SEASON : null;
     const ironManager = challenge?.id === "iron-manager";
     state.game = {
       id: gameId,
@@ -2764,8 +2842,8 @@
       peakClubLeague: peakClub?.league || null,
       peakClubName: peakClub?.name || null,
       dynasty: dynastyMode ? {
-        type: dynastyType || "normal",
-        seasons: dynastyType === "tiered" ? [] : dynastySeasons,
+        type: dynastyType,
+        seasons: [],
         currentIndex: 0,
         currentSeason: dynastyStart,
         results: [],
@@ -2790,7 +2868,17 @@
       selectedSlotIndex: null,
       phase: "drafting",
       result: null,
-      postSeasonTransfer: null
+      postSeasonTransfer: null,
+      freeAgentMarket: dynastyMode ? {
+        version: FREE_AGENT_MARKET_VERSION,
+        sourceSeason: CURRENT_DATA_SEASON,
+        available: [],
+        signed: [],
+        history: [],
+        windowCount: 0,
+        seeded: false,
+        lastUpdated: 0
+      } : null
     };
     const rng = gameRng(state.game);
     state.game.season = dynastyStart || randomSeasonInRange(state.game.seasonRange, rng);
@@ -2818,7 +2906,7 @@
         ? uiText(`${localizedClubName(peakClub.name)}俱乐部巅峰挑战已开始。`, `${localizedClubName(peakClub.name)} Club Peak challenge started.`)
         : uiText(`${challenge.name}挑战已开始。`, `${challenge.nameEn} challenge started.`)
       : dynastyMode
-        ? uiText(`${dynastyStart} 王朝已开始。`, `${dynastyStart} dynasty started.`)
+        ? uiText("三级征途已开始，从第三级联赛出发。", "Three-Tier Journey started from Tier 3.")
       : uiText("新选秀已开始，请抽取赛季和球队。", "New draft started. Draw a season and club."));
   }
 
@@ -2902,6 +2990,7 @@
     ui.simulationPanel.classList.add("hidden");
     ui.transferPanel.classList.add("hidden");
     const retainedDynastySquad = game.mode === "dynasty" && Number(game.dynasty?.currentIndex || 0) > 0;
+    setSlotMachineMode(null);
     document.querySelector(".wheel-card")?.classList.toggle("hidden", retainedDynastySquad);
     ui.rerollBtn.classList.toggle("hidden", retainedDynastySquad);
     ui.rerollBtn.textContent = uiText("使用 1 次重转", "Use Reroll");
@@ -2945,14 +3034,30 @@
     const game = state.game;
     if (state.transfer) {
       const transfer = state.transfer;
-      if (["free", "mystery", "deadline"].includes(transfer.mode)) {
-        ui.spinBtn.disabled = true;
+      const directMode = ["free", "mystery", "deadline", "loan"].includes(transfer.mode);
+      if (transfer.modeDrawPending) {
+        ui.spinBtn.disabled = Boolean(state.spinning);
+        ui.spinBtn.textContent = uiText("抽取转会方式", "Draw Transfer Method");
         ui.rerollBtn.disabled = true;
+        return;
+      }
+      if (directMode) {
+        ui.spinBtn.disabled = true;
+        ui.spinBtn.textContent = uiText("开始抽取", "Start Draw");
+        ui.rerollBtn.disabled = true;
+        return;
+        const readyToDraw = transfer.candidates.length > 0 && !transfer.playerReelDone;
+        ui.spinBtn.disabled = Boolean(state.spinning) || !readyToDraw;
+        ui.rerollBtn.disabled = true;
+        ui.spinBtn.textContent = transfer.playerReelDone
+          ? uiText("抽取完成", "Draw Complete")
+          : uiText("开始抽取转会球员", "Draw Transfer Players");
         return;
       }
       const hasSpin = Boolean(transfer.currentSpin);
       const selected = Boolean(transfer.selectedCandidateId);
       ui.spinBtn.disabled = Boolean(state.spinning) || hasSpin;
+      ui.spinBtn.textContent = uiText("开始抽取", "Start Draw");
       ui.rerollBtn.disabled = Boolean(state.spinning) || !hasSpin || transfer.candidates.length > 0 || selected;
       ui.rerollBtn.textContent = uiText("重新抽取", "Redraw");
       return;
@@ -3468,6 +3573,15 @@
     review.appendChild(el("small", "", contribution
       ? uiText(`新援合计贡献 ${contribution}。${directContributions >= 12 ? "他们迅速成为赛季后半程的重要力量。" : directContributions > 0 ? "他们已经带来直接回报，但仍有继续提升的空间。" : ""}`, `The arrivals combined for ${contribution}. ${directContributions >= 12 ? "They quickly became an important force in the second half of the season." : directContributions > 0 ? "They delivered an immediate return, with room for more." : ""}`)
       : uiText("新援尚未直接参与进球或零封，转会的长期价值仍需后续赛季检验。", "The arrivals did not directly register a goal, assist, or clean sheet, so the long-term value of the business remains to be proven.")));
+    if (result.freeAgentMarket) {
+      const market = result.freeAgentMarket;
+      review.appendChild(el("small", "", uiText(
+        /*
+        `自由球员市场记录：可用 ${market.available} 名，已签约 ${market.signed} 名`,
+        */ `Free-agent market record: ${market.available} available, ${market.signed} signed`,
+        `Free-agent market record: ${market.available} available, ${market.signed} signed`
+      )));
+    }
     container.appendChild(review);
   }
 
@@ -3719,6 +3833,114 @@
       || (game.draftedPlayers || []).some((drafted) => playerIdentity(drafted) === identity);
   }
 
+  function freeAgentMarketIdentity(player) {
+    return player?.marketIdentity || playerIdentity(player);
+  }
+
+  function ensureFreeAgentMarket(game) {
+    if (!game || game.mode !== "dynasty") return null;
+    const current = game.freeAgentMarket || {};
+    const market = {
+      version: FREE_AGENT_MARKET_VERSION,
+      sourceSeason: CURRENT_DATA_SEASON,
+      available: Array.isArray(current.available) ? current.available : [],
+      signed: Array.isArray(current.signed) ? current.signed : [],
+      history: Array.isArray(current.history) ? current.history : [],
+      windowCount: Number(current.windowCount || 0),
+      seeded: Boolean(current.seeded),
+      lastUpdated: Number(current.lastUpdated || 0)
+    };
+    const signedIdentities = new Set(market.signed.map((player) => freeAgentMarketIdentity(player)));
+    const seen = new Set();
+    market.available = market.available.filter((player) => {
+      const identity = freeAgentMarketIdentity(player);
+      if (!identity || seen.has(identity) || signedIdentities.has(identity) || isOwnedPlayer(player, game)) return false;
+      seen.add(identity);
+      return true;
+    });
+    if (!market.seeded) {
+      const clubs = allClubs(CURRENT_DATA_SEASON).filter((club) => BIG_FIVE_IDS.has(club.league));
+      clubs.forEach((club) => {
+        (club.players || []).forEach((player) => {
+          const candidate = {
+            ...player,
+            id: `${CURRENT_DATA_SEASON}|${club.id}|${player.name}`,
+            marketIdentity: playerIdentity({ ...player, sourceClubId: club.id }),
+            baseRate: clamp(Number(player.rate || 80), 40, 99),
+            rate: clamp(calibrateRate(Number(player.rate || 80), CURRENT_DATA_SEASON), 40, 99),
+            sourceClubId: club.id,
+            sourceClubName: club.name,
+            sourceLeagueId: club.league,
+            sourceSeason: CURRENT_DATA_SEASON
+          };
+          const identity = freeAgentMarketIdentity(candidate);
+          if (!identity || seen.has(identity) || signedIdentities.has(identity) || isOwnedPlayer(candidate, game)) return;
+          seen.add(identity);
+          market.available.push(candidate);
+        });
+      });
+      market.seeded = true;
+    }
+    market.version = FREE_AGENT_MARKET_VERSION;
+    market.sourceSeason = CURRENT_DATA_SEASON;
+    market.lastUpdated = Date.now();
+    game.freeAgentMarket = market;
+    return market;
+  }
+
+  function recordFreeAgentOffers(game, candidates, transfer) {
+    if (!transfer?.postSeason || !candidates?.length) return;
+    const market = ensureFreeAgentMarket(game);
+    if (!market) return;
+    const windowId = transfer.marketWindowId || `${game.id}|${market.windowCount}`;
+    const offered = new Set(market.history
+      .filter((entry) => entry.status === "offered" && entry.windowId === windowId)
+      .map((entry) => entry.identity));
+    candidates.forEach((candidate) => {
+      const identity = freeAgentMarketIdentity(candidate);
+      if (!identity || offered.has(identity)) return;
+      offered.add(identity);
+      market.history.push({
+        status: "offered",
+        windowId,
+        season: simulationSeason(game),
+        identity,
+        id: candidate.id,
+        name: candidate.name,
+        sourceClubName: candidate.sourceClubName || "",
+        sourceSeason: candidate.sourceSeason || CURRENT_DATA_SEASON
+      });
+    });
+    market.lastUpdated = Date.now();
+  }
+
+  function recordFreeAgentSigning(game, candidate, transfer) {
+    if (!transfer?.postSeason || !candidate) return;
+    const market = ensureFreeAgentMarket(game);
+    if (!market) return;
+    const identity = freeAgentMarketIdentity(candidate);
+    market.available = market.available.filter((player) => freeAgentMarketIdentity(player) !== identity);
+    if (!market.signed.some((player) => freeAgentMarketIdentity(player) === identity)) {
+      market.signed.push({
+        ...candidate,
+        marketIdentity: identity,
+        signedSeason: simulationSeason(game),
+        signedAt: Date.now()
+      });
+    }
+    market.history.push({
+      status: "signed",
+      windowId: transfer.marketWindowId || "",
+      season: simulationSeason(game),
+      identity,
+      id: candidate.id,
+      name: candidate.name,
+      sourceClubName: candidate.sourceClubName || "",
+      sourceSeason: candidate.sourceSeason || CURRENT_DATA_SEASON
+    });
+    market.lastUpdated = Date.now();
+  }
+
   function isDrafted(playerOrId) {
     const candidate = typeof playerOrId === "string"
       ? state.game?.candidates?.find((player) => player.id === playerOrId) || { id: playerOrId }
@@ -3962,6 +4184,9 @@
       sim,
       step: 1,
       mode: options.postSeason ? "free" : "weak",
+      modeDrawPending: false,
+      modeDrawOptions: null,
+      modeDrawTarget: null,
       targetUnit: options.postSeason ? null : getWeakestUnit(sim.game),
       currentSpin: null,
       candidates: [],
@@ -3971,8 +4196,16 @@
       log: [],
       resolved: false,
       skipped: false,
-      postSeason: Boolean(options.postSeason)
+      postSeason: Boolean(options.postSeason),
+      marketWindowId: null
     };
+    if (transfer.postSeason && sim.game.mode === "dynasty") {
+      const market = ensureFreeAgentMarket(sim.game);
+      if (market) {
+        market.windowCount += 1;
+        transfer.marketWindowId = `${sim.game.id}|${market.windowCount}`;
+      }
+    }
     state.transfer = transfer;
     sim.transferState = transfer;
     ui.transferPanel.classList.remove("hidden");
@@ -3997,16 +4230,27 @@
       ui.transferWeakText.appendChild(el("strong", "", uiText("赛季结束自由签约", "End-of-season free signings")));
       ui.transferWeakText.appendChild(el("span", "", uiText(
         "本次王朝转会窗固定提供两次自由签约，每次从当前赛季的合格球员池中随机提供 5 名候选人。",
-        "This dynasty window gives two free signings. Each signing offers five random eligible players from the current season."
+         "This dynasty window gives two free signings. Each signing offers five random eligible players from the current season."
+       )));
+      const market = ensureFreeAgentMarket(state.game);
+      if (market) ui.transferWeakText.appendChild(el("small", "", uiText(
+        /*
+        `鑷敱鐞冨憳甯傚満锛氬彲鐢?${market.available.length} 鍚嶏紝宸茬绾?${market.signed.length} 鍚峘,
+        */ `Free-agent market: ${market.available.length} available, ${market.signed.length} signed`,
+        `Free-agent market: ${market.available.length} available, ${market.signed.length} signed`
       )));
-      return;
+       return;
     }
     const unit = state.transfer.targetUnit || getWeakestUnit(state.game);
     ui.transferWeakText.innerHTML = "";
     ui.transferWeakText.appendChild(el("strong", "", uiText(`当前最弱位置：${unit}`, `Weakest area: ${unit}`)));
     ui.transferWeakText.appendChild(el("span", "", uiText(
-      "第一次只会提供能够提升弱项位置评分的球员；第 2 次转会方式将随机抽取。",
-      "The first transfer only offers players who improve a weak-area slot; the second transfer method is randomized."
+      state.game?.mode === "dynasty"
+        ? "第一次只会提供能够提升弱项位置评分的球员；王朝模式第 2 次转会会从四种方式中随机抽取。"
+        : "第一次只会提供能够提升弱项位置评分的球员；第 2 次转会方式将随机抽取。",
+      state.game?.mode === "dynasty"
+        ? "The first transfer only offers players who improve a weak-area slot; Dynasty's second transfer is drawn from four methods."
+        : "The first transfer only offers players who improve a weak-area slot; the second transfer method is randomized."
     )));
   }
 
@@ -4092,16 +4336,204 @@
     container.appendChild(context);
   }
 
+  function legacySetSlotMachineMode(transfer) {
+    const direct = Boolean(transfer && ["free", "mystery", "deadline", "loan"].includes(transfer.mode));
+    const slotMachine = $("#slotMachine");
+    slotMachine?.classList.toggle("transfer-player-machine", direct);
+    $("#slotMachineTitle")?.replaceChildren(document.createTextNode(direct
+      ? uiText("转会球员抽取", "Transfer Player Draw")
+      : uiText("赛季与球队抽取", "Season & Club Draw")));
+    $("#seasonReelLabel")?.replaceChildren(document.createTextNode(direct
+      ? uiText("来源赛季", "Source Season")
+      : uiText("赛季", "Season")));
+    $("#clubReelLabel")?.replaceChildren(document.createTextNode(direct
+      ? uiText("候选球员", "Candidate Player")
+      : uiText("球队", "Club")));
+    $("#seasonReelMeta")?.replaceChildren(document.createTextNode(direct ? "SEASON" : "SEASON"));
+    $("#clubReelMeta")?.replaceChildren(document.createTextNode(direct ? "PLAYER" : "CLUB"));
+  }
+
+  function legacyTransferReelItems(transfer) {
+    const candidates = Array.isArray(transfer?.candidates) ? transfer.candidates : [];
+    return {
+      seasons: candidates.map((candidate) => ({
+        primary: candidate.sourceSeason || simulationSeason(transfer.sim.game),
+        meta: "SEASON"
+      })),
+      players: candidates.map((candidate) => ({
+        primary: candidate.name,
+        meta: [candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "", candidate.nat].filter(Boolean).join(" · ") || "PLAYER"
+      }))
+    };
+  }
+
+  function legacyRenderTransferPlayerReel(transfer) {
+    if (!transfer || !["free", "mystery", "deadline", "loan"].includes(transfer.mode)) return;
+    const { seasons, players } = legacyTransferReelItems(transfer);
+    const fallbackSeasons = seasons.length ? seasons : [{ primary: "----", meta: "SEASON" }];
+    const fallbackPlayers = players.length ? players : [{ primary: uiText("等待抽取", "READY"), meta: "PLAYER" }];
+    const targetIndex = Math.max(0, transfer.playerReelTargetId
+      ? transfer.candidates.findIndex((candidate) => candidate.id === transfer.playerReelTargetId)
+      : 0);
+    renderSlotReel("season", fallbackSeasons, targetIndex, Boolean(transfer.playerReelDone));
+    renderSlotReel("club", fallbackPlayers, targetIndex, Boolean(transfer.playerReelDone));
+  }
+
+  async function legacySpinDirectTransferWheel() {
+    const transfer = state.transfer;
+    if (!transfer || state.spinning || transfer.playerReelDone || !transfer.candidates.length) return;
+    const { seasons, players } = legacyTransferReelItems(transfer);
+    const targetIndex = transfer.mode === "deadline"
+      ? Math.min(transfer.deadlineOfferIndex || 0, transfer.candidates.length - 1)
+      : Math.floor(Math.random() * transfer.candidates.length);
+    state.spinning = true;
+    transfer.playerReelTargetId = null;
+    setSlotMachineMode(transfer);
+    legacyRenderTransferPlayerReel(transfer);
+    renderTransferSpinResult();
+    renderTransferCandidates();
+    updateSpinControls();
+    await Promise.all([
+      animateSlotReel("season", seasons, targetIndex, 1350),
+      animateSlotReel("club", players, targetIndex, 2250)
+    ]);
+    state.spinning = false;
+    transfer.playerReelDone = true;
+    transfer.playerReelTargetId = transfer.candidates[targetIndex]?.id || null;
+    saveGame();
+    renderTransferHeader();
+    renderTransferSpinResult();
+    renderTransferCandidates();
+    updateSpinControls();
+  }
+
+  function setSlotMachineMode(transfer) {
+    const modeDraw = Boolean(transfer?.modeDrawPending);
+    const fixedSeason = Boolean(!transfer && isTieredDynasty(state.game));
+    const slotMachine = $("#slotMachine");
+    slotMachine?.classList.toggle("transfer-mode-machine", modeDraw);
+    slotMachine?.classList.toggle("tiered-fixed-season", fixedSeason);
+    $("#slotMachineTitle")?.replaceChildren(document.createTextNode(modeDraw
+      ? uiText("第二次转会方式抽取", "Second Transfer Method Draw")
+      : fixedSeason
+        ? uiText("球队抽取", "Club Draw")
+        : uiText("赛季与球队抽取", "Season & Club Draw")));
+    $("#seasonReelLabel")?.replaceChildren(document.createTextNode(modeDraw
+      ? uiText("转会方式", "Method")
+      : uiText("赛季", "Season")));
+    $("#clubReelLabel")?.replaceChildren(document.createTextNode(modeDraw
+      ? uiText("方式说明", "Rule")
+      : uiText("球队", "Club")));
+    $("#seasonReelMeta")?.replaceChildren(document.createTextNode(modeDraw ? "METHOD" : "SEASON"));
+    $("#clubReelMeta")?.replaceChildren(document.createTextNode(modeDraw ? "RULE" : "CLUB"));
+  }
+
+  function transferModeHint(mode) {
+    return mode === "free" ? uiText("五名候选", "Five candidates")
+      : mode === "mystery" ? uiText("三选一盲盒", "Three mystery boxes")
+        : mode === "deadline" ? uiText("三份报价", "Three offers")
+          : mode === "loan" ? uiText("租借至赛季末", "Loan to season end")
+            : uiText("补强弱项", "Weak-area upgrade");
+  }
+
+  function renderTransferModeReel(transfer) {
+    if (!transfer?.modeDrawPending) return;
+    const options = transfer.modeDrawOptions?.length
+      ? transfer.modeDrawOptions
+      : transfer.sim.game.mode === "dynasty" ? DYNASTY_SECOND_TRANSFER_MODE_KEYS : SECOND_TRANSFER_MODE_KEYS;
+    const modeItems = options.map((mode) => ({ primary: transferModeName(mode), meta: "METHOD" }));
+    const ruleItems = options.map((mode) => ({ primary: transferModeHint(mode), meta: "RULE" }));
+    const targetIndex = state.spinning
+      ? Math.max(0, options.indexOf(transfer.modeDrawTarget))
+      : 0;
+    renderSlotReel("season", modeItems, targetIndex, false);
+    renderSlotReel("club", ruleItems, targetIndex, false);
+  }
+
+  async function spinTransferModeWheel() {
+    const transfer = state.transfer;
+    if (!transfer?.modeDrawPending || state.spinning) return;
+    const options = transfer.modeDrawOptions?.length
+      ? transfer.modeDrawOptions
+      : transfer.sim.game.mode === "dynasty" ? DYNASTY_SECOND_TRANSFER_MODE_KEYS : SECOND_TRANSFER_MODE_KEYS;
+    const modeItems = options.map((mode) => ({ primary: transferModeName(mode), meta: "METHOD" }));
+    const ruleItems = options.map((mode) => ({ primary: transferModeHint(mode), meta: "RULE" }));
+    const targetIndex = Math.max(0, options.indexOf(transfer.modeDrawTarget));
+    state.spinning = true;
+    setSlotMachineMode(transfer);
+    renderTransferModeReel(transfer);
+    renderTransferSpinResult();
+    renderTransferCandidates();
+    updateSpinControls();
+    await Promise.all([
+      animateSlotReel("season", modeItems, targetIndex, 1350),
+      animateSlotReel("club", ruleItems, targetIndex, 2250)
+    ]);
+    state.spinning = false;
+    transfer.mode = transfer.modeDrawTarget;
+    transfer.modeDrawPending = false;
+    transfer.modeDrawOptions = null;
+    saveGame();
+    await prepareTransferStep(transfer);
+  }
+
+  function updateSpinControls() {
+    const game = state.game;
+    if (state.transfer) {
+      const transfer = state.transfer;
+      const directMode = ["free", "mystery", "deadline", "loan"].includes(transfer.mode);
+      if (transfer.modeDrawPending) {
+        ui.spinBtn.disabled = Boolean(state.spinning);
+        ui.spinBtn.textContent = uiText("抽取转会方式", "Draw Transfer Method");
+        ui.rerollBtn.disabled = true;
+        return;
+      }
+      if (directMode) {
+        ui.spinBtn.disabled = true;
+        ui.spinBtn.textContent = uiText("开始抽取", "Start Draw");
+        ui.rerollBtn.disabled = true;
+        return;
+      }
+      const hasSpin = Boolean(transfer.currentSpin);
+      const selected = Boolean(transfer.selectedCandidateId);
+      ui.spinBtn.disabled = Boolean(state.spinning) || hasSpin;
+      ui.spinBtn.textContent = uiText("开始抽取", "Start Draw");
+      ui.rerollBtn.disabled = Boolean(state.spinning) || !hasSpin || transfer.candidates.length > 0 || selected;
+      ui.rerollBtn.textContent = uiText("重新抽取", "Redraw");
+      return;
+    }
+    const locked = Boolean(
+      game
+      && game.currentSpin
+      && !game.currentSpin.drafted
+      && game.candidates.length
+    );
+    ui.spinBtn.disabled = locked || Boolean(state.spinning);
+    ui.spinBtn.textContent = uiText("开始抽取", "Start Draw");
+    ui.rerollBtn.disabled = game?.rerolls <= 0 || Boolean(state.spinning);
+    if (state.autoSpinPending) {
+      ui.spinBtn.disabled = true;
+      ui.rerollBtn.disabled = true;
+    }
+  }
+
   function renderTransferHeader() {
     if (!state.transfer) return;
     renderTransferHalfSummary();
     const transfer = state.transfer;
     const stepText = transfer.postSeason
       ? uiText(`第 ${transfer.step}/2 次转会 · 自由签约`, `Transfer ${transfer.step}/2 · Free Signing`)
-      : transfer.step === 1
+      : transfer.modeDrawPending
+        ? uiText("第 2/2 次转会 · 方式抽取", "Transfer 2/2 · Method Draw")
+        : transfer.step === 1
         ? uiText("第 1/2 次转会 · 弱项补强", "Transfer 1/2 · Weak-Area")
         : uiText(`第 2/2 次转会 · ${transferModeName(transfer.mode)}`, `Transfer 2/2 · ${transferModeName(transfer.mode)}`);
     ui.transferProgress.textContent = `${transfer.completed}/2`;
+    const directMode = ["free", "mystery", "deadline", "loan"].includes(transfer.mode);
+    setSlotMachineMode(transfer);
+    document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode && !transfer.modeDrawPending);
+    ui.rerollBtn.classList.toggle("hidden", directMode || transfer.modeDrawPending);
+    if (transfer.modeDrawPending) renderTransferModeReel(transfer);
     const transferEyebrow = document.querySelector(".transfer-panel .eyebrow");
     if (transferEyebrow) transferEyebrow.textContent = transfer.postSeason
       ? uiText("赛季结束转会窗", "End-of-Season Transfer Window")
@@ -4122,12 +4554,26 @@
         ? transfer.revealedCandidateId
           ? uiText("盲盒已经锁定，点击球场上的兼容位置完成签约。", "The box is locked in. Click a compatible slot to complete the signing.")
           : uiText("三个盲盒只能打开一个；揭晓后必须签下这名球员。", "Only one of the three boxes can be opened; the revealed player must be signed.")
-        : transfer.mode === "deadline"
+      : transfer.mode === "deadline"
           ? transfer.selectedCandidateId
             ? uiText("报价已经锁定，点击球场上的兼容位置完成签约。", "The offer is locked in. Click a compatible slot to complete the signing.")
             : uiText("前两份报价可以放弃且不可撤回；第三份报价必须签约。", "The first two offers may be rejected and cannot be recalled; the third offer must be signed.")
+        : transfer.mode === "loan"
+          ? uiText("租借球员只效力到本赛季结束；点击兼容位置完成租借。", "The loanee stays only until the end of this season. Click a compatible slot to complete the loan.")
         : uiText("系统会先筛出拥有合格补强球员的球队，再从中抽取；点击可补强的位置完成转会。", "The game first filters for clubs with a valid upgrade, then draws from them. Click an upgradeable slot to complete the transfer.");
-    ui.transferStatus.appendChild(el("span", "", instruction));
+    const transferInstruction = directMode
+      ? uiText(
+        transfer.playerReelDone
+          ? "转轴已停止，请从候选球员中选择并在球场上完成签约。"
+          : "请点击“开始抽取转会球员”，转轴停止后再选择候选人。",
+        transfer.playerReelDone
+          ? "The reel has stopped. Choose a candidate and complete the signing on the pitch."
+          : "Click “Draw Transfer Players” first. Candidates will be available when the reel stops."
+      )
+      : instruction;
+    ui.transferStatus.appendChild(el("span", "", transfer.modeDrawPending
+      ? uiText("请点击转轴抽取本次转会方式。", "Click the reel to draw this transfer method.")
+      : instruction));
     renderTransferLog();
   }
 
@@ -4136,6 +4582,7 @@
       : mode === "free" ? uiText("自由签约", "Free Signing")
       : mode === "mystery" ? uiText("盲盒签约", "Mystery Signing")
       : mode === "deadline" ? uiText("截止日抉择", "Deadline Day")
+      : mode === "loan" ? uiText("租借救火", "Emergency Loan")
       : mode === "random" ? uiText("随机引援", "Random Signing")
       : mode === "swap" ? uiText("球员交换", "Player Swap")
       : uiText("转会", "Transfer");
@@ -4190,23 +4637,46 @@
     const rng = gameRng(transfer.sim.game);
     if (transfer.postSeason) {
       transfer.mode = "free";
-    } else if (transfer.step === 2) {
-      transfer.mode = SECOND_TRANSFER_MODE_KEYS[Math.floor(rng() * SECOND_TRANSFER_MODE_KEYS.length)];
+    } else if (transfer.step === 2 && !transfer.modeDrawTarget) {
+      const modeKeys = transfer.sim.game.mode === "dynasty"
+        ? DYNASTY_SECOND_TRANSFER_MODE_KEYS
+        : SECOND_TRANSFER_MODE_KEYS;
+      transfer.modeDrawOptions = modeKeys;
+      transfer.modeDrawTarget = modeKeys[Math.floor(rng() * modeKeys.length)];
+      transfer.modeDrawPending = true;
+      transfer.mode = null;
+      transfer.currentSpin = null;
+      transfer.candidates = [];
+      transfer.selectedCandidateId = null;
+      transfer.revealedCandidateId = null;
+      transfer.deadlineOfferIndex = 0;
+      saveGame();
+      renderTransferHeader();
+      renderPitch();
+      renderSpinResult();
+      renderCandidates();
+      updateSpinControls();
+      return;
     }
+    transfer.modeDrawPending = false;
     if (transfer.mode === "weak") transfer.targetUnit = getWeakestUnit(transfer.sim.game);
     transfer.currentSpin = null;
     transfer.candidates = [];
     transfer.selectedCandidateId = null;
     transfer.revealedCandidateId = null;
     transfer.deadlineOfferIndex = 0;
-    const directMode = ["free", "mystery", "deadline"].includes(transfer.mode);
+    const directMode = ["free", "mystery", "deadline", "loan"].includes(transfer.mode);
     document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode);
     ui.rerollBtn.classList.toggle("hidden", directMode);
     if (directMode) {
       state.spinning = true;
       ui.transferStatus.textContent = uiText("正在加载历史球员数据…", "Loading historical player data…");
       try {
-        await loadSeasonRange(seasonsInRange(transfer.sim.game.seasonRange));
+        if (transfer.postSeason) {
+          await loadSeasonData(CURRENT_DATA_SEASON);
+        } else {
+          await loadSeasonRange(seasonsInRange(transfer.sim.game.seasonRange));
+        }
         prepareDirectTransferCandidates(transfer);
       } catch (error) {
         toast(uiText("历史球员数据加载失败，请重试。", "Could not load historical players. Please retry."));
@@ -4250,6 +4720,15 @@
       .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)));
   }
 
+  function buildFreeAgentMarketPool(transfer, game) {
+    const market = ensureFreeAgentMarket(game);
+    if (!market) return [];
+    return market.available
+      .filter((player) => !isOwnedPlayer(player, game))
+      .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)))
+      .map((player) => ({ ...player }));
+  }
+
   function buildWeakTransferClubPool(transfer, game) {
     const leagueIds = new Set(game.leagues.length ? game.leagues : [...state.selectedLeagues]);
     return seasonsInRange(game.seasonRange).flatMap((season) => (
@@ -4271,7 +4750,9 @@
   function prepareDirectTransferCandidates(transfer) {
     const game = transfer.sim.game;
     const rng = gameRng(game);
-    const pool = buildDirectTransferPool(transfer, game);
+    const pool = transfer.postSeason
+      ? buildFreeAgentMarketPool(transfer, game)
+      : buildDirectTransferPool(transfer, game);
     transfer.currentSpin = {
       seasonRange: { ...transfer.sim.game.seasonRange },
       direct: true,
@@ -4279,11 +4760,16 @@
     };
     if (transfer.mode === "free") {
       transfer.candidates = shuffleWithRng(pool, rng).slice(0, 5);
+      if (transfer.postSeason) recordFreeAgentOffers(game, transfer.candidates, transfer);
       return;
     }
     if (transfer.mode === "deadline") {
       transfer.candidates = buildDeadlineCandidates(pool, rng);
       transfer.deadlineOfferIndex = 0;
+      return;
+    }
+    if (transfer.mode === "loan") {
+      transfer.candidates = buildLoanCandidates(pool, rng);
       return;
     }
     transfer.candidates = buildMysteryCandidates(pool, rng);
@@ -4339,9 +4825,27 @@
     ].filter(Boolean);
   }
 
+  function buildLoanCandidates(pool, rng) {
+    if (!pool.length) return [];
+    const ordered = [...pool].sort((a, b) => b.rate - a.rate);
+    const emergencyPool = ordered.slice(0, Math.max(3, Math.ceil(ordered.length * 0.35)));
+    const excludedIds = new Set();
+    return [0, 1, 2]
+      .map(() => takeRandomCandidate(emergencyPool, excludedIds, pool, rng))
+      .filter(Boolean)
+      .map((candidate) => ({ ...candidate, loanTerm: "season" }));
+  }
+
   async function spinTransferWheel() {
     const transfer = state.transfer;
     if (!transfer || state.spinning) return;
+    if (transfer.modeDrawPending) {
+      await spinTransferModeWheel();
+      return;
+    }
+    if (["free", "mystery", "deadline", "loan"].includes(transfer.mode)) {
+      return;
+    }
     if (transfer.currentSpin && transfer.candidates.length) return;
     const game = state.game;
     const leagueIds = game.leagues.length ? game.leagues : [...state.selectedLeagues];
@@ -4505,6 +5009,13 @@
   function renderTransferSpinResult() {
     const transfer = state.transfer;
     ui.spinResult.innerHTML = "";
+    if (transfer?.modeDrawPending) {
+      ui.spinResult.appendChild(el("p", "slot-drawing-status", uiText(
+        "请点击转轴抽取本次第二次转会方式。",
+        "Use the reel to draw this second-transfer method."
+      )));
+      return;
+    }
     if (transfer?.mode === "free") {
       const box = el("div", "direct-transfer-summary", "");
       box.appendChild(el("strong", "", uiText("随机候选名单", "Random Candidate List")));
@@ -4531,6 +5042,16 @@
       box.appendChild(el("span", "", transfer.selectedCandidateId
         ? uiText("报价已锁定，请在球场上选择替换位置。", "Offer locked in. Choose a replacement slot on the pitch.")
         : uiText("接受当前报价，或永久放弃并查看下一份。", "Accept this offer, or reject it permanently to see the next one.")));
+      ui.spinResult.appendChild(box);
+      return;
+    }
+    if (transfer?.mode === "loan") {
+      const box = el("div", "direct-transfer-summary loan-summary", "");
+      box.appendChild(el("strong", "", uiText("租借救火", "Emergency Loan")));
+      box.appendChild(el("span", "", uiText(
+        "从当前赛季的高质量候选人中选择一名租借球员；他只效力到本赛季结束。",
+        "Choose one high-quality player from the current season. The loan lasts until the end of this season."
+      )));
       ui.spinResult.appendChild(box);
       return;
     }
@@ -4571,10 +5092,17 @@
       return;
     }
     if (!transfer.candidates.length) {
-      const message = ["free", "mystery", "deadline"].includes(transfer.mode)
+      const message = ["free", "mystery", "deadline", "loan"].includes(transfer.mode)
         ? uiText("没有足够的合格球员完成本次转会。", "Not enough eligible players for this transfer.")
         : uiText("没有可签球员，请重新抽取。", "No eligible player. Redraw.");
       ui.candidates.appendChild(el("p", "history-empty", message));
+      return;
+    }
+    if (false) {
+      ui.candidates.appendChild(el("p", "history-empty", uiText(
+        "请先点击“开始抽取转会球员”，转轴停止后才能选择。",
+        "Start the transfer-player draw first. Candidates will appear when the reel stops."
+      )));
       return;
     }
     if (transfer.mode === "mystery") {
@@ -4594,7 +5122,12 @@
       const clubLine = sourceBits.length ? `${sourceBits.join(" · ")} · ` : "";
       button.appendChild(el("small", "", `${clubLine}${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}`));
       button.appendChild(el("span", "rate", String(candidate.rate)));
-      if (transfer.mode === "weak") appendTransferImpact(button, candidate, transfer);
+      if (transfer.mode === "loan") {
+        button.appendChild(el("span", "loan-term", uiText("租借至本赛季结束", "Loaned until season end")));
+        appendTransferImpact(button, candidate, transfer);
+      } else if (transfer.mode === "weak") {
+        appendTransferImpact(button, candidate, transfer);
+      }
       button.addEventListener("click", () => {
         transfer.selectedCandidateId = candidate.id;
         renderPitch();
@@ -4670,6 +5203,7 @@
       renderTransferSpinResult();
       renderPitch();
       renderCandidates();
+      updateSpinControls();
       toast(finalOffer
         ? uiText("最后一份报价已经锁定，必须完成签约。", "The final offer is locked in and must be signed.")
         : uiText("当前报价已放弃，下一份报价已经送达。", "Offer rejected. The next offer has arrived."));
@@ -4746,6 +5280,12 @@
       forced: false,
       rate: clamp(baseRate + fitBonus(slot.pos, candidate.pos), 40, 99)
     };
+    if (transfer.mode === "loan") {
+      incoming.isLoaned = true;
+      incoming.loanSeason = simulationSeason(game);
+      incoming.loanReturnPlayer = { ...outgoing };
+    }
+    recordFreeAgentSigning(game, candidate, transfer);
     slot.player = incoming;
     game.draftedPlayers.push(incoming);
     rememberPlayerIdentity(game, incoming);
@@ -4780,6 +5320,10 @@
       return;
     }
     transfer.step = 2;
+    transfer.mode = null;
+    transfer.modeDrawPending = false;
+    transfer.modeDrawOptions = null;
+    transfer.modeDrawTarget = null;
     prepareTransferStep(transfer);
   }
 
@@ -4847,6 +5391,15 @@
     record.lineup = game.slots.map((slot) => ({ ...slot, player: slot.player ? { ...slot.player } : null }));
   }
 
+  function restoreDynastyLoans(game) {
+    if (game?.mode !== "dynasty") return;
+    game.slots.forEach((slot) => {
+      const loanee = slot.player;
+      if (!loanee?.isLoaned || !loanee.loanReturnPlayer) return;
+      slot.player = { ...loanee.loanReturnPlayer };
+    });
+  }
+
   function finishPostSeasonTransferWindow(transfer) {
     const game = transfer?.sim?.game;
     if (!game?.result) return;
@@ -4854,12 +5407,28 @@
     game.result.transferLog = [...(game.result.transferLog || []), ...log];
     game.result.postSeasonTransferLog = log;
     game.result.postSeasonTransferSkipped = Boolean(transfer.skipped);
+    game.result.freeAgentSignings = log.length;
+    const market = ensureFreeAgentMarket(game);
+    game.result.freeAgentMarket = market ? {
+      sourceSeason: market.sourceSeason,
+      available: market.available.length,
+      signed: market.signed.length,
+      signedPlayers: market.signed.slice(-2).map((player) => player.name)
+    } : null;
     game.transferLog = [...(game.transferLog || []), ...log];
     game.postSeasonTransfer = {
       status: "resolved",
       log,
       skipped: Boolean(transfer.skipped)
     };
+    if (game.result.achievementStatus === "settled") {
+      game.result.dynastyAchievementContext = buildDynastyAchievementContext(game, game.result, game.europeResult);
+      game.result.achievements = collectSeasonAchievements(
+        game.result,
+        game.europeResult,
+        game.result.dynastyAchievementContext
+      );
+    }
     updateDynastySeasonRecord(game);
     state.transfer = null;
     state.spinning = false;
@@ -5622,6 +6191,10 @@
     else addRun(game);
     renderHomeHistory();
     renderResult(game);
+    if (europeQualification.qualified) {
+      // Start the qualified European campaign as soon as the domestic season closes.
+      setTimeout(() => startEuropeanTournament(), 0);
+    }
   }
 
   async function startNextDynastySeason() {
@@ -5662,6 +6235,7 @@
         game.postSeasonTransfer = null;
         game.currentSpin = null;
         game.candidates = [];
+        restoreDynastyLoans(game);
         game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
         game.rerolls = REROLL_BUDGET[game.difficulty] || 0;
         game.randomSeed = hashSeed(`${game.id}|journey|${nextSeason}|${nextNumber}`);
@@ -5702,6 +6276,7 @@
       game.postSeasonTransfer = null;
       game.currentSpin = null;
       game.candidates = [];
+      restoreDynastyLoans(game);
       game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
       game.rerolls = REROLL_BUDGET[game.difficulty] || 0;
       game.randomSeed = hashSeed(`${game.id}|dynasty|${nextSeason}`);
@@ -6273,6 +6848,7 @@
     const leagueChampion = result.finish === 1;
     const domesticChampion = Boolean(result.domesticCupChampion || result.journeyCupChampion);
     if (leagueChampion && domesticChampion) list.push("国内双冠");
+    if (Number(result.freeAgentSignings || 0) >= 2) list.push("自由市场猎手");
     const challenge = result.challenge;
     if (challenge?.stars === 3) list.push("三星通关");
     if (challenge?.id === "underdog" && challenge.stars === 3) list.push("草根传奇");
@@ -6329,6 +6905,7 @@
       domesticCupChampion: result?.domesticCup?.champion === "我的球队",
       journeyCupChampion: Boolean(result?.domesticCup?.journeyCup && result?.domesticCup?.champion === "我的球队"),
       playerStats: result?.playerStats,
+      freeAgentSignings: result?.freeAgentSignings,
       challenge: result?.challenge,
       dynastyAchievementContext: dynastyContext || result?.dynastyAchievementContext,
       europeResult
@@ -6570,50 +7147,136 @@
 
   function renderDynastyProgress(run) {
     if (run.mode !== "dynasty" || !run.dynasty || !ui.seasonReview) return;
-    const block = el("div", "dynasty-progress", "");
-    const trophies = run.dynasty.trophies || {};
-    const tiered = run.dynasty.type === "tiered";
-    block.appendChild(el("strong", "", tiered
-      ? uiText(
-        `三级征途 · 第 ${run.dynasty.journey?.tier || 3} 级 · 已完成 ${run.dynasty.results.length} 个赛季`,
-        `Three-Tier Journey · Tier ${run.dynasty.journey?.tier || 3} · ${run.dynasty.results.length} seasons completed`
-      )
-      : uiText(
-        `王朝进度 · ${run.dynasty.results.length}/${run.dynasty.seasons.length} 赛季`,
-        `Dynasty progress · ${run.dynasty.results.length}/${run.dynasty.seasons.length} seasons`
-      )));
-    block.appendChild(el("small", "", tiered
-      ? uiText(
-        `奖杯：联赛 ${trophies.league || 0} · 征途杯 ${trophies.domesticCup || 0}`,
-        `Trophies: League ${trophies.league || 0} · Journey Cup ${trophies.domesticCup || 0}`
-      )
-      : uiText(
-        `奖杯：联赛 ${trophies.league || 0} · 国内杯赛 ${trophies.domesticCup || 0} · 欧战 ${trophies.europe || 0}`,
-        `Trophies: League ${trophies.league || 0} · Domestic cup ${trophies.domesticCup || 0} · Europe ${trophies.europe || 0}`
-      )));
-    if (tiered && run.dynasty.journey?.lastMovement) {
-      const movement = run.dynasty.journey.lastMovement;
-      block.appendChild(el("small", "", uiText(
-        movement.from === movement.to
-          ? `本赛季排名第 ${movement.finish}，留在第 ${movement.to} 级。`
-          : movement.to < movement.from
-            ? `本赛季排名第 ${movement.finish}，升级至第 ${movement.to} 级。`
-            : `本赛季排名第 ${movement.finish}，降至第 ${movement.to} 级。`,
-        movement.from === movement.to
-          ? `Finished ${movement.finish}; stayed in Tier ${movement.to}.`
-          : movement.to < movement.from
-            ? `Finished ${movement.finish}; promoted to Tier ${movement.to}.`
-            : `Finished ${movement.finish}; relegated to Tier ${movement.to}.`
-      )));
+    const dynasty = run.dynasty;
+    const tiered = dynasty.type === "tiered";
+    const trophies = dynasty.trophies || {};
+    const records = Array.isArray(dynasty.results)
+      ? dynasty.results.filter((entry) => entry?.result)
+      : [];
+    const recordKey = (entry) => tiered
+      ? `season-${entry.seasonNumber || entry.result?.journey?.seasonNumber || entry.season || ""}`
+      : `season-${entry.season || ""}`;
+    const currentKey = tiered
+      ? `season-${dynasty.journey?.seasonNumber || dynasty.currentIndex + 1 || ""}`
+      : `season-${simulationSeason(run)}`;
+    if (!records.some((entry) => recordKey(entry) === currentKey) && run.result) {
+      records.push({
+        season: simulationSeason(run),
+        seasonNumber: tiered ? dynasty.journey?.seasonNumber : null,
+        league: run.league,
+        result: run.result
+      });
     }
-    const seasons = el("div", "dynasty-season-list", "");
-    run.dynasty.results.forEach((entry) => {
-      seasons.appendChild(el("span", "", uiText(
-        `${entry.season} · 第 ${entry.result.finish} 名 · ${entry.result.points} 分`,
-        `${entry.season} · #${entry.result.finish} · ${entry.result.points} pts`
-      )));
+    records.sort((left, right) => {
+      if (tiered) return Number(left.seasonNumber || 0) - Number(right.seasonNumber || 0);
+      return String(left.season || "").localeCompare(String(right.season || ""));
     });
-    block.appendChild(seasons);
+
+    const completed = tiered ? Boolean(dynasty.journey?.completed) : Boolean(dynasty.completed);
+    const planned = tiered ? null : Number(dynasty.seasons?.length || 0);
+    const bestFinish = records.reduce((best, entry) => Math.min(best, Number(entry.result.finish) || best), Infinity);
+    const totalPoints = records.reduce((total, entry) => total + Number(entry.result.points || 0), 0);
+    const totalTrophies = Number(trophies.league || 0) + Number(trophies.domesticCup || 0) + Number(trophies.europe || 0);
+    const currentTier = Number(dynasty.journey?.tier || run.result?.journey?.nextTier || run.result?.journey?.tier || 3);
+    const block = el("section", "dynasty-history", "");
+    const heading = el("div", "dynasty-history-heading", "");
+    const title = el("div", "", "");
+    title.appendChild(el("span", "eyebrow", tiered ? uiText("三级征途档案", "Three-Tier Journey Archive") : uiText("王朝历史档案", "Dynasty Archive")));
+    title.appendChild(el("strong", "", tiered ? uiText("从第三级一路冲击顶级", "Climb from Tier 3 to the top") : uiText("连续赛季的完整执教记录", "Your complete multi-season record")));
+    heading.appendChild(title);
+    heading.appendChild(el("span", `dynasty-history-status${completed ? " completed" : ""}`, completed
+      ? uiText("已完成", "Completed")
+      : uiText("进行中", "In progress")));
+    block.appendChild(heading);
+
+    const metrics = el("div", "dynasty-history-metrics", "");
+    const metricValues = [
+      [tiered ? records.length : `${records.length}/${planned || "-"}`, uiText("已完成赛季", "Seasons played")],
+      [bestFinish === Infinity ? "-" : uiText(`第 ${bestFinish} 名`, `#${bestFinish}`), uiText("最佳排名", "Best finish")],
+      [totalPoints, uiText("累计积分", "Total points")],
+      [totalTrophies, uiText("累计奖杯", "Trophies")],
+      [tiered ? `Tier ${currentTier}` : `${trophies.league || 0}`, tiered ? uiText("当前级别", "Current tier") : uiText("联赛冠军", "League titles")]
+    ];
+    metricValues.forEach(([value, label]) => {
+      const card = el("div", "dynasty-history-metric", "");
+      card.appendChild(el("strong", "", String(value)));
+      card.appendChild(el("span", "", label));
+      metrics.appendChild(card);
+    });
+    block.appendChild(metrics);
+
+    const trophyLine = el("div", "dynasty-history-trophies", "");
+    trophyLine.appendChild(el("strong", "", uiText("荣誉累计", "Honours")));
+    [
+      ["🏆", trophies.league || 0, uiText("联赛", "League")],
+      ["🥇", trophies.domesticCup || 0, tiered ? uiText("征途杯", "Journey Cup") : uiText("国内杯", "Domestic Cup")],
+      ["🌍", trophies.europe || 0, uiText("欧战", "Europe")]
+    ].forEach(([icon, count, label]) => {
+      const item = el("span", "", "");
+      item.appendChild(el("b", "", icon));
+      item.appendChild(el("strong", "", String(count)));
+      item.appendChild(el("small", "", label));
+      trophyLine.appendChild(item);
+    });
+    block.appendChild(trophyLine);
+
+    if (tiered && dynasty.journey?.lastMovement) {
+      const movement = dynasty.journey.lastMovement;
+      const movementClass = movement.to < movement.from ? "promoted" : movement.to > movement.from ? "relegated" : "stayed";
+      const movementRow = el("div", `dynasty-history-movement ${movementClass}`, "");
+      movementRow.appendChild(el("span", "", movement.to === movement.from ? "↔" : movement.to < movement.from ? "↑" : "↓"));
+      movementRow.appendChild(el("strong", "", uiText(
+        movement.to === movement.from
+          ? `本赛季排名第 ${movement.finish}，留在第 ${movement.to} 级`
+          : movement.to < movement.from
+            ? `本赛季排名第 ${movement.finish}，升级至第 ${movement.to} 级`
+            : `本赛季排名第 ${movement.finish}，降至第 ${movement.to} 级`,
+        movement.to === movement.from
+          ? `Finished #${movement.finish}; stayed in Tier ${movement.to}`
+          : movement.to < movement.from
+            ? `Finished #${movement.finish}; promoted to Tier ${movement.to}`
+            : `Finished #${movement.finish}; relegated to Tier ${movement.to}`
+      )));
+      block.appendChild(movementRow);
+    }
+
+    const timeline = el("div", "dynasty-history-timeline", "");
+    records.forEach((entry) => {
+      const result = entry.result || {};
+      const isCurrent = recordKey(entry) === currentKey;
+      const movement = result.journeyMovement || result.journey?.movement;
+      const row = el("article", `dynasty-history-row${isCurrent ? " current" : ""}`, "");
+      const seasonLabel = tiered
+        ? uiText(`第 ${entry.seasonNumber || "-"} 季 · ${entry.season || ""}`, `Season ${entry.seasonNumber || "-"} · ${entry.season || ""}`)
+        : String(entry.season || "-");
+      const rowHead = el("div", "dynasty-history-row-head", "");
+      const season = el("div", "", "");
+      season.appendChild(el("strong", "", seasonLabel));
+      season.appendChild(el("small", "", tiered
+        ? uiText(`第 ${result.journey?.tier || entry.league?.match?.(/(\d+)$/)?.[1] || currentTier} 级联赛`, `Tier ${result.journey?.tier || entry.league?.match?.(/(\d+)$/)?.[1] || currentTier} League`)
+        : uiText(getLeague(entry.league)?.name || entry.league || "联赛", translateText(getLeague(entry.league)?.name || entry.league || "League"))));
+      rowHead.appendChild(season);
+      rowHead.appendChild(el("span", "dynasty-history-rank", uiText(`第 ${result.finish || "-"} 名`, `#${result.finish || "-"}`)));
+      row.appendChild(rowHead);
+      const stats = el("div", "dynasty-history-row-stats", "");
+      stats.appendChild(el("span", "", `${result.wins || 0}-${result.draws || 0}-${result.losses || 0} · ${result.points || 0} ${uiText("分", "pts")}`));
+      stats.appendChild(el("span", "", `${result.goalsFor || 0}-${result.goalsAgainst || 0} ${uiText("进失球", "GF-GA")}`));
+      if (movement && tiered) {
+        stats.appendChild(el("span", `dynasty-history-movement-tag ${movement.to < movement.from ? "promoted" : movement.to > movement.from ? "relegated" : "stayed"}`, movement.to === movement.from
+          ? uiText(`留在第 ${movement.to} 级`, `Stayed in Tier ${movement.to}`)
+          : movement.to < movement.from
+            ? uiText(`升级至第 ${movement.to} 级`, `Promoted to Tier ${movement.to}`)
+            : uiText(`降至第 ${movement.to} 级`, `Relegated to Tier ${movement.to}`)));
+      }
+      row.appendChild(stats);
+      const honours = [];
+      if (result.finish === 1 && (!tiered || result.journey?.tier === 1)) honours.push(uiText("联赛冠军", "League Champion"));
+      if (result.domesticCup?.champion === "我的球队") honours.push(tiered ? uiText("征途杯冠军", "Journey Cup Champion") : uiText("国内杯冠军", "Domestic Cup Champion"));
+      if (result.europeResult?.champion === "我的球队") honours.push(uiText("欧战冠军", "European Champion"));
+      row.appendChild(el("div", "dynasty-history-honours", honours.length ? honours.join(" · ") : uiText("本季未夺冠", "No trophy this season")));
+      timeline.appendChild(row);
+    });
+    block.appendChild(timeline);
     ui.seasonReview.appendChild(block);
   }
 
@@ -6703,6 +7366,7 @@
       empty.appendChild(el("small", "", uiText("继续挑战更高排名与特殊赛季目标。", "Aim for a higher finish and special season objectives next time.")));
       achievements.appendChild(empty);
     }
+    renderDynastyAchievementHistory(run, achievements.closest(".achievement-section"));
     renderLeagueTable(result, leagueName, run.league, peakClub?.name);
     renderDomesticCup(result.domesticCup);
     renderResultLineup(run);

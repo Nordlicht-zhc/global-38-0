@@ -1606,6 +1606,33 @@ button {
   box-shadow: 0 0 44px rgba(251, 191, 36, 0.1), 0 18px 44px rgba(0, 0, 0, 0.36);
 }
 
+.slot-machine.transfer-mode-machine {
+  border-color: rgba(56, 189, 248, 0.52);
+  box-shadow: 0 0 44px rgba(56, 189, 248, 0.1), 0 18px 44px rgba(0, 0, 0, 0.36);
+}
+
+.slot-machine.tiered-fixed-season .slot-reel-season,
+.slot-machine.tiered-fixed-season .slot-machine-divider {
+  display: none;
+}
+
+.slot-machine.tiered-fixed-season .slot-reels {
+  grid-template-columns: minmax(230px, 460px);
+  justify-content: center;
+}
+
+.slot-machine.tiered-fixed-season .slot-reel-club {
+  width: 100%;
+}
+
+.transfer-mode-machine .slot-machine-top {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.2), rgba(56, 189, 248, 0.05));
+}
+
+.transfer-mode-machine .slot-machine-divider {
+  color: #38bdf8;
+}
+
 .slot-machine-top,
 .slot-machine-bottom {
   display: flex;
@@ -2081,6 +2108,206 @@ button {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.dynasty-history {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid rgba(74, 222, 128, 0.24);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(34, 197, 94, 0.08), rgba(15, 23, 42, 0.26));
+}
+
+.dynasty-history-heading,
+.dynasty-history-row-head,
+.dynasty-history-movement,
+.dynasty-history-trophies {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dynasty-history-heading > div,
+.dynasty-history-row-head > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.dynasty-history-heading strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.dynasty-history-status {
+  padding: 4px 8px;
+  border: 1px solid rgba(251, 191, 36, 0.34);
+  border-radius: 999px;
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.1);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dynasty-history-status.completed {
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.dynasty-history-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.dynasty-history-metric {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.dynasty-history-metric strong {
+  overflow: hidden;
+  color: #dcfce7;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dynasty-history-metric span,
+.dynasty-history-trophies small,
+.dynasty-history-row-head small,
+.dynasty-history-row-stats,
+.dynasty-history-honours {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.dynasty-history-trophies {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.dynasty-history-trophies > strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.dynasty-history-trophies > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.06);
+}
+
+.dynasty-history-trophies b {
+  font-size: 13px;
+}
+
+.dynasty-history-trophies > span > strong {
+  color: #fde68a;
+  font-size: 12px;
+}
+
+.dynasty-history-movement {
+  justify-content: flex-start;
+  padding: 8px 10px;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 8px;
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.08);
+  font-size: 11px;
+}
+
+.dynasty-history-movement.promoted {
+  border-color: rgba(74, 222, 128, 0.34);
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.dynasty-history-movement.relegated {
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.dynasty-history-timeline {
+  display: grid;
+  gap: 7px;
+}
+
+.dynasty-history-row {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.13);
+}
+
+.dynasty-history-row.current {
+  border-color: rgba(74, 222, 128, 0.42);
+  border-left-color: #4ade80;
+  background: rgba(34, 197, 94, 0.09);
+}
+
+.dynasty-history-row-head strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dynasty-history-rank {
+  color: #fef3c7;
+  font-size: 15px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.dynasty-history-row-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dynasty-history-movement-tag {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.dynasty-history-movement-tag.promoted {
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.dynasty-history-movement-tag.relegated {
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.dynasty-history-honours {
+  padding-top: 5px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2240,6 +2467,33 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.dynasty-achievement-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(74, 222, 128, 0.24);
+}
+
+.dynasty-achievement-heading {
+  margin-bottom: 0;
+}
+
+.achievement-heading h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.dynasty-achievements {
+  margin-top: 0;
+}
+
+.dynasty-achievement-category {
+  color: #86efac !important;
+  font-size: 10px !important;
 }
 
 .achievement-card,
@@ -3390,7 +3644,88 @@ button {
   background: rgba(34, 197, 94, 0.14);
 }
 
+.achievement-category-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  scrollbar-width: thin;
+}
+
+.achievement-category-btn {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 104px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+
+.achievement-category-btn strong {
+  color: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.achievement-category-btn small {
+  color: inherit;
+  font-size: 10px;
+}
+
+.achievement-category-btn.active {
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #fef3c7;
+  background: rgba(251, 191, 36, 0.12);
+}
+
 .achievement-catalog {
+  display: grid;
+  gap: 12px;
+}
+
+.achievement-category-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.achievement-category-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.achievement-category-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.achievement-category-heading strong {
+  color: #fef3c7;
+  font-size: 13px;
+}
+
+.achievement-category-heading small,
+.achievement-category-count {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.achievement-category-count {
+  padding: 3px 7px;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 999px;
+  color: #fcd34d;
+}
+
+.achievement-category-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
@@ -3686,6 +4021,23 @@ button {
 
   .achievement-catalog {
     grid-template-columns: 1fr;
+  }
+
+  .achievement-category-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .dynasty-history {
+    padding: 12px;
+  }
+
+  .dynasty-history-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dynasty-history-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
@@ -4387,6 +4739,22 @@ button {
 .deadline-summary {
   border-color: rgba(251, 191, 36, 0.46);
   background: linear-gradient(135deg, rgba(146, 64, 14, 0.2), rgba(30, 41, 59, 0.2));
+}
+
+.loan-summary {
+  border-color: rgba(56, 189, 248, 0.46);
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.2), rgba(30, 41, 59, 0.2));
+}
+
+.loan-term {
+  justify-self: start;
+  padding: 4px 8px;
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 999px;
+  color: #7dd3fc;
+  background: rgba(14, 116, 144, 0.12);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .candidate.deadline-offer {

@@ -11,9 +11,9 @@ const html = fs.readFileSync(path.join(root, "global 38-0.html"), "utf8");
 assert(appSource.includes('type: "tiered"'), "Tiered dynasty state is missing.");
 assert(appSource.includes('createJourneyState(CURRENT_DATA_SEASON, dynastyStart)'),
   "Tiered dynasty must pin its club pool to 2025-26.");
-assert(appSource.includes('!dynastyMode || state.dynastyType === "tiered"'),
-  "Tiered dynasty should hide the historical season selector.");
-assert(appSource.includes('dynastyType === "tiered" ? CURRENT_DATA_SEASON'),
+assert(!appSource.includes('dynastyStartSeason') && !html.includes('dynastyStartSeason'),
+  "The removed historical dynasty season selector is still referenced.");
+assert(appSource.includes('const dynastyStart = dynastyMode ? CURRENT_DATA_SEASON'),
   "Tiered dynasty should start directly from 2025-26.");
 assert(appSource.includes("swapJourneyBoundary"), "Promotion and relegation logic is missing.");
 assert(appSource.includes("doubleRound: false"), "Three-tier mode must use a single round robin.");
@@ -21,8 +21,11 @@ assert(appSource.includes("createJourneyCupSimulation"), "Three-tier mode must c
 assert(appSource.includes('roundTargets = [64, 32, 16, 8, 4, 2, 1]'), "Journey Cup must include all 96 clubs in a knockout path.");
 assert(appSource.includes('qualified: false,\n        competition: null,\n        competitionName: "三级征途不参加欧战"'),
   "Three-tier mode must not allocate European competition places.");
-assert(html.includes('data-dynasty-type="normal"'), "Big Five dynasty selector is missing.");
-assert(html.includes('data-dynasty-type="tiered"'), "Three-tier dynasty selector is missing.");
+assert(!html.includes('data-dynasty-type="normal"'), "The removed Big Five dynasty selector is still exposed.");
+assert(appSource.includes('dynastyType = dynastyMode ? "tiered" : null'),
+  "New dynasty games must always use the Three-Tier Journey.");
+assert(appSource.includes("ensureFreeAgentMarket"), "Dynasty free-agent market is missing.");
+assert(appSource.includes("recordFreeAgentSigning"), "Free-agent signings must be recorded.");
 
 const activeContext = {};
 vm.runInNewContext(`${fs.readFileSync(path.join(root, "season-players.js"), "utf8")};this.data=SEASON_PLAYERS;`, activeContext);

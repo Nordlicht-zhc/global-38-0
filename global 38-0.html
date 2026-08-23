@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-  <link rel="stylesheet" href="styles.css?v=20260821-02" />
+    <link rel="stylesheet" href="styles.css?v=20260823-01" />
 </head>
 <body>
   <header class="topbar">
@@ -30,7 +30,7 @@
       <button class="btn btn-ghost achievements-btn" id="achievementBtn" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v3a4 4 0 0 1-8 0V4Z"/><path d="M8 5H5v2a4 4 0 0 0 4 4M16 5h3v2a4 4 0 0 1-4 4M12 11v5M8 20h8M9 16h6"/></svg>
         <span id="achievementBtnText">成就</span>
-        <span class="achievement-count-badge" id="achievementBtnCount">0/38</span>
+        <span class="achievement-count-badge" id="achievementBtnCount">0/41</span>
       </button>
       <button class="btn btn-primary" id="newGameBtn" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -112,21 +112,6 @@
             <div class="challenge-cards" id="challengeCards"></div>
             <div class="challenge-rules" id="challengeRules"></div>
           </div>
-          <div class="dynasty-type-picker hidden" id="dynastyTypePicker" role="group" aria-label="王朝分支">
-            <button class="dynasty-type-option active" data-dynasty-type="normal" type="button">
-              <strong>正常五大联赛</strong>
-              <small>连续 3 个赛季</small>
-            </button>
-            <button class="dynasty-type-option" data-dynasty-type="tiered" type="button">
-              <strong>三级征途</strong>
-              <small>从第三级冲击顶级冠军</small>
-            </button>
-          </div>
-          <label class="field dynasty-season-field hidden" id="dynastySeasonField">
-            <span>王朝起始赛季</span>
-            <select id="dynastyStartSeason"></select>
-            <small id="dynastySeasonHint">固定连续执教 3 个赛季，起始赛季最晚为 2023-24。</small>
-          </label>
           <label class="field">
             <span>赛季范围滑块</span>
             <div class="season-range" id="seasonRange">
@@ -294,7 +279,7 @@
                 <span class="slot-lights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
               </div>
               <div class="slot-reels">
-                <section class="slot-reel">
+                <section class="slot-reel slot-reel-season">
                   <span class="slot-reel-label" id="seasonReelLabel">赛季</span>
                   <div class="slot-reel-window" id="seasonReel">
                     <div class="slot-reel-items">
@@ -494,6 +479,7 @@
         <button class="achievement-filter-btn active" data-achievement-filter="all" type="button">全部成就</button>
         <button class="achievement-filter-btn" data-achievement-filter="unlocked" type="button">我已获得</button>
       </div>
+      <div class="achievement-category-filter" id="achievementCategoryFilter" role="tablist" aria-label="成就分类"></div>
       <div class="achievement-catalog" id="achievementCatalog"></div>
     </section>
   </div>
@@ -513,6 +499,6 @@
   <script defer src="cloud-payload.js?v=20260821-01"></script>
   <script defer src="cloud-config.js?v=20260815-02"></script>
   <script defer src="cloud-storage.js?v=20260818-01"></script>
-  <script defer src="app.js?v=20260821-05"></script>
+    <script defer src="app.js?v=20260823-01"></script>
 </body>
 </html>

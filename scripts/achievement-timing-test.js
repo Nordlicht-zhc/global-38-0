@@ -52,6 +52,10 @@ assert(app.includes('result.achievementStatus !== "pending-europe" || !run.europ
   "Achievements should not settle before the European result exists.");
 assert(app.includes("settleAchievements(sim.run);"),
   "European completion must settle the season achievements.");
+assert(app.includes("freeAgentSignings"),
+  "Free-agent market signings must feed the achievement result.");
+assert(app.includes("recordFreeAgentSigning(game, candidate, transfer)"),
+  "Free-agent signing records are missing from the transfer flow.");
 assert(app.includes('const europePending = result.achievementStatus === "pending-europe" && !run.europeResult;'),
   "Result rendering must expose the pending-European state.");
 assert(app.includes("Complete this season's European competition before starting the next season."),

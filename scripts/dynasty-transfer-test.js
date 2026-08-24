@@ -34,5 +34,8 @@ assert(app.includes("const upgradePool = pool.filter((player) => bestTransferFit
 assert(app.includes("buildLoanCandidates(pool, rng, transfer, game)"), "Emergency loans are not evaluated against the current lineup.");
 assert(app.includes("const effectiveRate = Number(candidate.rate || candidate.baseRate || 0);"), "Transfer signing must preserve the offered player rating.");
 assert(app.includes("const baseRate = Number(player?.rate || player?.baseRate || 0);"), "Transfer impact must use the offered player rating before raw fallback.");
+assert(app.includes("function restoreDynastyLoans(game)"), "Dynasty loans are missing their season-end restoration step.");
+assert(app.includes("delete returned.isLoaned;"), "Returned Dynasty players must not retain the loan marker.");
+assert(app.includes('game.phase === "drafting"\n      && Number(game.dynasty?.currentIndex || 0) > 0\n      && restoreDynastyLoans(game)'), "Next-season drafting must guard against stale loaned players in saved state.");
 
 console.log("Dynasty transfer window: PASS (normal mid-season and post-season markets, loan upgrades, and gating)");

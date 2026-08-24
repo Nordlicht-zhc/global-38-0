@@ -56,6 +56,13 @@ assert(app.includes("freeAgentSignings"),
   "Free-agent market signings must feed the achievement result.");
 assert(app.includes("recordFreeAgentSigning(game, candidate, transfer)"),
   "Free-agent signing records are missing from the transfer flow.");
+assert(!app.includes('"欧洲之王"'),
+  "The impossible Dynasty European champion achievement should be removed.");
+["首季起飞", "下克上", "草根捧杯", "征途双冠", "最速通关", "自由市场建队", "连冠之路", "三级称王"].forEach((name) => {
+  assert(app.includes(`"${name}"`), `Dynasty achievement ${name} is missing.`);
+});
+assert(app.includes("journeyCupUpset"), "Journey Cup upset achievement data is missing.");
+assert(app.includes("totalFreeAgentSignings"), "Cumulative Dynasty free-agent achievement data is missing.");
 assert(app.includes('const europePending = result.achievementStatus === "pending-europe" && !run.europeResult;'),
   "Result rendering must expose the pending-European state.");
 assert(app.includes("Complete this season's European competition before starting the next season."),

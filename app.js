@@ -739,10 +739,15 @@
     "连升两级": ["🚄", "连续两个赛季完成升级", "Earn promotions in two consecutive seasons"],
     "登上顶级": ["🏟️", "三级征途升入顶级联赛", "Reach the top tier in Three-Tier Journey"],
     "征途终点": ["🏁", "赢得顶级联赛冠军并完成三级征途", "Win the top-tier title and complete the journey"],
-    "成功卫冕": ["🔁", "连续两个赛季赢得联赛冠军", "Win the league in back-to-back seasons"],
-    "王朝初成": ["🏛️", "王朝期间赢得至少 3 座联赛冠军", "Win at least 3 league titles in Dynasty"],
+    "连冠之路": ["🔁", "连续两个赛季赢得联赛冠军", "Win the league in back-to-back seasons"],
+    "三级称王": ["🏛️", "王朝期间赢得至少 3 座联赛冠军", "Win at least 3 league titles in the Journey"],
     "五冠王朝": ["🏆", "王朝期间累计赢得至少 5 座奖杯", "Win at least 5 trophies in Dynasty"],
-    "欧洲之王": ["🌐", "王朝期间赢得欧洲赛事冠军", "Win a European title in Dynasty"],
+    "首季起飞": ["🚀", "王朝第一个赛季完成升级", "Earn a promotion in the first Dynasty season"],
+    "下克上": ["⚔️", "在第二或第三级联赛淘汰顶级联赛球队", "Eliminate a top-tier club from Tier 2 or Tier 3"],
+    "草根捧杯": ["🌱", "身处第三级联赛时赢得征途杯", "Win the Journey Cup from Tier 3"],
+    "征途双冠": ["🏅", "同一赛季赢得所在级别联赛和征途杯", "Win your tier league and the Journey Cup in one season"],
+    "最速通关": ["⚡", "三个赛季内完成三级征途", "Complete the Three-Tier Journey within three seasons"],
+    "自由市场建队": ["🧳", "王朝累计完成六次自由签约", "Complete six free-agent signings across one Dynasty"],
     "欧战决赛": ["🎯", "打入欧洲赛事决赛", "Reach a European final"],
     "欧洲冠军": ["🏆", "赢得任意一项欧洲赛事", "Win any European competition"],
     "欧冠登顶": ["👑", "赢得欧洲冠军联赛", "Win the Champions League"],
@@ -782,13 +787,13 @@
       id: "dynasty",
       label: "王朝与征途",
       labelEn: "Dynasty & Journey",
-      names: ["成功升级", "连升两级", "登上顶级", "征途终点", "成功卫冕", "王朝初成", "五冠王朝", "自由市场猎手"]
+      names: ["成功升级", "连升两级", "登上顶级", "征途终点", "首季起飞", "下克上", "草根捧杯", "征途双冠", "最速通关", "连冠之路", "三级称王", "五冠王朝", "自由市场猎手", "自由市场建队"]
     },
     {
       id: "europe",
       label: "欧战荣耀",
       labelEn: "European Glory",
-      names: ["欧洲之王", "欧战决赛", "欧洲冠军", "欧冠登顶", "欧联登顶", "欧协联登顶"]
+      names: ["欧战决赛", "欧洲冠军", "欧冠登顶", "欧联登顶", "欧协联登顶"]
     }
   ];
   const ACHIEVEMENT_CATEGORY_BY_NAME = Object.freeze(
@@ -828,10 +833,15 @@
     "连升两级": "Back-to-Back Promotions",
     "登上顶级": "Top Tier Reached",
     "征途终点": "Journey Complete",
-    "成功卫冕": "Successful Defence",
-    "王朝初成": "Dynasty Begins",
+    "连冠之路": "Consecutive Crowns",
+    "三级称王": "Three-Tier Crowns",
     "五冠王朝": "Five-Trophy Dynasty",
-    "欧洲之王": "King of Europe",
+    "首季起飞": "Fast Start",
+    "下克上": "Giant-Killer",
+    "草根捧杯": "Grassroots Cup Winner",
+    "征途双冠": "Journey Double",
+    "最速通关": "Fastest Journey",
+    "自由市场建队": "Free-Agent Builder",
     "欧战决赛": "European Final",
     "欧洲冠军": "European Champion",
     "欧冠登顶": "Champions League Winner",
@@ -3155,6 +3165,15 @@
   function renderGame() {
     const game = state.game;
     if (!game) return;
+    if (
+      game.mode === "dynasty"
+      && game.phase === "drafting"
+      && Number(game.dynasty?.currentIndex || 0) > 0
+      && restoreDynastyLoans(game)
+    ) {
+      game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
+      saveGame();
+    }
     ui.formationTitle.textContent = game.formation;
     ui.gameProgress.textContent = `${game.draftedPlayers.length}/${game.slots.length}`;
     const rangeText = game.seasonRange
@@ -5597,12 +5616,19 @@
   }
 
   function restoreDynastyLoans(game) {
-    if (game?.mode !== "dynasty") return;
+    if (game?.mode !== "dynasty") return 0;
+    let restored = 0;
     game.slots.forEach((slot) => {
       const loanee = slot.player;
       if (!loanee?.isLoaned || !loanee.loanReturnPlayer) return;
-      slot.player = { ...loanee.loanReturnPlayer };
+      const returned = { ...loanee.loanReturnPlayer };
+      delete returned.isLoaned;
+      delete returned.loanSeason;
+      delete returned.loanReturnPlayer;
+      slot.player = returned;
+      restored += 1;
     });
+    return restored;
   }
 
   function finishPostSeasonTransferWindow(transfer) {
@@ -7000,6 +7026,9 @@
     const currentDomestic = result?.domesticCup?.champion === "我的球队";
     const currentEurope = europeResult?.champion === "我的球队";
     const priorLeagueTitles = previousResults.filter((entry) => entry.finish === 1).length;
+    const priorFreeAgentSignings = previousResults.reduce((total, entry) => total + Number(entry.freeAgentSignings || 0), 0);
+    const currentTier = Number(result?.journey?.tier || game.dynasty.journey?.tier || 3);
+    const seasonNumber = Number(game.dynasty.journey?.seasonNumber || result?.journey?.seasonNumber || 1);
     const priorTrophies = previousResults.reduce((total, entry) => total
       + (entry.finish === 1 ? 1 : 0)
       + (entry.domesticCup?.champion === "我的球队" ? 1 : 0)
@@ -7012,12 +7041,17 @@
       previousPromotion: Boolean(previousMovement && previousMovement.to < previousMovement.from),
       previousChampion: previousResults[previousResults.length - 1]?.finish === 1,
       priorLeagueTitles,
+      totalFreeAgentSignings: priorFreeAgentSignings + Number(result?.freeAgentSignings || 0),
       totalTrophies: priorTrophies
         + (currentLeague ? 1 : 0)
         + (currentDomestic ? 1 : 0)
         + (currentEurope ? 1 : 0),
       currentLeague,
+      currentDomestic,
       currentEurope,
+      currentTier,
+      seasonNumber,
+      journeyCupUpset: Boolean(result?.domesticCup?.journeyCupUpset),
       completed: Boolean(game.dynasty.journey?.completed)
     };
   }
@@ -7069,10 +7103,15 @@
       if (promoted && dynasty.previousPromotion) list.push("连升两级");
       if (dynasty.tiered && dynasty.movement?.from > 1 && dynasty.movement?.to === 1) list.push("登上顶级");
       if (dynasty.tiered && dynasty.completed && dynasty.currentLeague) list.push("征途终点");
-      if (dynasty.currentLeague && dynasty.previousChampion) list.push("成功卫冕");
-      if (dynasty.priorLeagueTitles + (dynasty.currentLeague ? 1 : 0) >= 3) list.push("王朝初成");
+      if (dynasty.tiered && dynasty.seasonNumber === 1 && promoted) list.push("首季起飞");
+      if (dynasty.tiered && dynasty.journeyCupUpset) list.push("下克上");
+      if (dynasty.tiered && dynasty.currentTier === 3 && dynasty.currentDomestic) list.push("草根捧杯");
+      if (dynasty.tiered && dynasty.currentLeague && dynasty.currentDomestic) list.push("征途双冠");
+      if (dynasty.tiered && dynasty.completed && dynasty.seasonNumber <= 3) list.push("最速通关");
+      if (dynasty.currentLeague && dynasty.previousChampion) list.push("连冠之路");
+      if (dynasty.tiered && dynasty.priorLeagueTitles + (dynasty.currentLeague ? 1 : 0) >= 3) list.push("三级称王");
       if (dynasty.totalTrophies >= 5) list.push("五冠王朝");
-      if (dynasty.currentEurope) list.push("欧洲之王");
+      if (dynasty.tiered && dynasty.totalFreeAgentSignings >= 6) list.push("自由市场建队");
     }
     const europe = result.europeResult;
     if (europe) {
@@ -7836,6 +7875,12 @@
       winners.push(tie.winner);
       if (result.isUser) {
         userMatch = { cup, stage, tie, played };
+        if (cup.journeyCup && tie.winner.isUser && (
+          (home.isUser && Number(away.tier) === 1)
+          || (away.isUser && Number(home.tier) === 1)
+        )) {
+          cup.userUpsetTopTier = true;
+        }
         cup.userStage = tie.winner.isUser
           ? (stage === "决赛" ? cup.championLabel : `晋级${stageNames[cup.roundIndex + 1] || "下一轮"}`)
           : `${stage}出局`;
@@ -7860,6 +7905,7 @@
       championLabel: cup.championLabel,
       championLabelEn: cup.championLabelEn,
       journeyCup: Boolean(cup.journeyCup),
+      journeyCupUpset: Boolean(cup.userUpsetTopTier),
       userStage: cup.userStage,
       champion: cup.champion?.name || null,
       rounds: cup.rounds

@@ -378,6 +378,31 @@ button {
   color: var(--muted);
 }
 
+.test-rating-field {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.test-rating-field input {
+  width: 86px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  background: rgba(4, 16, 12, 0.72);
+  font: inherit;
+}
+
+.test-rating-field small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .test-console-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2791,6 +2816,7 @@ button {
 .domestic-cup-panel,
 .europe-panel {
   margin-top: 20px;
+  scroll-margin-top: 84px;
 }
 
 .league-table {

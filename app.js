@@ -202,6 +202,8 @@
     { sel: ".test-console .eyebrow", en: "Local Debugging" },
     { sel: ".test-console h2", en: "Test Console" },
     { sel: ".test-console-copy", en: "Generate a complete squad in one click and skip manual drafting. Test runs do not overwrite your real save, enter season history, or unlock achievements." },
+    { sel: ".test-rating-field > span", en: "Target Squad Rating" },
+    { sel: ".test-rating-field small", en: "Leave blank to use the players' original ratings." },
     { sel: "#testClassicBtn", en: "Quick Classic Game" },
     { sel: "#testDynastyBtn", en: "Quick Three-Tier Journey" },
     { sel: "#testConsoleStatus", en: "The squad uses 2025-26 players selected by position-adjusted rating." },
@@ -983,6 +985,7 @@
     testClassicBtn: $("#testClassicBtn"),
     testDynastyBtn: $("#testDynastyBtn"),
     testConsoleStatus: $("#testConsoleStatus"),
+    testRatingInput: $("#testRatingInput"),
     seasonRangeStart: $("#seasonRangeStart"),
     seasonRangeEnd: $("#seasonRangeEnd"),
     seasonRangeStartLabel: $("#seasonRangeStartLabel"),
@@ -3023,7 +3026,23 @@
     )));
   }
 
-  function fillTestSquad(game) {
+  function applyTestRating(game, targetRating) {
+    if (!Number.isFinite(targetRating)) return;
+    const target = clamp(Math.round(targetRating), 40, 99);
+    for (let pass = 0; pass < 3; pass += 1) {
+      const current = calcTeamRating(game);
+      const delta = target - Number(current || target);
+      if (!delta) break;
+      game.slots.forEach((slot) => {
+        if (!slot.player) return;
+        const rate = clamp(Math.round(Number(slot.player.rate || target) + delta), 40, 99);
+        slot.player.rate = rate;
+        slot.player.baseRate = rate;
+      });
+    }
+  }
+
+  function fillTestSquad(game, targetRating) {
     const available = testPlayerPool(game);
     const used = new Set();
     const orderedSlots = game.slots
@@ -3047,6 +3066,7 @@
     });
     game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
     game.playerIdentityHistory = game.draftedPlayers.map((player) => playerIdentity(player));
+    applyTestRating(game, targetRating);
     game.currentSpin = null;
     game.candidates = [];
     game.league = isTieredDynasty(game) ? journeyLeagueId(3) : game.leagues[0] || "eng";
@@ -3069,7 +3089,9 @@
       await loadSeasonData(CURRENT_DATA_SEASON);
       await startGame({ testMode: true });
       if (!state.game?.testMode) return;
-      fillTestSquad(state.game);
+      const rawTargetRating = ui.testRatingInput?.value.trim() || "";
+      const targetRating = rawTargetRating === "" ? null : Number(rawTargetRating);
+      fillTestSquad(state.game, targetRating);
       renderGame();
       renderPitch();
       renderCandidates();
@@ -6353,7 +6375,7 @@
     renderResult(game);
     if (europeQualification.qualified) {
       // Start the qualified European campaign as soon as the domestic season closes.
-      setTimeout(() => startEuropeanTournament(), 0);
+      setTimeout(() => startEuropeanTournament({ focus: true }), 0);
     }
   }
 
@@ -7891,13 +7913,25 @@
     }
   }
 
-  function startEuropeanTournament() {
+  function focusEuropeanPanel() {
+    const panel = ui.europePanel;
+    if (!panel || panel.classList.contains("hidden")) return;
+    requestAnimationFrame(() => {
+      const topbarHeight = document.querySelector(".topbar")?.getBoundingClientRect().height || 0;
+      const targetTop = panel.getBoundingClientRect().top + window.scrollY - topbarHeight - 14;
+      window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    });
+  }
+
+  function startEuropeanTournament(options = {}) {
+    const focus = Boolean(options.focus);
     const run = state.viewingRun || state.game;
     const result = run?.result;
     const qual = result?.europeQualification;
     if (!run || !qual || !qual.qualified) return;
     if (run.europeResult) {
       renderEuropeanResult(run.europeResult);
+      if (focus) focusEuropeanPanel();
       return;
     }
     ui.europeStartBtn.classList.add("hidden");
@@ -7906,6 +7940,7 @@
     run.europeSim = sim;
     if (run === state.game) saveGame();
     simulateNextEuropeanStep(sim);
+    if (focus) focusEuropeanPanel();
   }
 
   function buildEuropeanTeam(entry, rng) {

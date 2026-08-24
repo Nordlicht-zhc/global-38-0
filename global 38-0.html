@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-    <link rel="stylesheet" href="styles.css?v=20260823-01" />
+    <link rel="stylesheet" href="styles.css?v=20260824-01" />
 </head>
 <body>
   <header class="topbar">
@@ -90,6 +90,11 @@
             <span class="chip chip-gold">TEST</span>
           </div>
           <p class="test-console-copy">一键生成完整阵容，跳过逐个选人。测试局不会覆盖正式存档、写入历史战绩或解锁成就。</p>
+          <label class="test-rating-field" for="testRatingInput">
+            <span>目标球队评分</span>
+            <input id="testRatingInput" type="number" min="40" max="99" step="1" value="86" />
+            <small>留空则使用球员原始评分</small>
+          </label>
           <div class="test-console-actions">
             <button class="btn btn-primary" id="testClassicBtn" type="button">快速创建经典模式</button>
             <button class="btn btn-accent" id="testDynastyBtn" type="button">快速创建三级征途</button>
@@ -514,6 +519,6 @@
   <script defer src="cloud-payload.js?v=20260821-01"></script>
   <script defer src="cloud-config.js?v=20260815-02"></script>
   <script defer src="cloud-storage.js?v=20260818-01"></script>
-    <script defer src="app.js?v=20260823-01"></script>
+    <script defer src="app.js?v=20260824-01"></script>
 </body>
 </html>

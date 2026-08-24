@@ -19,6 +19,10 @@ assert(appSource.includes("swapJourneyBoundary"), "Promotion and relegation logi
 assert(appSource.includes("doubleRound: false"), "Three-tier mode must use a single round robin.");
 assert(appSource.includes("createJourneyCupSimulation"), "Three-tier mode must create the Journey Cup.");
 assert(appSource.includes('roundTargets = [64, 32, 16, 8, 4, 2, 1]'), "Journey Cup must include all 96 clubs in a knockout path.");
+assert(appSource.includes('const stageNames = cup.stages || DOMESTIC_CUP_STAGES;'),
+  "Simulation cup progress must use the Journey Cup stage list when present.");
+assert(appSource.includes("firstRoundByeNames"), "Journey Cup must persist seeded first-round byes.");
+assert(appSource.includes("cup.roundIndex === 1"), "Journey Cup must protect seeded clubs in the Round of 64 draw.");
 assert(appSource.includes('qualified: false,\n        competition: null,\n        competitionName: "三级征途不参加欧战"'),
   "Three-tier mode must not allocate European competition places.");
 assert(!html.includes('data-dynasty-type="normal"'), "The removed Big Five dynasty selector is still exposed.");

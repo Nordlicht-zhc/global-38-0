@@ -202,8 +202,15 @@
     { sel: ".test-console .eyebrow", en: "Local Debugging" },
     { sel: ".test-console h2", en: "Test Console" },
     { sel: ".test-console-copy", en: "Generate a complete squad in one click and skip manual drafting. Test runs do not overwrite your real save, enter season history, or unlock achievements." },
-    { sel: ".test-rating-field > span", en: "Target Squad Rating" },
-    { sel: ".test-rating-field small", en: "Leave blank to use the players' original ratings." },
+    { sel: "#testRatingLabel", en: "Target Squad Rating" },
+    { sel: "#testRatingHint", en: "Leave blank to use the players' original ratings." },
+    { sel: "#testRatingProfileLabel", en: "Rating Structure" },
+    { sel: "#testRatingProfileHint", en: "Random variety changes the strength distribution each test." },
+    { sel: "#testRatingProfile option[value='random']", en: "Random variety" },
+    { sel: "#testRatingProfile option[value='balanced']", en: "Balanced" },
+    { sel: "#testRatingProfile option[value='attack']", en: "Attack-focused" },
+    { sel: "#testRatingProfile option[value='midfield']", en: "Midfield-focused" },
+    { sel: "#testRatingProfile option[value='defense']", en: "Defense-focused" },
     { sel: "#testClassicBtn", en: "Quick Classic Game" },
     { sel: "#testDynastyBtn", en: "Quick Three-Tier Journey" },
     { sel: "#testConsoleStatus", en: "The squad uses 2025-26 players selected by position-adjusted rating." },
@@ -986,6 +993,7 @@
     testDynastyBtn: $("#testDynastyBtn"),
     testConsoleStatus: $("#testConsoleStatus"),
     testRatingInput: $("#testRatingInput"),
+    testRatingProfile: $("#testRatingProfile"),
     seasonRangeStart: $("#seasonRangeStart"),
     seasonRangeEnd: $("#seasonRangeEnd"),
     seasonRangeStartLabel: $("#seasonRangeStartLabel"),
@@ -1385,49 +1393,6 @@
     return (journey.tiers?.[tier - 1] || [])
       .map((id) => id === JOURNEY_USER_ID ? JOURNEY_USER_NAME : journey.clubs?.[id]?.name)
       .filter(Boolean);
-  }
-
-  function journeyTransferClubsForSeason(game, season) {
-    if (!isTieredDynasty(game)) return null;
-    const journey = game.dynasty?.journey;
-    const tier = clamp(Number(journey?.tier) || 3, 1, 3);
-    const tierIds = (journey?.tiers?.[tier - 1] || [])
-      .filter((id) => id !== JOURNEY_USER_ID);
-    if (!tierIds.length) return null;
-    const clubs = allClubs(season);
-    const allowed = tierIds
-      .map((id) => journey.clubs?.[id])
-      .filter(Boolean)
-      .map((record) => findDynastySeasonClub(record.name, clubs)
-        || clubs.find((club) => club.id === record.sourceClubId && club.league === record.league))
-      .filter(Boolean);
-    return allowed.length ? allowed : null;
-  }
-
-  function transferClubsForSeason(game, season) {
-    const clubs = allClubs(season);
-    const allowed = journeyTransferClubsForSeason(game, season);
-    if (!allowed) return clubs;
-    const allowedKeys = new Set(allowed.map((club) => journeyClubKey(club)));
-    return clubs.filter((club) => allowedKeys.has(journeyClubKey(club)));
-  }
-
-  function isTransferCandidateFromAllowedClub(candidate, game, allowed = undefined) {
-    if (!isTieredDynasty(game)) return true;
-    const season = candidate?.sourceSeason || simulationSeason(game);
-    const allowedClubs = allowed === undefined
-      ? journeyTransferClubsForSeason(game, season)
-      : allowed;
-    if (!allowedClubs) return true;
-    return allowedClubs.some((club) => {
-      const sameId = candidate?.sourceClubId
-        && candidate.sourceLeagueId
-        && club.id === candidate.sourceClubId
-        && club.league === candidate.sourceLeagueId;
-      const sameName = normalizeDynastyClubName(club.name)
-        === normalizeDynastyClubName(candidate?.sourceClubName);
-      return sameId || sameName;
-    });
   }
 
   function journeyRecordForName(game, name) {
@@ -3026,6 +2991,42 @@
     )));
   }
 
+  const TEST_RATING_PROFILES = {
+    balanced: {
+      label: "均衡结构",
+      labelEn: "Balanced structure",
+      bias: { ATT: 0, MID: 0, DEF: 0, GK: 0 }
+    },
+    attack: {
+      label: "进攻侧重",
+      labelEn: "Attack-focused",
+      bias: { ATT: 5, MID: 1, DEF: -2, GK: -2 }
+    },
+    midfield: {
+      label: "中场侧重",
+      labelEn: "Midfield-focused",
+      bias: { ATT: -1, MID: 5, DEF: -1, GK: -1 }
+    },
+    defense: {
+      label: "防守侧重",
+      labelEn: "Defense-focused",
+      bias: { ATT: -2, MID: -1, DEF: 5, GK: 1 }
+    }
+  };
+
+  function resolveTestRatingProfile(game, requested, rng) {
+    const randomProfiles = Object.keys(TEST_RATING_PROFILES);
+    const requestedId = requested === "random" ? randomProfiles[Math.floor(rng() * randomProfiles.length)] : requested;
+    const id = Object.prototype.hasOwnProperty.call(TEST_RATING_PROFILES, requestedId) ? requestedId : "balanced";
+    game.testRatingProfile = id;
+    return TEST_RATING_PROFILES[id];
+  }
+
+  function testRatingProfileText(id) {
+    const profile = TEST_RATING_PROFILES[id] || TEST_RATING_PROFILES.balanced;
+    return uiText(profile.label, profile.labelEn);
+  }
+
   function applyTestRating(game, targetRating) {
     if (!Number.isFinite(targetRating)) return;
     const target = clamp(Math.round(targetRating), 40, 99);
@@ -3042,26 +3043,44 @@
     }
   }
 
-  function fillTestSquad(game, targetRating) {
+  function fillTestSquad(game, targetRating, requestedProfile = "random") {
     const available = testPlayerPool(game);
     const used = new Set();
+    const clubCounts = new Map();
+    const rng = gameRng(game);
+    const profile = resolveTestRatingProfile(game, requestedProfile, rng);
     const orderedSlots = game.slots
       .map((slot, index) => ({ slot, index }))
+      .map((entry) => ({ ...entry, tie: rng() }))
       .sort((a, b) => {
         const aCount = available.filter((player) => canPlaySlot(player, a.slot.pos)).length;
         const bCount = available.filter((player) => canPlaySlot(player, b.slot.pos)).length;
-        return aCount - bCount;
+        return aCount - bCount || a.tie - b.tie;
       });
     orderedSlots.forEach(({ slot }) => {
-      const candidate = available
+      const ranked = available
         .filter((player) => !used.has(playerIdentity(player)) && canPlaySlot(player, slot.pos))
         .map((player) => ({
           ...player,
-          rate: clamp(player.baseRate + fitBonus(slot.pos, player.pos), 40, 99)
+          rate: clamp(
+            player.baseRate
+              + fitBonus(slot.pos, player.pos)
+              + (profile.bias[positionUnit(slot.pos)] || 0)
+              + Math.floor(rng() * 3) - 1,
+            40,
+            99
+          ),
+          selectionScore: player.baseRate
+            + fitBonus(slot.pos, player.pos)
+            + (clubCounts.get(player.sourceClubId) ? -3 : 2)
+            + rng() * 8
         }))
-        .sort((a, b) => b.rate - a.rate)[0];
+        .sort((a, b) => b.selectionScore - a.selectionScore);
+      const pool = ranked.slice(0, Math.min(18, ranked.length));
+      const candidate = pool.length ? pool[Math.floor(Math.pow(rng(), 1.55) * pool.length)] : null;
       if (!candidate) return;
       used.add(playerIdentity(candidate));
+      clubCounts.set(candidate.sourceClubId, (clubCounts.get(candidate.sourceClubId) || 0) + 1);
       slot.player = candidate;
     });
     game.draftedPlayers = game.slots.map((slot) => slot.player).filter(Boolean);
@@ -3091,23 +3110,32 @@
       if (!state.game?.testMode) return;
       const rawTargetRating = ui.testRatingInput?.value.trim() || "";
       const targetRating = rawTargetRating === "" ? null : Number(rawTargetRating);
-      fillTestSquad(state.game, targetRating);
+      fillTestSquad(state.game, targetRating, ui.testRatingProfile?.value || "random");
       renderGame();
       renderPitch();
       renderCandidates();
       renderTeamRating();
       renderLeagueChoice();
-      toast(uiText("测试阵容已生成，可直接开始模拟。", "Test squad generated. You can start the simulation now."));
+      toast(uiText(
+        `测试阵容已生成：${testRatingProfileText(state.game.testRatingProfile)}，球队评分 ${calcTeamRating(state.game)}。`,
+        `Test squad generated: ${testRatingProfileText(state.game.testRatingProfile)}, squad rating ${calcTeamRating(state.game)}.`
+      ));
     } catch (error) {
       console.error(error);
       toast(uiText("测试阵容生成失败，请查看控制台。", "Could not generate the test squad. Check the console."));
     } finally {
       buttons.forEach((button) => { button.disabled = false; });
       if (ui.testConsoleStatus) {
-        ui.testConsoleStatus.textContent = uiText(
-          "阵容使用 2025-26 球员，并自动选择位置适配后的高评分球员。",
-          "The squad uses 2025-26 players selected by position-adjusted rating."
-        );
+        const ready = state.game?.testMode && state.game.draftedPlayers?.length === state.game.slots?.length;
+        ui.testConsoleStatus.textContent = ready
+          ? uiText(
+            `本次结构：${testRatingProfileText(state.game.testRatingProfile)}；评分 ${calcTeamRating(state.game)}。再次点击会重新随机选人。`,
+            `Structure: ${testRatingProfileText(state.game.testRatingProfile)}; rating ${calcTeamRating(state.game)}. Click again to randomize the squad.`
+          )
+          : uiText(
+            "阵容使用 2025-26 球员，并自动选择位置适配后的高评分球员。",
+            "The squad uses 2025-26 players selected by position-adjusted rating."
+          );
       }
     }
   }
@@ -4348,6 +4376,7 @@
       toast(uiText("铁血经理挑战：已自动跳过转会窗。", "Iron Manager: Transfer window skipped."));
       return false;
     }
+    const maxTransfers = options.postSeason && isTieredDynasty(sim.game) ? 1 : 2;
     const transfer = {
       sim,
       step: 1,
@@ -4361,6 +4390,7 @@
       selectedCandidateId: null,
       revealedCandidateId: null,
       completed: 0,
+      maxTransfers,
       log: [],
       resolved: false,
       skipped: false,
@@ -4394,11 +4424,16 @@
     if (!state.transfer) return;
     renderTransferHalfSummary();
     if (state.transfer.postSeason) {
+      const maxTransfers = state.transfer.maxTransfers || 2;
       ui.transferWeakText.innerHTML = "";
       ui.transferWeakText.appendChild(el("strong", "", uiText("赛季结束自由签约", "End-of-season free signings")));
       ui.transferWeakText.appendChild(el("span", "", uiText(
-        "本次王朝转会窗固定提供两次自由签约，每次从当前赛季的合格球员池中随机提供 5 名候选人。",
-         "This dynasty window gives two free signings. Each signing offers five random eligible players from the current season."
+        maxTransfers === 1
+          ? "本次三级征途赛季末转会窗只提供一次自由签约，从当前赛季的合格球员池中随机提供 5 名候选人。"
+          : "本次王朝转会窗固定提供两次自由签约，每次从当前赛季的合格球员池中随机提供 5 名候选人。",
+        maxTransfers === 1
+          ? "This Three-Tier Journey end-of-season window gives one free signing from five random eligible current-season players."
+          : "This dynasty window gives two free signings. Each signing offers five random eligible players from the current season."
        )));
       const market = ensureFreeAgentMarket(state.game);
       if (market) ui.transferWeakText.appendChild(el("small", "", uiText(
@@ -4414,10 +4449,10 @@
     ui.transferWeakText.appendChild(el("strong", "", uiText(`当前最弱位置：${unit}`, `Weakest area: ${unit}`)));
     ui.transferWeakText.appendChild(el("span", "", uiText(
       state.game?.mode === "dynasty"
-        ? "第一次只会提供能够提升弱项位置评分的球员；王朝模式第 2 次转会会从四种方式中随机抽取，候选人只来自当前级别。"
+        ? "第一次只会提供能够提升弱项位置评分的球员；王朝模式第 2 次转会会从四种方式中随机抽取，候选池与普通联赛一致。"
         : "第一次只会提供能够提升弱项位置评分的球员；第 2 次转会方式将随机抽取。",
       state.game?.mode === "dynasty"
-        ? "The first transfer only offers players who improve a weak-area slot; Dynasty's second transfer is drawn from four methods, with candidates limited to the current tier."
+        ? "The first transfer only offers players who improve a weak-area slot; Dynasty's second transfer is drawn from four methods using the normal league-wide candidate pool."
         : "The first transfer only offers players who improve a weak-area slot; the second transfer method is randomized."
     )));
   }
@@ -4610,12 +4645,10 @@
       ? transfer.modeDrawOptions
       : transfer.sim.game.mode === "dynasty" ? DYNASTY_SECOND_TRANSFER_MODE_KEYS : SECOND_TRANSFER_MODE_KEYS;
     const modeItems = options.map((mode) => ({ primary: transferModeName(mode), meta: "METHOD" }));
-    const ruleItems = options.map((mode) => ({ primary: transferModeHint(mode), meta: "RULE" }));
     const targetIndex = state.spinning
       ? Math.max(0, options.indexOf(transfer.modeDrawTarget))
       : 0;
     renderSlotReel("season", modeItems, targetIndex, false);
-    renderSlotReel("club", ruleItems, targetIndex, false);
   }
 
   async function spinTransferModeWheel() {
@@ -4625,7 +4658,6 @@
       ? transfer.modeDrawOptions
       : transfer.sim.game.mode === "dynasty" ? DYNASTY_SECOND_TRANSFER_MODE_KEYS : SECOND_TRANSFER_MODE_KEYS;
     const modeItems = options.map((mode) => ({ primary: transferModeName(mode), meta: "METHOD" }));
-    const ruleItems = options.map((mode) => ({ primary: transferModeHint(mode), meta: "RULE" }));
     const targetIndex = Math.max(0, options.indexOf(transfer.modeDrawTarget));
     state.spinning = true;
     setSlotMachineMode(transfer);
@@ -4633,10 +4665,7 @@
     renderTransferSpinResult();
     renderTransferCandidates();
     updateSpinControls();
-    await Promise.all([
-      animateSlotReel("season", modeItems, targetIndex, 1350),
-      animateSlotReel("club", ruleItems, targetIndex, 2250)
-    ]);
+    await animateSlotReel("season", modeItems, targetIndex, 2250);
     state.spinning = false;
     transfer.mode = transfer.modeDrawTarget;
     transfer.modeDrawPending = false;
@@ -4689,14 +4718,15 @@
     if (!state.transfer) return;
     renderTransferHalfSummary();
     const transfer = state.transfer;
+    const maxTransfers = transfer.maxTransfers || 2;
     const stepText = transfer.postSeason
-      ? uiText(`第 ${transfer.step}/2 次转会 · 自由签约`, `Transfer ${transfer.step}/2 · Free Signing`)
+      ? uiText(`第 ${transfer.step}/${maxTransfers} 次转会 · 自由签约`, `Transfer ${transfer.step}/${maxTransfers} · Free Signing`)
       : transfer.modeDrawPending
-        ? uiText("第 2/2 次转会 · 方式抽取", "Transfer 2/2 · Method Draw")
+        ? uiText(`第 2/${maxTransfers} 次转会 · 方式抽取`, `Transfer 2/${maxTransfers} · Method Draw`)
         : transfer.step === 1
-        ? uiText("第 1/2 次转会 · 弱项补强", "Transfer 1/2 · Weak-Area")
-        : uiText(`第 2/2 次转会 · ${transferModeName(transfer.mode)}`, `Transfer 2/2 · ${transferModeName(transfer.mode)}`);
-    ui.transferProgress.textContent = `${transfer.completed}/2`;
+        ? uiText(`第 1/${maxTransfers} 次转会 · 弱项补强`, `Transfer 1/${maxTransfers} · Weak-Area`)
+        : uiText(`第 2/${maxTransfers} 次转会 · ${transferModeName(transfer.mode)}`, `Transfer 2/${maxTransfers} · ${transferModeName(transfer.mode)}`);
+    ui.transferProgress.textContent = `${transfer.completed}/${maxTransfers}`;
     const directMode = ["free", "mystery", "deadline", "loan"].includes(transfer.mode);
     setSlotMachineMode(transfer);
     document.querySelector(".wheel-card")?.classList.toggle("hidden", directMode && !transfer.modeDrawPending);
@@ -4715,7 +4745,7 @@
     const target = transfer.mode === "weak" ? transfer.targetUnit || getWeakestUnit(state.game) : null;
     if (target) ui.transferStatus.appendChild(el("span", "", uiText(`目标位置：${target}`, `Target area: ${target}`)));
     const instruction = transfer.postSeason
-      ? uiText("从 5 名当前赛季、当前级别的自由签约候选人中选择一人，再点击球场上的兼容位置完成签约。", "Choose one of five current-season free-signing candidates from the current tier, then click a compatible slot to complete the signing.")
+      ? uiText("从 5 名当前赛季的自由签约候选人中选择一人，再点击球场上的兼容位置完成签约。", "Choose one of five current-season free-signing candidates, then click a compatible slot to complete the signing.")
       : transfer.mode === "free"
       ? uiText("从 5 名完全随机的候选人中选择一人，再点击球场上的兼容位置。", "Choose one of five fully random candidates, then click a compatible slot.")
       : transfer.mode === "mystery"
@@ -4766,9 +4796,10 @@
     }
     const head = el("strong", "", uiText("转会记录", "Transfer Log"));
     ui.transferLog.appendChild(head);
+    const maxTransfers = transfer.maxTransfers || 2;
     transfer.log.forEach((entry, index) => {
       const row = el("div", "transfer-log-row", "");
-      row.appendChild(el("span", "", uiText(`第 ${entry.step}/2 次转会`, `Transfer ${entry.step}/2`)));
+      row.appendChild(el("span", "", uiText(`第 ${entry.step}/${maxTransfers} 次转会`, `Transfer ${entry.step}/${maxTransfers}`)));
       row.appendChild(el("span", "transfer-log-mode", transferModeName(entry.mode)));
       row.appendChild(el("strong", "", `${entry.incoming} ${entry.club}`));
       row.appendChild(el("span", "", uiText(`转会将替换 ${entry.outgoing}`, `This transfer replaces ${entry.outgoing}`)));
@@ -4866,7 +4897,7 @@
     const leagueIds = game.leagues.length ? game.leagues : [...state.selectedLeagues];
     const identities = new Set();
     return seasons.flatMap((season) => {
-      const seasonClubs = transferClubsForSeason(game, season);
+      const seasonClubs = allClubs(season);
       return leagueIds.flatMap((leagueId) => seasonClubs
         .filter((club) => club.league === leagueId)
         .flatMap((club) => (club.players || []).map((player) => ({
@@ -4892,16 +4923,8 @@
   function buildFreeAgentMarketPool(transfer, game) {
     const market = ensureFreeAgentMarket(game);
     if (!market) return [];
-    const allowedBySeason = new Map();
     return market.available
       .filter((player) => !isOwnedPlayer(player, game))
-      .filter((player) => {
-        const season = player.sourceSeason || simulationSeason(game);
-        if (!allowedBySeason.has(season)) {
-          allowedBySeason.set(season, journeyTransferClubsForSeason(game, season));
-        }
-        return isTransferCandidateFromAllowedClub(player, game, allowedBySeason.get(season));
-      })
       .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)))
       .map((player) => ({ ...player }));
   }
@@ -4909,7 +4932,7 @@
   function buildWeakTransferClubPool(transfer, game) {
     const leagueIds = new Set(game.leagues.length ? game.leagues : [...state.selectedLeagues]);
     return seasonsInRange(game.seasonRange).flatMap((season) => (
-      transferClubsForSeason(game, season)
+      allClubs(season)
         .filter((club) => leagueIds.has(club.league))
         .map((club) => ({
           season,
@@ -5177,7 +5200,7 @@
   }
 
   function transferRateForSlot(player, slotPos) {
-    const baseRate = Number(player?.baseRate || player?.rate || 0);
+    const baseRate = Number(player?.rate || player?.baseRate || 0);
     return clamp(baseRate + fitBonus(slotPos, player?.pos || []), 40, 99);
   }
 
@@ -5231,8 +5254,8 @@
       const box = el("div", "direct-transfer-summary loan-summary", "");
       box.appendChild(el("strong", "", uiText("租借救火", "Emergency Loan")));
       box.appendChild(el("span", "", uiText(
-        "从当前级别中能提升首发评分的候选人里选择一名租借球员；他只效力到本赛季结束。",
-        "Choose a current-tier player who improves the starting rating. The loan lasts until the end of this season."
+        "从正常转会候选人中选择一名能提升首发评分的租借球员；他只效力到本赛季结束。",
+        "Choose a player from the normal transfer pool who improves the starting rating. The loan lasts until the end of this season."
       )));
       ui.spinResult.appendChild(box);
       return;
@@ -5455,12 +5478,12 @@
     }
     const outgoing = slot.player;
     game.draftedPlayers = game.draftedPlayers.filter((p) => p.id !== outgoing.id);
-    const baseRate = Number(candidate.baseRate || candidate.rate);
+    const effectiveRate = Number(candidate.rate || candidate.baseRate || 0);
     const incoming = {
       ...candidate,
-      baseRate,
+      baseRate: effectiveRate,
       forced: false,
-      rate: clamp(baseRate + fitBonus(slot.pos, candidate.pos), 40, 99)
+      rate: clamp(effectiveRate + fitBonus(slot.pos, candidate.pos), 40, 99)
     };
     if (transfer.mode === "loan") {
       incoming.isLoaned = true;
@@ -5497,7 +5520,7 @@
     transfer.selectedCandidateId = null;
     renderPitch();
     renderTeamRating();
-    if (transfer.completed >= 2) {
+    if (transfer.completed >= (transfer.maxTransfers || 2)) {
       finishTransferWindow();
       return;
     }
@@ -6275,7 +6298,8 @@
     const cup = sim.domesticCup;
     const userStillInCup = cup?.currentTeams?.some((team) => team.isUser);
     if (cup && !cup.finished && userStillInCup) {
-      const stage = DOMESTIC_CUP_STAGES[cup.roundIndex] || "决赛";
+      const stageNames = cup.stages || DOMESTIC_CUP_STAGES;
+      const stage = stageNames[cup.roundIndex] || "决赛";
       ui.simulationCurrent.appendChild(el("span", "cup-status", uiText(`${cup.name} · ${stage}`, `${cup.nameEn} · ${domesticCupStageText(stage)}`)));
     }
     ui.simulationLatest.innerHTML = "";
@@ -7452,6 +7476,9 @@
       }
       row.appendChild(stats);
       const honours = [];
+      if (tiered && result.finish === 1 && result.journey?.tier !== 1) {
+        honours.push(uiText("本级冠军", "Tier Champion"));
+      }
       if (result.finish === 1 && (!tiered || result.journey?.tier === 1)) honours.push(uiText("联赛冠军", "League Champion"));
       if (result.domesticCup?.champion === "我的球队") honours.push(tiered ? uiText("征途杯冠军", "Journey Cup Champion") : uiText("国内杯冠军", "Domestic Cup Champion"));
       if (result.europeResult?.champion === "我的球队") honours.push(uiText("欧战冠军", "European Champion"));
@@ -7581,6 +7608,9 @@
     ui.resultTableLeague.textContent = leagueName;
     ui.leagueTable.innerHTML = "";
     const allocation = result.europeQualification?.allocation || { ucl: 0, uel: 0, uecl: 0 };
+    const journeyTier = journeyTierFromLeague(leagueId);
+    const isJourneyLeague = Boolean(journeyTier);
+    ui.leagueTable.classList.toggle("journey-league", isJourneyLeague);
     const legend = el("div", "league-table-legend", "");
     [
       ["zone-ucl", uiText(`前 ${allocation.ucl}：欧冠`, `Top ${allocation.ucl}: Champions League`), allocation.ucl > 0],
@@ -7594,6 +7624,18 @@
       item.appendChild(el("span", "", label));
       legend.appendChild(item);
     });
+    if (isJourneyLeague) {
+      legend.classList.add("journey-legend");
+      [
+        ["zone-promotion", uiText("升级区", "Promotion zone"), journeyTier > 1],
+        ["zone-relegation", uiText("降级区", "Relegation zone"), journeyTier < 3]
+      ].filter(([, , visible]) => visible).forEach(([className, label]) => {
+        const item = el("span", "journey-zone-item", "");
+        item.appendChild(el("i", className, ""));
+        item.appendChild(el("span", "", label));
+        legend.appendChild(item);
+      });
+    }
     ui.leagueTable.appendChild(legend);
     const scroll = el("div", "league-table-scroll", "");
     const body = el("div", "league-table-grid", "");
@@ -7607,7 +7649,10 @@
       const uelEnd = allocation.ucl + allocation.uel;
       const ueclEnd = uelEnd + allocation.uecl;
       const teamCount = result.leagueTable.length;
-      if (row.position <= allocation.ucl) tr.classList.add("league-zone-ucl");
+      if (isJourneyLeague) {
+        if (journeyTier > 1 && row.position <= 8) tr.classList.add("league-zone-promotion");
+        else if (journeyTier < 3 && row.position > teamCount - 8) tr.classList.add("league-zone-relegation");
+      } else if (row.position <= allocation.ucl) tr.classList.add("league-zone-ucl");
       else if (row.position <= uelEnd) tr.classList.add("league-zone-uel");
       else if (row.position <= ueclEnd) tr.classList.add("league-zone-uecl");
       else if (leagueId === "ger" && row.position === teamCount - 2) tr.classList.add("league-zone-playoff");
@@ -7665,6 +7710,10 @@
     const stages = ["预选赛", "64强", "32强", "16强", "八强", "半决赛", "决赛"];
     const roundTargets = [64, 32, 16, 8, 4, 2, 1];
     const teamIds = [...new Set((journey.tiers || []).flat())];
+    const tierById = new Map();
+    (journey.tiers || []).forEach((tier, index) => {
+      tier.forEach((id) => tierById.set(id, index + 1));
+    });
     const teams = teamIds.map((id) => {
       const record = journey.clubs?.[id];
       const name = id === JOURNEY_USER_ID ? JOURNEY_USER_NAME : record?.name;
@@ -7674,9 +7723,13 @@
         profile: profile || { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 },
         strength: teamStrength(profile || { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 }),
         isUser: id === JOURNEY_USER_ID,
-        lowerLeague: false
+        lowerLeague: tierById.get(id) > 1,
+        tier: tierById.get(id) || 3
       };
     }).filter((team) => team.name);
+    const firstRoundByeNames = teams
+      .filter((team) => team.tier === 1)
+      .map((team) => team.name);
     const matchCount = sim.matchCount;
     const ratios = [0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 0.95];
     return {
@@ -7689,6 +7742,7 @@
       roundTargets,
       teams,
       currentTeams: teams,
+      firstRoundByeNames,
       roundIndex: 0,
       milestones: ratios.map((ratio) => Math.max(1, Math.round(matchCount * ratio))),
       rounds: [],
@@ -7721,26 +7775,48 @@
     if (!cup || cup.finished) return null;
     const stageNames = cup.stages || DOMESTIC_CUP_STAGES;
     const stage = stageNames[cup.roundIndex] || "决赛";
-    const shuffled = shuffleWithRng(cup.currentTeams, sim.rng);
     const ties = [];
+    const shuffled = shuffleWithRng(cup.currentTeams, sim.rng);
     const targetSize = Math.max(1, Math.min(
       Number(cup.roundTargets?.[cup.roundIndex]) || Math.ceil(shuffled.length / 2),
       shuffled.length
     ));
     const matchCount = Math.max(0, shuffled.length - targetSize);
     const byeCount = Math.max(0, shuffled.length - matchCount * 2);
-    const byes = shuffled.slice(0, byeCount);
-    const participants = shuffled.slice(byeCount);
+    const hasSeededJourneyDraw = Boolean(cup.journeyCup && cup.firstRoundByeNames?.length);
+    const byes = cup.roundIndex === 0 && hasSeededJourneyDraw
+      ? cup.currentTeams.filter((team) => cup.firstRoundByeNames.includes(team.name))
+      : shuffled.slice(0, byeCount);
+    const participants = cup.roundIndex === 0 && hasSeededJourneyDraw
+      ? shuffleWithRng(cup.currentTeams.filter((team) => !cup.firstRoundByeNames.includes(team.name)), sim.rng)
+      : shuffled.slice(byeCount);
     const winners = [...byes];
+    const forcedSeededDraw = cup.roundIndex === 1
+      && hasSeededJourneyDraw
+      && cup.currentTeams.some((team) => cup.firstRoundByeNames.includes(team.name))
+      && cup.currentTeams.some((team) => !cup.firstRoundByeNames.includes(team.name));
+    const pairings = forcedSeededDraw
+      ? (() => {
+        const seeded = shuffleWithRng(
+          cup.currentTeams.filter((team) => cup.firstRoundByeNames.includes(team.name)),
+          sim.rng
+        );
+        const qualifiers = shuffleWithRng(
+          cup.currentTeams.filter((team) => !cup.firstRoundByeNames.includes(team.name)),
+          sim.rng
+        );
+        return seeded.map((team, index) => [team, qualifiers[index]]).filter((pair) => pair[0] && pair[1]);
+      })()
+      : Array.from({ length: Math.floor(participants.length / 2) }, (_, index) => (
+        [participants[index * 2], participants[index * 2 + 1]]
+      ));
     let userMatch = null;
     const userBye = byes.find((team) => team.isUser);
     if (userBye) {
       const nextStage = stageNames[cup.roundIndex + 1];
       cup.userStage = targetSize === 1 ? cup.championLabel : `晋级${nextStage || "下一轮"}`;
     }
-    for (let index = 0; index < participants.length; index += 2) {
-      const home = participants[index];
-      const away = participants[index + 1];
+    for (const [home, away] of pairings) {
       const neutral = stage === "决赛";
       const tie = createEuropeanTie(home, away, false, neutral);
       const played = simulateEuropeanTie(home, away, sim.rng, neutral);

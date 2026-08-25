@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-    <link rel="stylesheet" href="styles.css?v=20260824-04" />
+    <link rel="stylesheet" href="styles.css?v=20260825-02" />
 </head>
 <body>
   <header class="topbar">
@@ -30,7 +30,7 @@
       <button class="btn btn-ghost achievements-btn" id="achievementBtn" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v3a4 4 0 0 1-8 0V4Z"/><path d="M8 5H5v2a4 4 0 0 0 4 4M16 5h3v2a4 4 0 0 1-4 4M12 11v5M8 20h8M9 16h6"/></svg>
         <span id="achievementBtnText">成就</span>
-        <span class="achievement-count-badge" id="achievementBtnCount">0/46</span>
+        <span class="achievement-count-badge" id="achievementBtnCount">0/48</span>
       </button>
       <button class="btn btn-primary" id="newGameBtn" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -422,6 +422,21 @@
         </details>
       </section>
 
+      <section class="panel journey-playoff-panel hidden collapsible-panel" id="journeyPlayoffPanel">
+        <details open>
+          <summary class="panel-head">
+            <div>
+              <p class="eyebrow">升降级附加赛</p>
+              <h2>三级联赛附加赛</h2>
+            </div>
+            <span class="chip chip-gold" id="journeyPlayoffStatus">--</span>
+          </summary>
+          <div class="collapsible-body">
+            <div id="journeyPlayoffResults" class="journey-playoff-results"></div>
+          </div>
+        </details>
+      </section>
+
 
       <section class="panel domestic-cup-panel hidden collapsible-panel" id="domesticCupPanel">
         <details open>
@@ -514,22 +529,22 @@
       <div class="achievement-catalog" id="achievementCatalog"></div>
     </section>
   </div>
-  <script defer src="data.js?v=20260809-21"></script>
-  <script defer src="big-five.js?v=20260809-21"></script>
-  <script defer src="big-five-italy.js?v=20260809-21"></script>
-  <script defer src="big-five-germany.js?v=20260809-21"></script>
-  <script defer src="big-five-france.js?v=20260809-21"></script>
-  <script defer src="season-players.js?v=20260813-02"></script>
-  <script defer src="season-data.js?v=20260821-02"></script>
-  <script defer src="storage.js?v=20260813-01"></script>
-  <script defer src="player-identity.js?v=20260813-01"></script>
-  <script defer src="european-clubs.js?v=20260814-01"></script>
-  <script defer src="simulation-core.js?v=20260813-04"></script>
-  <script defer src="position-fit.js?v=20260813-01"></script>
-  <script defer src="challenge-data.js?v=20260821-01"></script>
-  <script defer src="cloud-payload.js?v=20260821-01"></script>
-  <script defer src="cloud-config.js?v=20260815-02"></script>
-  <script defer src="cloud-storage.js?v=20260818-01"></script>
-    <script defer src="app.js?v=20260824-04"></script>
+  <script defer src="src/data.js?v=20260809-21"></script>
+  <script defer src="src/big-five.js?v=20260809-21"></script>
+  <script defer src="src/big-five-italy.js?v=20260809-21"></script>
+  <script defer src="src/big-five-germany.js?v=20260809-21"></script>
+  <script defer src="src/big-five-france.js?v=20260809-21"></script>
+  <script defer src="src/season-players.js?v=20260813-02"></script>
+  <script defer src="src/season-data.js?v=20260821-02"></script>
+  <script defer src="src/storage.js?v=20260813-01"></script>
+  <script defer src="src/player-identity.js?v=20260813-01"></script>
+  <script defer src="src/european-clubs.js?v=20260814-01"></script>
+  <script defer src="src/simulation-core.js?v=20260813-04"></script>
+  <script defer src="src/position-fit.js?v=20260813-01"></script>
+  <script defer src="src/challenge-data.js?v=20260821-01"></script>
+  <script defer src="src/cloud-payload.js?v=20260821-01"></script>
+  <script defer src="src/cloud-config.js?v=20260815-02"></script>
+  <script defer src="src/cloud-storage.js?v=20260818-01"></script>
+  <script defer src="src/app.js?v=20260825-02"></script>
 </body>
 </html>

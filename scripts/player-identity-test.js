@@ -4,7 +4,7 @@ const vm = require("vm");
 
 const sandbox = { window: {} };
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(path.resolve(__dirname, "..", "player-identity.js"), "utf8"), sandbox);
+vm.runInContext(fs.readFileSync(path.resolve(__dirname, "..", "src", "player-identity.js"), "utf8"), sandbox);
 const identity = sandbox.window.G38PlayerIdentity;
 const aliases = { "real-sociedad": ["real-sociedad-cf", "real-sociedad-de-futbol"] };
 

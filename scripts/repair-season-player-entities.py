@@ -10,7 +10,7 @@ from urllib.error import HTTPError
 from pathlib import Path
 
 
-DATA_PATH = Path(__file__).resolve().parents[1] / "season-players.js"
+DATA_PATH = Path(__file__).resolve().parents[1] / "src" / "season-players.js"
 CACHE_PATH = Path(__file__).resolve().with_name(".season-player-rating-cache.json")
 SOURCE_CSV = "https://raw.githubusercontent.com/lbenz730/fifa_model/master/player_stats.csv"
 FIFA_INDEX_READER = "https://r.jina.ai/http://fifaindex.com/player"

@@ -2,7 +2,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   const [key, value = "true"] = arg.replace(/^--/, "").split("=");
@@ -24,13 +24,13 @@ function loadData() {
   const context = {};
   vm.createContext(context);
   [
-    "data.js",
-    "big-five.js",
-    "big-five-italy.js",
-    "big-five-germany.js",
-    "big-five-france.js",
-    "european-clubs.js",
-    "season-standings.js"
+    "src/data.js",
+    "src/big-five.js",
+    "src/big-five-italy.js",
+    "src/big-five-germany.js",
+    "src/big-five-france.js",
+    "src/european-clubs.js",
+    "src/season-standings.js"
   ].forEach((file) => vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context));
   vm.runInContext(
     "globalThis.__data = { clubs: CLUBS, entries: EUROPE_2025_26, profiles: EUROPEAN_CLUB_PROFILES, associations: EUROPEAN_CLUB_ASSOCIATIONS, coefficients: EUROPEAN_ASSOCIATION_COEFFICIENTS, standings: HISTORICAL_STANDINGS };",

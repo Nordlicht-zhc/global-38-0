@@ -1,5 +1,5 @@
 const assert = require("assert");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const seed = core.hashSeed("g38-random-regression");
 const first = core.makeRng(seed);

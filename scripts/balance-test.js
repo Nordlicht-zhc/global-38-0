@@ -1,6 +1,6 @@
 const fs = require("fs");
 const vm = require("vm");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   const [key, value = "true"] = arg.replace(/^--/, "").split("=");
@@ -15,13 +15,13 @@ const uclPlaces = { eng: 5, esp: 5, ita: 4, ger: 4, fra: 3 };
 function loadSeasonPlayers() {
   const context = {};
   vm.createContext(context);
-  const source = fs.readFileSync("season-players.js", "utf8");
+  const source = fs.readFileSync("src/season-players.js", "utf8");
   vm.runInContext(`${source};globalThis.__data = SEASON_PLAYERS["2025-26"];`, context);
   return context.__data;
 }
 
 function readObjectConstant(name) {
-  const source = fs.readFileSync("app.js", "utf8");
+  const source = fs.readFileSync("src/app.js", "utf8");
   const marker = `const ${name} = `;
   const markerIndex = source.indexOf(marker);
   if (markerIndex < 0) throw new Error(`Missing ${name} in app.js.`);

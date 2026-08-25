@@ -1,7 +1,7 @@
 const assert = require("assert");
 const fs = require("fs");
 const vm = require("vm");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   const [key, value = "true"] = arg.replace(/^--/, "").split("=");
@@ -21,7 +21,7 @@ const promotedTeams = {
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 function readObjectConstant(name) {
-  const source = fs.readFileSync("app.js", "utf8");
+  const source = fs.readFileSync("src/app.js", "utf8");
   const marker = `const ${name} = `;
   const markerIndex = source.indexOf(marker);
   if (markerIndex < 0) throw new Error(`Missing ${name} in app.js.`);
@@ -53,13 +53,13 @@ function loadData() {
   const context = {};
   vm.createContext(context);
   [
-    "data.js",
-    "big-five.js",
-    "big-five-italy.js",
-    "big-five-germany.js",
-    "big-five-france.js",
-    "season-players.js",
-    "european-clubs.js"
+    "src/data.js",
+    "src/big-five.js",
+    "src/big-five-italy.js",
+    "src/big-five-germany.js",
+    "src/big-five-france.js",
+    "src/season-players.js",
+    "src/european-clubs.js"
   ].forEach((file) => vm.runInContext(fs.readFileSync(file, "utf8"), context));
   vm.runInContext(`globalThis.__data = {
     clubs: CLUBS,

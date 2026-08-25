@@ -2,10 +2,10 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const root = path.resolve(__dirname, "..");
-const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const appSource = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "global 38-0.html"), "utf8");
 
 assert(appSource.includes('type: "tiered"'), "Tiered dynasty state is missing.");
@@ -15,7 +15,8 @@ assert(!appSource.includes('dynastyStartSeason') && !html.includes('dynastyStart
   "The removed historical dynasty season selector is still referenced.");
 assert(appSource.includes('const dynastyStart = dynastyMode ? CURRENT_DATA_SEASON'),
   "Tiered dynasty should start directly from 2025-26.");
-assert(appSource.includes("swapJourneyBoundary"), "Promotion and relegation logic is missing.");
+assert(appSource.includes("simulateJourneyPlayoffs"), "Promotion and relegation playoff logic is missing.");
+assert(appSource.includes("JOURNEY_DIRECT_MOVEMENT_COUNT = 6"), "Journey direct movement count is missing.");
 assert(appSource.includes("doubleRound: false"), "Three-tier mode must use a single round robin.");
 assert(appSource.includes("createJourneyCupSimulation"), "Three-tier mode must create the Journey Cup.");
 assert(appSource.includes('roundTargets = [64, 32, 16, 8, 4, 2, 1]'), "Journey Cup must include all 96 clubs in a knockout path.");
@@ -32,7 +33,7 @@ assert(appSource.includes("ensureFreeAgentMarket"), "Dynasty free-agent market i
 assert(appSource.includes("recordFreeAgentSigning"), "Free-agent signings must be recorded.");
 
 const activeContext = {};
-vm.runInNewContext(`${fs.readFileSync(path.join(root, "season-players.js"), "utf8")};this.data=SEASON_PLAYERS;`, activeContext);
+vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-players.js"), "utf8")};this.data=SEASON_PLAYERS;`, activeContext);
 const activeBigFive = activeContext.data["2025-26"].clubs
   .filter((club) => ["eng", "esp", "ita", "ger", "fra"].includes(club.league));
 assert.strictEqual(activeBigFive.length, 96, "The pinned 2025-26 tier pool should contain 96 clubs.");

@@ -3,7 +3,7 @@
 const fs = require("fs");
 const vm = require("vm");
 
-const source = fs.readFileSync("cloud-storage.js", "utf8");
+const source = fs.readFileSync("src/cloud-storage.js", "utf8");
 const context = {
   window: { G38CloudConfig: { url: "", publishableKey: "" } },
   console,

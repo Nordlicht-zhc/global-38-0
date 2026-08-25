@@ -64,7 +64,7 @@
     if (standingsPromise) return standingsPromise;
     standingsPromise = new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "season-standings.js?v=20260821-02";
+      script.src = "src/season-standings.js?v=20260821-02";
       script.async = true;
       script.onload = () => {
         if (typeof HISTORICAL_STANDINGS === "undefined") {

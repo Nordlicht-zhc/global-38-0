@@ -1,11 +1,11 @@
 const assert = require("assert");
 const fs = require("fs");
 const vm = require("vm");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const context = {};
 vm.createContext(context);
-["data.js", "big-five.js", "big-five-italy.js", "big-five-germany.js", "big-five-france.js", "european-clubs.js", "season-standings.js"].forEach((file) => {
+["src/data.js", "src/big-five.js", "src/big-five-italy.js", "src/big-five-germany.js", "src/big-five-france.js", "src/european-clubs.js", "src/season-standings.js"].forEach((file) => {
   vm.runInContext(fs.readFileSync(file, "utf8"), context);
 });
 vm.runInContext(

@@ -6,7 +6,7 @@ enabled only after configuring Supabase.
 1. Create a Supabase project on the Free plan.
 2. Open **SQL Editor** and run [`schema.sql`](../supabase/schema.sql).
 3. In **Project Settings → Data API**, copy the project URL and publishable key.
-4. Put those public values in [`cloud-config.js`](../cloud-config.js):
+4. Put those public values in [`src/cloud-config.js`](../src/cloud-config.js):
 
    ```js
    url: "https://your-project.supabase.co",

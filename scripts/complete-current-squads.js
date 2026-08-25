@@ -3,7 +3,7 @@ const path = require("path");
 const vm = require("vm");
 
 const root = path.resolve(__dirname, "..");
-const dataPath = path.join(root, "season-players.js");
+const dataPath = path.join(root, "src", "season-players.js");
 const sandbox = {};
 
 vm.createContext(sandbox);

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   const [key, value = "true"] = arg.replace(/^--/, "").split("=");
@@ -24,12 +24,12 @@ function loadData() {
   const context = {};
   vm.createContext(context);
   [
-    "data.js",
-    "big-five.js",
-    "big-five-italy.js",
-    "big-five-germany.js",
-    "big-five-france.js",
-    "season-standings.js"
+    "src/data.js",
+    "src/big-five.js",
+    "src/big-five-italy.js",
+    "src/big-five-germany.js",
+    "src/big-five-france.js",
+    "src/season-standings.js"
   ].forEach((file) => vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context));
   vm.runInContext(
     "globalThis.__data = { clubs: CLUBS, standings: HISTORICAL_STANDINGS };",
@@ -48,13 +48,13 @@ function loadSeasonClubs(season) {
 function loadCurrentSeasonClubs() {
   const context = {};
   vm.createContext(context);
-  const source = fs.readFileSync(path.join(root, "season-players.js"), "utf8");
+  const source = fs.readFileSync(path.join(root, "src", "season-players.js"), "utf8");
   vm.runInContext(`${source};globalThis.__data = SEASON_PLAYERS["2025-26"];`, context);
   return context.__data?.clubs || [];
 }
 
 function readObjectConstant(name) {
-  const source = fs.readFileSync(path.join(root, "app.js"), "utf8");
+  const source = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
   const marker = `const ${name} = `;
   const markerIndex = source.indexOf(marker);
   if (markerIndex < 0) throw new Error(`Missing ${name} in app.js.`);

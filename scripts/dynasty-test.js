@@ -2,11 +2,11 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
-const core = require("../simulation-core.js");
+const core = require("../src/simulation-core.js");
 
 const root = path.resolve(__dirname, "..");
 const context = {};
-vm.runInNewContext(`${fs.readFileSync(path.join(root, "season-standings.js"), "utf8")};this.data=HISTORICAL_STANDINGS;`, context);
+vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-standings.js"), "utf8")};this.data=HISTORICAL_STANDINGS;`, context);
 
 const seasons = Object.keys(context.data);
 const leagues = ["eng", "esp", "ita", "ger", "fra"];
@@ -29,7 +29,7 @@ vm.runInNewContext(fs.readFileSync(path.join(root, "history-data", "2003-04.js")
 const deportivo = deportivoContext.window.G38_HISTORY_DATA["2003-04"].clubs
   .find((club) => club.id === "deportivo-de-la-coru-a");
 assert(deportivo?.players.length, "2003-04 Deportivo de La Coruña squad data should exist.");
-const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const appSource = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
 assert(appSource.includes("const DYNASTY_LEAGUE_PROFILE = Object.freeze({")
   && appSource.includes("fallbackToCurrent: true")
   && appSource.includes("fallbackToLeagueAverage: true"),

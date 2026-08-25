@@ -3,7 +3,7 @@ const vm = require("vm");
 
 const context = { window: {} };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync("position-fit.js", "utf8"), context, { filename: "position-fit.js" });
+vm.runInContext(fs.readFileSync("src/position-fit.js", "utf8"), context, { filename: "src/position-fit.js" });
 
 const { canPlaySlot, isForceableMidfielder, midfielderForcedPenalty } = context.window.G38PositionFit;
 const assert = (condition, message) => {

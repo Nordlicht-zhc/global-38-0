@@ -42,7 +42,7 @@ function checkPlayer(player, label) {
 }
 
 vm.createContext(sandbox);
-const seasons = loadGlobal("season-players.js", "SEASON_PLAYERS");
+const seasons = loadGlobal("src/season-players.js", "SEASON_PLAYERS");
 const historyDir = path.join(root, "history-data");
 if (fs.existsSync(historyDir)) {
   for (const file of fs.readdirSync(historyDir).filter((name) => name.endsWith(".js"))) {

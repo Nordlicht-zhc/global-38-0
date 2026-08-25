@@ -28,7 +28,7 @@ if (fs.existsSync(outputDir)) {
 const seasons = {
   ...existingHistory,
   ...loadGlobal(path.join("source-data", "legacy-seasons.js"), "LEGACY_SEASONS"),
-  ...loadGlobal("season-players.js", "SEASON_PLAYERS")
+  ...loadGlobal("src/season-players.js", "SEASON_PLAYERS")
 };
 
 if (!seasons[currentSeason]) throw new Error(`${currentSeason} is missing`);
@@ -50,5 +50,5 @@ for (const file of fs.readdirSync(outputDir).filter((name) => name.endsWith(".js
 }
 
 const currentOutput = `// 2004-05 through 2025-26 player pools. Active 2025-26 squads use FC 26 launch ratings with documented season additions.\nconst SEASON_PLAYERS = ${JSON.stringify({ [currentSeason]: seasons[currentSeason] })};\n`;
-fs.writeFileSync(path.join(root, "season-players.js"), currentOutput, "utf8");
+fs.writeFileSync(path.join(root, "src", "season-players.js"), currentOutput, "utf8");
 console.log(`Wrote ${historicalCount} local-file-compatible history chunks and retained ${currentSeason} as the active bundle.`);

@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
-const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const app = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "global 38-0.html"), "utf8");
 const testEntry = fs.readFileSync(path.join(root, "test.html"), "utf8");
 

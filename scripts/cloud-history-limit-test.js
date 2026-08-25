@@ -4,7 +4,7 @@ const vm = require("vm");
 
 const context = { window: {} };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync("cloud-payload.js", "utf8"), context);
+vm.runInContext(fs.readFileSync("src/cloud-payload.js", "utf8"), context);
 
 const matches = Array.from({ length: 35 }, (_, index) => ({
   round: index + 1,

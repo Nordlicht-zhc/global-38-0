@@ -4,23 +4,23 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
-const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const app = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "global 38-0.html"), "utf8");
 
 const challengeContext = { window: {} };
-vm.runInNewContext(fs.readFileSync(path.join(root, "challenge-data.js"), "utf8"), challengeContext);
+vm.runInNewContext(fs.readFileSync(path.join(root, "src", "challenge-data.js"), "utf8"), challengeContext);
 const peakChallenge = challengeContext.window.G38Challenges.find((challenge) => challenge.id === "club-peak");
 assert(peakChallenge, "Club Peak challenge is missing.");
 assert.equal(peakChallenge.objectives.length, 3, "Club Peak should expose three objectives.");
 
 const seasonContext = {};
-vm.runInNewContext(`${fs.readFileSync(path.join(root, "season-players.js"), "utf8")};globalThis.__season = SEASON_PLAYERS["2025-26"];`, seasonContext);
+vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-players.js"), "utf8")};globalThis.__season = SEASON_PLAYERS["2025-26"];`, seasonContext);
 const currentClubs = seasonContext.__season.clubs.filter((club) => ["eng", "esp", "ita", "ger", "fra"].includes(club.league));
 assert.equal(currentClubs.length, 96, "Club Peak should cover all 2025-26 Big Five clubs.");
 assert.equal(new Set(currentClubs.map((club) => club.id)).size, currentClubs.length, "Club Peak club IDs must be unique.");
 
 const standingsContext = {};
-vm.runInNewContext(`${fs.readFileSync(path.join(root, "season-standings.js"), "utf8")};globalThis.__standings = HISTORICAL_STANDINGS;`, standingsContext);
+vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-standings.js"), "utf8")};globalThis.__standings = HISTORICAL_STANDINGS;`, standingsContext);
 const seasons = Object.keys(standingsContext.__standings);
 assert(seasons.length >= 30, "Historical standings should cover the available challenge history.");
 assert(seasons.includes("2025-26"), "Current season standings are required for Club Peak benchmarks.");

@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
-const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const app = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -63,6 +63,15 @@ assert(!app.includes('"欧洲之王"'),
 });
 assert(app.includes("journeyCupUpset"), "Journey Cup upset achievement data is missing.");
 assert(app.includes("totalFreeAgentSignings"), "Cumulative Dynasty free-agent achievement data is missing.");
+assert(app.includes("JOURNEY_DIRECT_MOVEMENT_COUNT = 6"), "Journey direct movement should use six clubs.");
+assert(app.includes("JOURNEY_PLAYOFF_POSITIONS = [7, 8]"), "Journey promotion playoff positions are missing.");
+assert(app.includes("JOURNEY_UPPER_PLAYOFF_POSITIONS = [26, 25]"), "Journey upper-tier playoff positions are missing.");
+assert(app.includes("function simulateJourneyPlayoffs(game, leagueTable)"), "Journey playoff simulation is missing.");
+assert(app.includes("promotion-playoff-win"), "Promotion playoff result tracking is missing.");
+assert(app.includes("relegation-playoff-win"), "Relegation playoff result tracking is missing.");
+assert(app.includes("附加赛突围") && app.includes("惊险保级"), "Playoff achievements are missing.");
+assert(app.includes("renderJourneyPlayoffs(result.journeyPlayoffs)"), "Journey playoff result rendering is missing.");
+assert(app.includes('JOURNEY_DIRECT_MOVEMENT_COUNT = 6'), "Journey playoff table zoning is missing.");
 assert(app.includes('const europePending = result.achievementStatus === "pending-europe" && !run.europeResult;'),
   "Result rendering must expose the pending-European state.");
 assert(app.includes("Complete this season's European competition before starting the next season."),

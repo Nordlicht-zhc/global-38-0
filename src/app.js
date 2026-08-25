@@ -202,6 +202,8 @@
     { sel: ".test-console .eyebrow", en: "Local Debugging" },
     { sel: ".test-console h2", en: "Test Console" },
     { sel: ".test-console-copy", en: "Generate a complete squad in one click and skip manual drafting. Test runs do not overwrite your real save, enter season history, or unlock achievements." },
+    { sel: "#journeyPlayoffPanel .eyebrow", en: "Promotion & Relegation Playoffs" },
+    { sel: "#journeyPlayoffPanel h2", en: "Three-Tier Playoffs" },
     { sel: "#testRatingLabel", en: "Target Squad Rating" },
     { sel: "#testRatingHint", en: "Leave blank to use the players' original ratings." },
     { sel: "#testRatingProfileLabel", en: "Rating Structure" },
@@ -748,6 +750,8 @@
     "征途双冠": ["🏅", "同一赛季赢得所在级别联赛和征途杯", "Win your tier league and the Journey Cup in one season"],
     "最速通关": ["⚡", "三个赛季内完成三级征途", "Complete the Three-Tier Journey within three seasons"],
     "自由市场建队": ["🧳", "王朝累计完成六次自由签约", "Complete six free-agent signings across one Dynasty"],
+    "附加赛突围": ["🛣️", "赢得升级附加赛并升入更高级别", "Win a promotion playoff and move up a tier"],
+    "惊险保级": ["🧤", "赢得保级附加赛并留在当前级别", "Win a relegation playoff and stay in the tier"],
     "欧战决赛": ["🎯", "打入欧洲赛事决赛", "Reach a European final"],
     "欧洲冠军": ["🏆", "赢得任意一项欧洲赛事", "Win any European competition"],
     "欧冠登顶": ["👑", "赢得欧洲冠军联赛", "Win the Champions League"],
@@ -787,7 +791,7 @@
       id: "dynasty",
       label: "王朝与征途",
       labelEn: "Dynasty & Journey",
-      names: ["成功升级", "连升两级", "登上顶级", "征途终点", "首季起飞", "下克上", "草根捧杯", "征途双冠", "最速通关", "连冠之路", "三级称王", "五冠王朝", "自由市场猎手", "自由市场建队"]
+      names: ["成功升级", "连升两级", "登上顶级", "征途终点", "首季起飞", "下克上", "草根捧杯", "征途双冠", "最速通关", "连冠之路", "三级称王", "五冠王朝", "自由市场猎手", "自由市场建队", "附加赛突围", "惊险保级"]
     },
     {
       id: "europe",
@@ -842,6 +846,8 @@
     "征途双冠": "Journey Double",
     "最速通关": "Fastest Journey",
     "自由市场建队": "Free-Agent Builder",
+    "附加赛突围": "Playoff Promotion",
+    "惊险保级": "Playoff Survival",
     "欧战决赛": "European Final",
     "欧洲冠军": "European Champion",
     "欧冠登顶": "Champions League Winner",
@@ -1076,6 +1082,9 @@
     resultTablePanel: $("#resultTablePanel"),
     resultTableLeague: $("#resultTableLeague"),
     leagueTable: $("#leagueTable"),
+    journeyPlayoffPanel: $("#journeyPlayoffPanel"),
+    journeyPlayoffStatus: $("#journeyPlayoffStatus"),
+    journeyPlayoffResults: $("#journeyPlayoffResults"),
     domesticCupPanel: $("#domesticCupPanel"),
     domesticCupTitle: $("#domesticCupTitle"),
     domesticCupStatus: $("#domesticCupStatus"),
@@ -1460,48 +1469,154 @@
     });
   }
 
-  function swapJourneyBoundary(game, upperIndex, lowerIndex, count = 8) {
-    const upper = game.dynasty.journey.tiers[upperIndex];
-    const lower = game.dynasty.journey.tiers[lowerIndex];
-    const upCandidates = sortJourneyIds(game, journeyAiIds(game, upperIndex), false).slice(0, count);
-    const downCandidates = sortJourneyIds(game, journeyAiIds(game, lowerIndex), true).slice(0, count);
-    upCandidates.forEach((id) => removeJourneyId(upper, id));
-    downCandidates.forEach((id) => removeJourneyId(lower, id));
-    upper.push(...downCandidates);
-    lower.push(...upCandidates);
+  const JOURNEY_DIRECT_MOVEMENT_COUNT = 6;
+  const JOURNEY_PLAYOFF_POSITIONS = [7, 8];
+  const JOURNEY_UPPER_PLAYOFF_POSITIONS = [26, 25];
+
+  function journeyClubName(game, id) {
+    return id === JOURNEY_USER_ID ? JOURNEY_USER_NAME : game.dynasty.journey.clubs?.[id]?.name || id;
   }
 
-  function updateJourneyAfterSeason(game, leagueTable) {
+  function journeyPlayoffTeam(game, id, tierIndex) {
+    const journey = game.dynasty.journey;
+    const record = journey.clubs?.[id];
+    const profile = id === JOURNEY_USER_ID
+      ? applyCoachToProfile(calcTeamProfile(game), getCoach(game))
+      : record?.profile || { attack: 78, midfield: 78, defense: 78, goalkeeper: 78, overall: 78 };
+    return {
+      id,
+      name: journeyClubName(game, id),
+      profile,
+      strength: teamStrength(profile),
+      isUser: id === JOURNEY_USER_ID,
+      tier: tierIndex + 1
+    };
+  }
+
+  function journeyRankedIds(game, tierIndex, leagueTable = null) {
+    const journey = game.dynasty.journey;
+    const ids = [...(journey.tiers?.[tierIndex] || [])];
+    const rankByName = new Map((leagueTable || []).map((row) => [row.name, Number(row.position)]));
+    return ids.sort((left, right) => {
+      const leftRank = rankByName.get(journeyClubName(game, left));
+      const rightRank = rankByName.get(journeyClubName(game, right));
+      if (Number.isFinite(leftRank) && Number.isFinite(rightRank)) return leftRank - rightRank;
+      if (Number.isFinite(leftRank)) return -1;
+      if (Number.isFinite(rightRank)) return 1;
+      return sortJourneyIds(game, [left, right], true)[0] === left ? -1 : 1;
+    });
+  }
+
+  function swapJourneyIds(game, upperIndex, lowerIndex, upperIds, lowerIds) {
+    const upper = game.dynasty.journey.tiers[upperIndex];
+    const lower = game.dynasty.journey.tiers[lowerIndex];
+    [...upperIds, ...lowerIds].forEach((id) => {
+      removeJourneyId(upper, id);
+      removeJourneyId(lower, id);
+    });
+    upper.push(...lowerIds);
+    lower.push(...upperIds);
+  }
+
+  function journeyPlayoffResult(tie, lower, upper) {
+    const winnerId = tie.winner?.id || null;
+    const aggregateA = tie.aggregateA ?? tie.homeGoals ?? 0;
+    const aggregateB = tie.aggregateB ?? tie.awayGoals ?? 0;
+    return {
+      lower: { id: lower.id, name: lower.name, tier: lower.tier },
+      upper: { id: upper.id, name: upper.name, tier: upper.tier },
+      winner: tie.winner ? { id: tie.winner.id, name: tie.winner.name, tier: tie.winner.tier } : null,
+      lowerWon: winnerId === lower.id,
+      userInvolved: Boolean(lower.isUser || upper.isUser),
+      legs: (tie.legs || []).map((leg) => ({
+        home: leg.home?.name || "",
+        away: leg.away?.name || "",
+        homeGoals: leg.homeGoals,
+        awayGoals: leg.awayGoals
+      })),
+      aggregate: {
+        lower: aggregateA,
+        upper: aggregateB
+      },
+      extraTime: tie.extraTime ? { ...tie.extraTime } : null,
+      penalties: tie.penalties ? { ...tie.penalties } : null
+    };
+  }
+
+  function simulateJourneyPlayoffs(game, leagueTable) {
     const journey = game?.dynasty?.journey;
-    if (!journey || !Array.isArray(leagueTable)) return;
-    const fromTier = clamp(Number(journey.tier) || 3, 1, 3);
-    if (fromTier > 1) swapJourneyBoundary(game, fromTier - 2, fromTier - 1, 8);
-    if (fromTier < 3) swapJourneyBoundary(game, fromTier - 1, fromTier, 8);
-    const finish = Number(game.result?.finish || leagueTable.find((row) => row.isUser)?.position || 99);
-    const size = leagueTable.length;
-    let toTier = fromTier;
-    if (fromTier === 1 && finish > size - 8) toTier = 2;
-    if (fromTier > 1 && finish <= 8) toTier = fromTier - 1;
-    if (fromTier < 3 && finish > size - 8) toTier = fromTier + 1;
-    if (toTier !== fromTier) {
-      const from = journey.tiers[fromTier - 1];
-      const to = journey.tiers[toTier - 1];
-      removeJourneyId(from, JOURNEY_USER_ID);
-      const replacementIndex = toTier < fromTier
-        ? sortJourneyIds(game, journeyAiIds(game, toTier - 1), false)[0]
-        : sortJourneyIds(game, journeyAiIds(game, toTier - 1), true)[0];
-      if (replacementIndex) removeJourneyId(to, replacementIndex);
-      if (replacementIndex) from.push(replacementIndex);
-      to.push(JOURNEY_USER_ID);
-      journey.lastMovement = { from: fromTier, to: toTier, finish };
-      journey.tier = toTier;
-    } else {
-      journey.lastMovement = { from: fromTier, to: fromTier, finish };
+    if (!journey || !Array.isArray(leagueTable)) return null;
+    const currentTier = clamp(Number(journey.tier) || 3, 1, 3);
+    const rng = makeRng(hashSeed(`${game.id}|journey-playoffs|${journey.seasonNumber || 1}|${simulationSeason(game)}`));
+    const boundaries = [];
+    const movementPlans = [];
+    for (let upperIndex = 0; upperIndex < 2; upperIndex += 1) {
+      const lowerIndex = upperIndex + 1;
+      const upperTable = currentTier === upperIndex + 1 ? leagueTable : null;
+      const lowerTable = currentTier === lowerIndex + 1 ? leagueTable : null;
+      const upperRanked = journeyRankedIds(game, upperIndex, upperTable);
+      const lowerRanked = journeyRankedIds(game, lowerIndex, lowerTable);
+      const directUpper = upperRanked.slice(-JOURNEY_DIRECT_MOVEMENT_COUNT);
+      const directLower = lowerRanked.slice(0, JOURNEY_DIRECT_MOVEMENT_COUNT);
+      const matches = [];
+      const playoffSwaps = [];
+      JOURNEY_PLAYOFF_POSITIONS.forEach((lowerPosition, index) => {
+        const lowerId = lowerRanked[lowerPosition - 1];
+        const upperId = upperRanked[JOURNEY_UPPER_PLAYOFF_POSITIONS[index] - 1];
+        if (!lowerId || !upperId) return;
+        const lower = journeyPlayoffTeam(game, lowerId, lowerIndex);
+        const upper = journeyPlayoffTeam(game, upperId, upperIndex);
+        const tie = simulateTwoLegTie(lower, upper, rng);
+        const result = journeyPlayoffResult(tie, lower, upper);
+        matches.push({ ...result, lowerPosition, upperPosition: JOURNEY_UPPER_PLAYOFF_POSITIONS[index] });
+        if (result.lowerWon) playoffSwaps.push({ lowerId, upperId });
+      });
+      const lowerPlayoffIds = matches.filter((match) => match.lowerWon).map((match) => match.lower.id);
+      const upperPlayoffIds = matches.filter((match) => match.lowerWon).map((match) => match.upper.id);
+      movementPlans.push({
+        upperIndex,
+        lowerIndex,
+        upperIds: [...directUpper, ...upperPlayoffIds],
+        lowerIds: [...directLower, ...lowerPlayoffIds]
+      });
+      boundaries.push({
+        upperTier: upperIndex + 1,
+        lowerTier: lowerIndex + 1,
+        directMovement: JOURNEY_DIRECT_MOVEMENT_COUNT,
+        matches,
+        swaps: playoffSwaps
+      });
     }
+    movementPlans.forEach((plan) => {
+      swapJourneyIds(game, plan.upperIndex, plan.lowerIndex, plan.upperIds, plan.lowerIds);
+    });
+    const finish = Number(game.result?.finish || leagueTable.find((row) => row.isUser)?.position || 99);
+    const fromTier = currentTier;
+    const toTier = (journey.tiers || []).findIndex((tier) => tier.includes(JOURNEY_USER_ID)) + 1 || fromTier;
+    const userMatch = boundaries.flatMap((boundary) => boundary.matches)
+      .find((match) => match.userInvolved);
+    const userPlayoffOutcome = userMatch
+      ? userMatch.lower.id === JOURNEY_USER_ID
+        ? (userMatch.lowerWon ? "promotion-playoff-win" : "promotion-playoff-loss")
+        : (userMatch.lowerWon ? "relegation-playoff-loss" : "relegation-playoff-win")
+      : null;
+    journey.lastMovement = {
+      from: fromTier,
+      to: toTier,
+      finish,
+      via: userPlayoffOutcome ? "playoff" : "table",
+      playoffOutcome: userPlayoffOutcome
+    };
+    journey.tier = toTier;
     if (fromTier === 1 && finish === 1) {
       journey.completed = true;
       game.dynasty.completed = true;
     }
+    game.result.journeyPlayoffs = {
+      currentTier: fromTier,
+      userOutcome: userPlayoffOutcome,
+      boundaries
+    };
     game.result.journey = {
       tier: fromTier,
       nextTier: journey.tier,
@@ -1509,6 +1624,10 @@
       movement: journey.lastMovement
     };
     game.dynasty.currentIndex = Number(journey.seasonNumber || 1) - 1;
+  }
+
+  function updateJourneyAfterSeason(game, leagueTable) {
+    simulateJourneyPlayoffs(game, leagueTable);
   }
 
   const updateSeasonRangeLabels = (active = null) => {
@@ -1643,8 +1762,8 @@
     ui.accountUploadLocalBtn.classList.toggle("hidden", !Boolean(user && state.cloud.localOnly));
     if (!configured) {
       ui.accountSyncInfo.textContent = uiText(
-        "请在 cloud-config.js 中填写 Supabase 项目地址和 publishable key。",
-        "Fill in the Supabase URL and publishable key in cloud-config.js to enable accounts."
+        "请在 src/cloud-config.js 中填写 Supabase 项目地址和 publishable key。",
+        "Fill in the Supabase URL and publishable key in src/cloud-config.js to enable accounts."
       );
     } else if (state.cloud.localOnly) {
       ui.accountSyncInfo.textContent = uiText(
@@ -7035,6 +7154,7 @@
       + (entry.europeResult?.champion === "我的球队" ? 1 : 0), 0);
     const movement = result?.journeyMovement || (isTieredDynasty(game) ? game.dynasty.journey?.lastMovement : null);
     const previousMovement = previousResults[previousResults.length - 1]?.journeyMovement;
+    const journeyPlayoffOutcome = result?.journeyPlayoffs?.userOutcome || result?.journey?.movement?.playoffOutcome || null;
     return {
       tiered: isTieredDynasty(game),
       movement,
@@ -7052,6 +7172,7 @@
       currentTier,
       seasonNumber,
       journeyCupUpset: Boolean(result?.domesticCup?.journeyCupUpset),
+      journeyPlayoffOutcome,
       completed: Boolean(game.dynasty.journey?.completed)
     };
   }
@@ -7112,6 +7233,8 @@
       if (dynasty.tiered && dynasty.priorLeagueTitles + (dynasty.currentLeague ? 1 : 0) >= 3) list.push("三级称王");
       if (dynasty.totalTrophies >= 5) list.push("五冠王朝");
       if (dynasty.tiered && dynasty.totalFreeAgentSignings >= 6) list.push("自由市场建队");
+      if (dynasty.journeyPlayoffOutcome === "promotion-playoff-win") list.push("附加赛突围");
+      if (dynasty.journeyPlayoffOutcome === "relegation-playoff-win") list.push("惊险保级");
     }
     const europe = result.europeResult;
     if (europe) {
@@ -7507,11 +7630,20 @@
       stats.appendChild(el("span", "", `${result.wins || 0}-${result.draws || 0}-${result.losses || 0} · ${result.points || 0} ${uiText("分", "pts")}`));
       stats.appendChild(el("span", "", `${result.goalsFor || 0}-${result.goalsAgainst || 0} ${uiText("进失球", "GF-GA")}`));
       if (movement && tiered) {
-        stats.appendChild(el("span", `dynasty-history-movement-tag ${movement.to < movement.from ? "promoted" : movement.to > movement.from ? "relegated" : "stayed"}`, movement.to === movement.from
+        const movementLabel = movement.via === "playoff"
+          ? movement.playoffOutcome === "promotion-playoff-win"
+            ? uiText("附加赛升级", "Playoff promotion")
+            : movement.playoffOutcome === "relegation-playoff-win"
+              ? uiText("附加赛保级", "Playoff survival")
+              : movement.playoffOutcome === "relegation-playoff-loss"
+                ? uiText("附加赛降级", "Playoff relegation")
+                : uiText("附加赛未升级", "Playoff missed")
+          : movement.to === movement.from
           ? uiText(`留在第 ${movement.to} 级`, `Stayed in Tier ${movement.to}`)
           : movement.to < movement.from
             ? uiText(`升级至第 ${movement.to} 级`, `Promoted to Tier ${movement.to}`)
-            : uiText(`降至第 ${movement.to} 级`, `Relegated to Tier ${movement.to}`)));
+            : uiText(`降至第 ${movement.to} 级`, `Relegated to Tier ${movement.to}`);
+        stats.appendChild(el("span", `dynasty-history-movement-tag ${movement.to < movement.from ? "promoted" : movement.to > movement.from ? "relegated" : "stayed"}`, movementLabel));
       }
       row.appendChild(stats);
       const honours = [];
@@ -7521,6 +7653,8 @@
       if (result.finish === 1 && (!tiered || result.journey?.tier === 1)) honours.push(uiText("联赛冠军", "League Champion"));
       if (result.domesticCup?.champion === "我的球队") honours.push(tiered ? uiText("征途杯冠军", "Journey Cup Champion") : uiText("国内杯冠军", "Domestic Cup Champion"));
       if (result.europeResult?.champion === "我的球队") honours.push(uiText("欧战冠军", "European Champion"));
+      if (result.journeyPlayoffs?.userOutcome === "promotion-playoff-win") honours.push(uiText("升级附加赛晋级", "Promotion playoff winner"));
+      if (result.journeyPlayoffs?.userOutcome === "relegation-playoff-win") honours.push(uiText("保级附加赛成功", "Relegation playoff survival"));
       row.appendChild(el("div", "dynasty-history-honours", honours.length ? honours.join(" · ") : uiText("本季未夺冠", "No trophy this season")));
       timeline.appendChild(row);
     });
@@ -7617,6 +7751,7 @@
     renderDynastyAchievementHistory(run, achievements.closest(".achievement-section"));
     renderLeagueTable(result, leagueName, run.league, peakClub?.name);
     renderDomesticCup(result.domesticCup);
+    renderJourneyPlayoffs(result.journeyPlayoffs);
     renderResultLineup(run);
     renderEurope(result, run);
 
@@ -7666,8 +7801,10 @@
     if (isJourneyLeague) {
       legend.classList.add("journey-legend");
       [
-        ["zone-promotion", uiText("升级区", "Promotion zone"), journeyTier > 1],
-        ["zone-relegation", uiText("降级区", "Relegation zone"), journeyTier < 3]
+        ["zone-promotion", uiText("直接升级区", "Direct promotion"), journeyTier > 1],
+        ["zone-promotion-playoff", uiText("升级附加赛", "Promotion playoff"), journeyTier > 1],
+        ["zone-relegation-playoff", uiText("保级附加赛", "Relegation playoff"), journeyTier < 3],
+        ["zone-relegation", uiText("直接降级区", "Direct relegation"), journeyTier < 3]
       ].filter(([, , visible]) => visible).forEach(([className, label]) => {
         const item = el("span", "journey-zone-item", "");
         item.appendChild(el("i", className, ""));
@@ -7688,9 +7825,12 @@
       const uelEnd = allocation.ucl + allocation.uel;
       const ueclEnd = uelEnd + allocation.uecl;
       const teamCount = result.leagueTable.length;
+      const relegationPlayoffStart = teamCount - JOURNEY_DIRECT_MOVEMENT_COUNT - JOURNEY_PLAYOFF_POSITIONS.length + 1;
       if (isJourneyLeague) {
-        if (journeyTier > 1 && row.position <= 8) tr.classList.add("league-zone-promotion");
-        else if (journeyTier < 3 && row.position > teamCount - 8) tr.classList.add("league-zone-relegation");
+        if (journeyTier > 1 && row.position <= JOURNEY_DIRECT_MOVEMENT_COUNT) tr.classList.add("league-zone-promotion");
+        else if (journeyTier > 1 && row.position <= JOURNEY_PLAYOFF_POSITIONS[JOURNEY_PLAYOFF_POSITIONS.length - 1]) tr.classList.add("league-zone-promotion-playoff");
+        else if (journeyTier < 3 && row.position > teamCount - JOURNEY_DIRECT_MOVEMENT_COUNT) tr.classList.add("league-zone-relegation");
+        else if (journeyTier < 3 && row.position >= relegationPlayoffStart && row.position <= teamCount - JOURNEY_DIRECT_MOVEMENT_COUNT) tr.classList.add("league-zone-relegation-playoff");
       } else if (row.position <= allocation.ucl) tr.classList.add("league-zone-ucl");
       else if (row.position <= uelEnd) tr.classList.add("league-zone-uel");
       else if (row.position <= ueclEnd) tr.classList.add("league-zone-uecl");
@@ -7939,6 +8079,63 @@
     const eliminated = String(cup.userStage || "").match(/^(.+)出局$/);
     if (eliminated) return uiText(cup.userStage, `Eliminated in the ${domesticCupStageText(eliminated[1])}`);
     return domesticCupStageText(cup.userStage);
+  }
+
+  function journeyPlayoffOutcomeText(outcome) {
+    const labels = {
+      "promotion-playoff-win": ["升级附加赛晋级", "Promoted through the playoff"],
+      "promotion-playoff-loss": ["升级附加赛失利，留在本级", "Lost the promotion playoff; stayed in the tier"],
+      "relegation-playoff-win": ["保级附加赛成功，留在本级", "Won the relegation playoff; stayed in the tier"],
+      "relegation-playoff-loss": ["保级附加赛失利，降级", "Lost the relegation playoff; relegated"]
+    };
+    const label = labels[outcome];
+    return label ? uiText(label[0], label[1]) : uiText("直接升降级已结算", "Direct movement settled");
+  }
+
+  function renderJourneyPlayoffs(playoffs) {
+    if (!ui.journeyPlayoffPanel || !ui.journeyPlayoffResults) return;
+    if (!playoffs?.boundaries?.length) {
+      ui.journeyPlayoffPanel.classList.add("hidden");
+      return;
+    }
+    ui.journeyPlayoffPanel.classList.remove("hidden");
+    ui.journeyPlayoffStatus.textContent = journeyPlayoffOutcomeText(playoffs.userOutcome);
+    ui.journeyPlayoffResults.innerHTML = "";
+    playoffs.boundaries.forEach((boundary) => {
+      const block = el("section", "journey-playoff-boundary", "");
+      block.appendChild(el("h3", "", uiText(
+        `第 ${boundary.lowerTier} 级 ↔ 第 ${boundary.upperTier} 级`,
+        `Tier ${boundary.lowerTier} ↔ Tier ${boundary.upperTier}`
+      )));
+      (boundary.matches || []).forEach((match) => {
+        const card = el("article", `journey-playoff-match${match.userInvolved ? " user-match" : ""}`, "");
+        const header = el("div", "journey-playoff-match-head", "");
+        header.appendChild(el("strong", "", `${localizedClubName(match.lower.name)} (${uiText("第7/8名", "#7/#8")})`));
+        header.appendChild(el("span", "", uiText("对阵", "vs")));
+        header.appendChild(el("strong", "", `${localizedClubName(match.upper.name)} (${uiText("第25/26名", "#25/#26")})`));
+        card.appendChild(header);
+        const legs = el("div", "journey-playoff-legs", "");
+        (match.legs || []).forEach((leg, index) => {
+          legs.appendChild(el("span", "", uiText(
+            `第${index + 1}回合 ${localizedClubName(leg.home)} ${leg.homeGoals}-${leg.awayGoals} ${localizedClubName(leg.away)}`,
+            `Leg ${index + 1}: ${localizedClubName(leg.home)} ${leg.homeGoals}-${leg.awayGoals} ${localizedClubName(leg.away)}`
+          )));
+        });
+        card.appendChild(legs);
+        if (!Number.isFinite(Number(match.aggregate?.lower)) || !Number.isFinite(Number(match.aggregate?.upper))) {
+          const lower = (match.legs || []).reduce((total, leg) => total + Number((leg.home === match.lower?.name ? leg.homeGoals : leg.awayGoals) || 0), 0);
+          const upper = (match.legs || []).reduce((total, leg) => total + Number((leg.home === match.upper?.name ? leg.homeGoals : leg.awayGoals) || 0), 0);
+          match.aggregate = { lower, upper };
+        }
+        const winner = match.winner?.name || uiText("点球决胜", "Penalty shootout");
+        card.appendChild(el("span", "journey-playoff-winner", uiText(
+          `总比分 ${match.aggregate.lower}-${match.aggregate.upper} · 晋级：${localizedClubName(winner)}`,
+          `Aggregate ${match.aggregate.lower}-${match.aggregate.upper} · Advances: ${localizedClubName(winner)}`
+        )));
+        block.appendChild(card);
+      });
+      ui.journeyPlayoffResults.appendChild(block);
+    });
   }
 
   function renderDomesticCup(cup) {

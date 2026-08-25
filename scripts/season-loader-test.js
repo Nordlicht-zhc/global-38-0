@@ -5,7 +5,7 @@ const vm = require("vm");
 const root = path.resolve(__dirname, "..");
 const requests = [];
 const current = {};
-vm.runInNewContext(`${fs.readFileSync(path.join(root, "season-players.js"), "utf8")};this.data=SEASON_PLAYERS;`, current);
+vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-players.js"), "utf8")};this.data=SEASON_PLAYERS;`, current);
 
 const sandbox = {
   SEASON_PLAYERS: current.data,
@@ -29,7 +29,7 @@ sandbox.document = {
 sandbox.setTimeout = setTimeout;
 
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(path.join(root, "season-data.js"), "utf8"), sandbox);
+vm.runInContext(fs.readFileSync(path.join(root, "src", "season-data.js"), "utf8"), sandbox);
 
 async function run() {
   const loader = sandbox.window.G38SeasonData;

@@ -2,17 +2,17 @@
 
 ## Project Structure & Module Organization
 
-This is a build-free browser football draft and simulation game. `global 38-0.html` is the entry point. `app.js` coordinates UI and game flows, `simulation-core.js` contains seeded league simulation, `storage.js` handles persistence, and `styles.css` owns presentation.
+This is a build-free browser football draft and simulation game. `global 38-0.html` is the entry point. Runtime JavaScript lives in `src/`: `src/app.js` coordinates UI and game flows, `src/simulation-core.js` contains seeded league simulation, and `src/storage.js` handles persistence. `styles.css` owns presentation.
 
 Keep data separate from behavior:
 
-- `data.js` and `big-five*.js`: formations, leagues, and current club metadata. The retired squad import lives in `archive/` and must not be re-enabled.
-- `season-players.js`: active 2025-26 player pool. `season-data.js` lazily loads per-season JavaScript chunks from `history-data/`; regenerate them with `scripts/split-season-data.js`.
-- `season-standings.js`: generated historical league tables used by dynasty mode; regenerate it with `scripts/generate-season-standings.js`.
-- `player-identity.js`: cross-season duplicate-player detection.
-- `position-fit.js`: normal position compatibility and out-of-position midfielder penalties.
-- `european-clubs.js`: European competition entrants and profiles.
-- `cloud-config.js` and `cloud-storage.js`: optional Supabase account/cloud-save integration; never commit service keys.
+- `src/data.js` and `src/big-five*.js`: formations, leagues, and current club metadata. The retired squad import lives in `archive/` and must not be re-enabled.
+- `src/season-players.js`: active 2025-26 player pool. `src/season-data.js` lazily loads per-season JavaScript chunks from `history-data/`; regenerate them with `scripts/split-season-data.js`.
+- `src/season-standings.js`: generated historical league tables used by dynasty mode; regenerate it with `scripts/generate-season-standings.js`.
+- `src/player-identity.js`: cross-season duplicate-player detection.
+- `src/position-fit.js`: normal position compatibility and out-of-position midfielder penalties.
+- `src/european-clubs.js`: European competition entrants and profiles.
+- `src/cloud-config.js` and `src/cloud-storage.js`: optional Supabase account/cloud-save integration; never commit service keys.
 - `docs/`: contributor and service setup documentation, including `CLOUD_SETUP.md`.
 - `supabase/`: database schema used by the optional cloud backend.
 - `source-data/`: large source datasets used only by regeneration scripts.
@@ -32,7 +32,7 @@ python -m http.server 8000
 Open `http://127.0.0.1:8000/global%2038-0.html`. No install or build step is required. Run focused checks after changes:
 
 ```powershell
-node --check app.js
+node --check src/app.js
 node scripts/validate-data.js
 node scripts/random-test.js
 node scripts/player-identity-test.js

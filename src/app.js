@@ -4367,6 +4367,7 @@
   function animateWheel(targetSeason, targetClub, seasonOptions, clubOptions, done) {
     state.spinning = true;
     ui.spinBtn.disabled = true;
+    const transferClubDraw = Boolean(state.transfer && !state.transfer.modeDrawPending);
     const seasons = seasonOptions.map((season) => ({
       primary: season,
       meta: uiText("赛季", "SEASON")
@@ -4379,15 +4380,14 @@
     const clubTarget = Math.max(0, clubOptions.findIndex((club) => club.id === targetClub.id && club.league === targetClub.league));
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     if (reducedMotion) {
-      renderSlotReel("season", seasons, seasonTarget, true);
+      if (!transferClubDraw) renderSlotReel("season", seasons, seasonTarget, true);
       renderSlotReel("club", clubs, clubTarget, true);
       finishSlotAnimation(done);
       return;
     }
-    Promise.all([
-      animateSlotReel("season", seasons, seasonTarget, 1350),
-      animateSlotReel("club", clubs, clubTarget, 2250)
-    ]).then(() => finishSlotAnimation(done));
+    const animations = [animateSlotReel("club", clubs, clubTarget, 2250)];
+    if (!transferClubDraw) animations.unshift(animateSlotReel("season", seasons, seasonTarget, 1350));
+    Promise.all(animations).then(() => finishSlotAnimation(done));
   }
 
   function animateSlotReel(type, items, targetIndex, duration) {
@@ -4764,14 +4764,18 @@
   function setSlotMachineMode(transfer) {
     const modeDraw = Boolean(transfer?.modeDrawPending);
     const fixedSeason = Boolean(!transfer && isTieredDynasty(state.game));
+    const transferClubDraw = Boolean(transfer && !modeDraw);
     const slotMachine = $("#slotMachine");
     slotMachine?.classList.toggle("transfer-mode-machine", modeDraw);
+    slotMachine?.classList.toggle("transfer-player-machine", transferClubDraw);
     slotMachine?.classList.toggle("tiered-fixed-season", fixedSeason);
     $("#slotMachineTitle")?.replaceChildren(document.createTextNode(modeDraw
       ? uiText("第二次转会方式抽取", "Second Transfer Method Draw")
       : fixedSeason
         ? uiText("球队抽取", "Club Draw")
-        : uiText("赛季与球队抽取", "Season & Club Draw")));
+        : transferClubDraw
+          ? uiText("转会俱乐部抽取", "Transfer Club Draw")
+          : uiText("赛季与球队抽取", "Season & Club Draw")));
     $("#seasonReelLabel")?.replaceChildren(document.createTextNode(modeDraw
       ? uiText("转会方式", "Method")
       : uiText("赛季", "Season")));

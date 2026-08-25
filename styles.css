@@ -1702,6 +1702,20 @@ button {
   width: 100%;
 }
 
+.transfer-player-machine .slot-reel-season,
+.transfer-player-machine .slot-machine-divider {
+  display: none;
+}
+
+.transfer-player-machine .slot-reels {
+  grid-template-columns: minmax(230px, 460px);
+  justify-content: center;
+}
+
+.transfer-player-machine .slot-reel-club {
+  width: 100%;
+}
+
 .slot-machine-top,
 .slot-machine-bottom {
   display: flex;

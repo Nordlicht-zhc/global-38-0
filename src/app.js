@@ -1337,11 +1337,24 @@
     return `${club.league}:${club.id || club.name}`;
   }
 
+  function journeyStandingIndex(club, standings) {
+    const names = [club?.name, club?.short, club?.id].filter(Boolean);
+    const canonicalId = findDynastyCanonicalClubId(club?.name);
+    if (canonicalId) names.push(canonicalId, ...(HISTORICAL_CLUB_IDS[canonicalId] || []));
+    const normalizedNames = [...new Set(names.map((name) => normalizeDynastyClubName(name)).filter(Boolean))];
+    const exact = standings.findIndex((name) => normalizedNames.includes(normalizeDynastyClubName(name)));
+    if (exact >= 0) return exact;
+    const partial = standings
+      .map((name, index) => ({ name: normalizeDynastyClubName(name), index }))
+      .filter((entry) => normalizedNames.some((name) => name.length >= 5
+        && (entry.name.includes(name) || name.includes(entry.name))));
+    return partial.length === 1 ? partial[0].index : -1;
+  }
+
   function journeyRankIndex(club, season) {
     const standings = dynastyStandings(season, club.league);
-    const target = normalizeDynastyClubName(club.name);
-    const exact = standings.findIndex((name) => normalizeDynastyClubName(name) === target);
-    if (exact >= 0) return exact;
+    const rankIndex = journeyStandingIndex(club, standings);
+    if (rankIndex >= 0) return rankIndex;
     return Math.max(0, Math.min(standings.length - 1, clubsForLeague(club.league, season)
       .findIndex((candidate) => candidate.id === club.id)));
   }
@@ -8929,7 +8942,51 @@
     return uiText(stage, names[stage] || stage);
   }
 
-  function europeanGoalEvents(played, stageName, legNumber, extraTime, runId) {
+  const GOAL_SCORER_FALLBACK_NAMES = Object.freeze([
+    "Alex Morgan",
+    "Jordan Lee",
+    "Taylor Reed",
+    "Sam Carter",
+    "Chris Walker",
+    "Daniel Costa",
+    "Luca Moretti",
+    "Ethan Brooks"
+  ]);
+
+  function goalScorerPool(sim, team) {
+    const run = sim?.game || sim?.run;
+    if (team?.isUser && run?.slots) {
+      const userPlayers = run.slots
+        .map((slot) => slot?.player)
+        .filter((player) => player?.name);
+      if (userPlayers.length) return userPlayers;
+    }
+    if (Array.isArray(team?.players) && team.players.some((player) => player?.name)) {
+      return team.players.filter((player) => player?.name);
+    }
+    const season = simulationSeason(run);
+    const club = team?.name
+      ? allClubs(season).find((candidate) => candidate.name === team.name)
+      : null;
+    return (club?.players || []).filter((player) => player?.name);
+  }
+
+  function chooseGoalScorers(sim, team, count, seed, offset = 0) {
+    if (!count) return [];
+    const pool = goalScorerPool(sim, team);
+    const candidates = pool.length ? pool : GOAL_SCORER_FALLBACK_NAMES.map((name) => ({ name }));
+    const attacking = candidates.filter((player) => {
+      const positions = Array.isArray(player.pos) ? player.pos : [player.pos];
+      return positions.some((position) => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM"].includes(position));
+    });
+    const ordered = attacking.length
+      ? attacking.concat(candidates.filter((player) => !attacking.includes(player)))
+      : candidates;
+    const rng = makeRng(hashSeed(`${seed}|scorers|${team?.name || "team"}|${count}|${offset}`));
+    return Array.from({ length: count }, () => ordered[Math.floor(rng() * ordered.length)]?.name || "Unknown scorer");
+  }
+
+  function europeanGoalEvents(played, stageName, legNumber, extraTime, runId, sim) {
     const seed = [
       "europe-goals",
       runId,
@@ -8944,18 +9001,21 @@
     ].join("|");
     const rng = makeRng(hashSeed(seed));
     const events = [];
-    const addGoals = (count, side, startMinute, endMinute) => {
+    const addGoals = (count, side, startMinute, endMinute, scorerOffset = 0) => {
+      const team = side === "home" ? played.home : played.away;
+      const scorers = chooseGoalScorers(sim, team, count, seed, scorerOffset);
       for (let index = 0; index < count; index += 1) {
         events.push({
           minute: startMinute + Math.floor(rng() * (endMinute - startMinute + 1)),
-          side
+          side,
+          scorer: scorers[index]
         });
       }
     };
     addGoals(played.homeGoals, "home", 4, 88);
     addGoals(played.awayGoals, "away", 4, 88);
-    addGoals(extraTime?.homeGoals || 0, "home", 94, 118);
-    addGoals(extraTime?.awayGoals || 0, "away", 94, 118);
+    addGoals(extraTime?.homeGoals || 0, "home", 94, 118, played.homeGoals || 0);
+    addGoals(extraTime?.awayGoals || 0, "away", 94, 118, played.awayGoals || 0);
     return events.sort((a, b) => a.minute - b.minute || (a.side === "home" ? -1 : 1));
   }
 
@@ -8993,7 +9053,7 @@
     const legNumber = tie.legs.length;
     const extraTime = tie.extraTime || null;
     const maxMinute = extraTime ? 120 : 90;
-    const events = europeanGoalEvents(played, stage.name, legNumber, extraTime, options.seedId || sim.run.id);
+    const events = europeanGoalEvents(played, stage.name, legNumber, extraTime, options.seedId || sim.run.id, sim);
     const live = el("div", `europe-live-match${options.className ? ` ${options.className}` : ""}`, "");
     const heading = el("div", "europe-live-heading", "");
     heading.appendChild(el("strong", "", options.title || europeanStageText(stage.name)));
@@ -9030,7 +9090,8 @@
     const markers = events.map((event) => {
       const marker = el("span", `europe-goal-marker ${event.side}`, "⚽");
       marker.style.left = `${(event.minute / maxMinute) * 100}%`;
-      marker.title = `${event.minute}′ · ${localizedTeamName(event.side === "home" ? played.home : played.away)}`;
+      marker.title = `${event.minute}′ · ${event.scorer || uiText("无名射手", "Unknown scorer")}`;
+      marker.setAttribute("aria-label", marker.title);
       track.appendChild(marker);
       return marker;
     });
@@ -9060,11 +9121,10 @@
         else awayGoals += 1;
         markers[revealedCount].classList.add("show");
         if (revealedCount === 0) eventFeed.innerHTML = "";
-        const team = event.side === "home" ? played.home : played.away;
         eventFeed.appendChild(el(
           "span",
           `europe-goal-event ${event.side}`,
-          `⚽ ${event.minute}′ · ${localizedTeamName(team)}`
+          `⚽ ${event.minute}′ · ${event.scorer || uiText("无名射手", "Unknown scorer")}`
         ));
         revealedCount += 1;
       }

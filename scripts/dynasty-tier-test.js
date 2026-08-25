@@ -8,6 +8,58 @@ const root = path.resolve(__dirname, "..");
 const appSource = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "global 38-0.html"), "utf8");
 
+function readSourceConst(name) {
+  const marker = `const ${name} = `;
+  const start = appSource.indexOf(marker);
+  assert(start >= 0, `Source constant ${name} is missing.`);
+  let depth = 0;
+  let quote = "";
+  let escaped = false;
+  for (let index = start + marker.length; index < appSource.length; index += 1) {
+    const character = appSource[index];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (["\"", "'", "`"].includes(character)) {
+      quote = character;
+      continue;
+    }
+    if (character === "{") depth += 1;
+    else if (character === "}" && --depth === 0) {
+      return vm.runInNewContext(`(${appSource.slice(start + marker.length, index + 1)})`);
+    }
+  }
+  throw new Error(`Could not parse source constant ${name}.`);
+}
+
+function readSourceFunction(name) {
+  const start = appSource.indexOf(`function ${name}(`);
+  assert(start >= 0, `Source function ${name} is missing.`);
+  const bodyStart = appSource.indexOf("{", start);
+  let depth = 0;
+  let quote = "";
+  let escaped = false;
+  for (let index = bodyStart; index < appSource.length; index += 1) {
+    const character = appSource[index];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (["\"", "'", "`"].includes(character)) {
+      quote = character;
+      continue;
+    }
+    if (character === "{") depth += 1;
+    else if (character === "}" && --depth === 0) return appSource.slice(start, index + 1);
+  }
+  throw new Error(`Could not parse source function ${name}.`);
+}
+
 assert(appSource.includes('type: "tiered"'), "Tiered dynasty state is missing.");
 assert(appSource.includes('createJourneyState(CURRENT_DATA_SEASON, dynastyStart)'),
   "Tiered dynasty must pin its club pool to 2025-26.");
@@ -34,9 +86,25 @@ assert(appSource.includes("recordFreeAgentSigning"), "Free-agent signings must b
 
 const activeContext = {};
 vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-players.js"), "utf8")};this.data=SEASON_PLAYERS;`, activeContext);
+vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-standings.js"), "utf8")};this.historicalStandings=HISTORICAL_STANDINGS;`, activeContext);
 const activeBigFive = activeContext.data["2025-26"].clubs
   .filter((club) => ["eng", "esp", "ita", "ger", "fra"].includes(club.league));
 assert.strictEqual(activeBigFive.length, 96, "The pinned 2025-26 tier pool should contain 96 clubs.");
+
+const profileContext = {
+  HISTORICAL_CLUB_IDS: readSourceConst("HISTORICAL_CLUB_IDS"),
+  DYNASTY_CLUB_ALIASES: readSourceConst("DYNASTY_CLUB_ALIASES")
+};
+vm.runInNewContext([
+  readSourceFunction("normalizeDynastyClubName"),
+  readSourceFunction("findDynastyCanonicalClubId"),
+  readSourceFunction("journeyStandingIndex")
+].join("\n"), profileContext);
+const unresolved = activeBigFive.filter((club) => (
+  profileContext.journeyStandingIndex(club, activeContext.historicalStandings["2025-26"][club.league]) < 0
+));
+assert.strictEqual(unresolved.length, 0,
+  `All 96 journey clubs must resolve to a standings rank; unresolved: ${unresolved.map((club) => club.name).join(", ")}`);
 
 const seasons = ["1994-95", "2003-04", "2023-24"];
 seasons.forEach((season) => {

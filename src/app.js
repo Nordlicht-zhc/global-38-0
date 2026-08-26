@@ -4379,15 +4379,32 @@
     const seasonTarget = Math.max(0, seasonOptions.indexOf(targetSeason));
     const clubTarget = Math.max(0, clubOptions.findIndex((club) => club.id === targetClub.id && club.league === targetClub.league));
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    if (reducedMotion) {
-      if (!transferClubDraw) renderSlotReel("season", seasons, seasonTarget, true);
-      renderSlotReel("club", clubs, clubTarget, true);
+    let settled = false;
+    let fallbackTimer = null;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+      try {
+        if (!transferClubDraw) renderSlotReel("season", seasons, seasonTarget, true);
+        renderSlotReel("club", clubs, clubTarget, true);
+      } catch (error) {
+        console.error("Could not render the final transfer draw state.", error);
+      }
       finishSlotAnimation(done);
+    };
+    if (reducedMotion) {
+      settle();
       return;
     }
+    const animationDurations = transferClubDraw ? [2250] : [1350, 2250];
     const animations = [animateSlotReel("club", clubs, clubTarget, 2250)];
     if (!transferClubDraw) animations.unshift(animateSlotReel("season", seasons, seasonTarget, 1350));
-    Promise.all(animations).then(() => finishSlotAnimation(done));
+    fallbackTimer = setTimeout(settle, Math.max(...animationDurations) + 750);
+    Promise.all(animations).then(settle).catch((error) => {
+      console.error("Transfer draw animation failed; using the selected draw.", error);
+      settle();
+    });
   }
 
   function animateSlotReel(type, items, targetIndex, duration) {
@@ -4449,7 +4466,17 @@
   function finishSlotAnimation(done) {
     state.spinning = false;
     ui.spinBtn.disabled = false;
-    done();
+    try {
+      done();
+    } catch (error) {
+      console.error("Could not finish the draw state.", error);
+      try {
+        renderSpinResult();
+        renderCandidates();
+      } catch (renderError) {
+        console.error("Could not render the completed draw.", renderError);
+      }
+    }
     updateSpinControls();
   }
 
@@ -4820,13 +4847,60 @@
     renderTransferSpinResult();
     renderTransferCandidates();
     updateSpinControls();
-    await animateSlotReel("season", modeItems, targetIndex, 2250);
+    await animateSlotReelWithFallback("season", modeItems, targetIndex, 2250, "transfer method");
     state.spinning = false;
-    transfer.mode = transfer.modeDrawTarget;
+    const selectedMode = transfer.modeDrawTarget || options[targetIndex] || options[0];
+    transfer.mode = selectedMode;
     transfer.modeDrawPending = false;
     transfer.modeDrawOptions = null;
-    saveGame();
-    await prepareTransferStep(transfer);
+    try {
+      saveGame();
+      await prepareTransferStep(transfer);
+    } catch (error) {
+      console.error("Could not prepare the second transfer.", error);
+      state.spinning = false;
+      transfer.mode = null;
+      transfer.modeDrawPending = true;
+      transfer.modeDrawOptions = options;
+      transfer.modeDrawTarget = null;
+      transfer.currentSpin = null;
+      transfer.candidates = [];
+      renderTransferHeader();
+      renderTransferSpinResult();
+      renderTransferCandidates();
+      updateSpinControls();
+      toast(uiText("第二次转会准备失败，请重新抽取方式。", "The second transfer could not be prepared. Draw the method again."));
+    }
+  }
+
+  function animateSlotReelWithFallback(type, items, targetIndex, duration, label) {
+    return new Promise((resolve) => {
+      let settled = false;
+      let fallbackTimer = null;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+        try {
+          renderSlotReel(type, items, targetIndex, true);
+        } catch (error) {
+          console.error(`Could not render the final ${label} reel state.`, error);
+        }
+        resolve();
+      };
+      fallbackTimer = setTimeout(settle, duration + 750);
+      try {
+        animateSlotReel(type, items, targetIndex, duration)
+          .then(settle)
+          .catch((error) => {
+            console.error(`${label} reel animation failed; using the selected result.`, error);
+            settle();
+          });
+      } catch (error) {
+        console.error(`${label} reel could not start; using the selected result.`, error);
+        settle();
+      }
+    });
   }
 
   function updateSpinControls() {
@@ -4987,6 +5061,20 @@
     resumeAfterTransfer(transfer.sim);
   }
 
+  function resetSecondTransferMethod(transfer) {
+    state.spinning = false;
+    transfer.mode = null;
+    transfer.modeDrawPending = false;
+    transfer.modeDrawOptions = null;
+    transfer.modeDrawTarget = null;
+    transfer.currentSpin = null;
+    transfer.candidates = [];
+    transfer.selectedCandidateId = null;
+    transfer.revealedCandidateId = null;
+    transfer.deadlineOfferIndex = 0;
+    return prepareTransferStep(transfer);
+  }
+
   async function prepareTransferStep(transfer) {
     const rng = gameRng(transfer.sim.game);
     if (transfer.postSeason) {
@@ -5024,6 +5112,10 @@
     ui.rerollBtn.classList.toggle("hidden", directMode);
     if (directMode) {
       state.spinning = true;
+      renderTransferHeader();
+      renderTransferSpinResult();
+      renderTransferCandidates();
+      updateSpinControls();
       ui.transferStatus.textContent = uiText("正在加载历史球员数据…", "Loading historical player data…");
       try {
         if (transfer.postSeason) {
@@ -5204,6 +5296,9 @@
       return;
     }
     if (["free", "mystery", "deadline", "loan"].includes(transfer.mode)) {
+      if (!transfer.candidates.length) {
+        resetSecondTransferMethod(transfer);
+      }
       return;
     }
     if (transfer.currentSpin && transfer.candidates.length) return;
@@ -5440,18 +5535,33 @@
     ui.spinResult.appendChild(box);
   }
 
+  function appendSecondTransferRetry(parent, transfer) {
+    if (!parent || transfer?.postSeason || transfer?.step !== 2) return;
+    if (!["free", "mystery", "deadline", "loan"].includes(transfer.mode)) return;
+    const button = el("button", "btn btn-ghost transfer-retry", uiText("重新抽取转会方式", "Draw Another Transfer Method"));
+    button.type = "button";
+    button.addEventListener("click", () => resetSecondTransferMethod(transfer));
+    parent.appendChild(button);
+  }
+
   function renderTransferCandidates() {
     const transfer = state.transfer;
     ui.candidates.innerHTML = "";
     if (state.spinning) {
+      if (["free", "mystery", "deadline", "loan"].includes(transfer?.mode)) {
+        ui.candidates.appendChild(el("p", "history-empty", uiText("正在准备候选球员…", "Preparing transfer candidates…")));
+        return;
+      }
       ui.candidates.appendChild(el("p", "history-empty", uiText("滚轴停止后将生成候选球员。", "Candidates will appear after both reels stop.")));
       return;
     }
     if (!transfer?.currentSpin) {
+      appendSecondTransferRetry(ui.candidates, transfer);
       ui.candidates.appendChild(el("p", "history-empty", uiText("先完成抽取，再选择要签入的球员。", "Complete the draw first, then choose a player to sign.")));
       return;
     }
     if (!transfer.candidates.length) {
+      appendSecondTransferRetry(ui.candidates, transfer);
       const message = ["free", "mystery", "deadline", "loan"].includes(transfer.mode)
         ? uiText("没有足够的合格球员完成本次转会。", "Not enough eligible players for this transfer.")
         : uiText("没有可签球员，请重新抽取。", "No eligible player. Redraw.");
@@ -5631,60 +5741,72 @@
       toast(message);
       return;
     }
-    const outgoing = slot.player;
-    game.draftedPlayers = game.draftedPlayers.filter((p) => p.id !== outgoing.id);
-    const effectiveRate = Number(candidate.rate || candidate.baseRate || 0);
-    const incoming = {
-      ...candidate,
-      baseRate: effectiveRate,
-      forced: false,
-      rate: clamp(effectiveRate + fitBonus(slot.pos, candidate.pos), 40, 99)
-    };
-    if (transfer.mode === "loan") {
-      incoming.isLoaned = true;
-      incoming.loanSeason = simulationSeason(game);
-      incoming.loanReturnPlayer = { ...outgoing };
+    try {
+      const outgoing = slot.player;
+      const currentSpin = transfer.currentSpin || {};
+      game.draftedPlayers = Array.isArray(game.draftedPlayers) ? game.draftedPlayers : [];
+      transfer.log = Array.isArray(transfer.log) ? transfer.log : [];
+      game.draftedPlayers = game.draftedPlayers.filter((p) => p.id !== outgoing.id);
+      const effectiveRate = Number(candidate.rate || candidate.baseRate || 0);
+      const incoming = {
+        ...candidate,
+        baseRate: effectiveRate,
+        forced: false,
+        rate: clamp(effectiveRate + fitBonus(slot.pos, candidate.pos), 40, 99)
+      };
+      if (transfer.mode === "loan") {
+        incoming.isLoaned = true;
+        incoming.loanSeason = simulationSeason(game);
+        incoming.loanReturnPlayer = { ...outgoing };
+      }
+      recordFreeAgentSigning(game, candidate, transfer);
+      slot.player = incoming;
+      game.draftedPlayers.push(incoming);
+      rememberPlayerIdentity(game, incoming);
+      const club = candidate.sourceClubName || !currentSpin.clubId
+        ? null
+        : getClub(currentSpin.clubId, currentSpin.season);
+      const clubName = candidate.sourceClubName || club?.name || "";
+      const transferSeason = candidate.sourceSeason || currentSpin.season || CURRENT_DATA_SEASON;
+      transfer.log.push({
+        step: transfer.step,
+        mode: transfer.mode,
+        club: clubName,
+        season: transferSeason,
+        incoming: incoming.name,
+        incomingId: incoming.id,
+        incomingRate: incoming.rate,
+        outgoing: outgoing.name,
+        outgoingId: outgoing.id,
+        outgoingRate: outgoing.rate,
+        ratingGain: incoming.rate - outgoing.rate,
+        slot: slot.pos,
+        rate: incoming.rate
+      });
+      transfer.completed = Number(transfer.completed || 0) + 1;
+      transfer.currentSpin = null;
+      transfer.candidates = [];
+      transfer.selectedCandidateId = null;
+      renderPitch();
+      renderTeamRating();
+      saveGame();
+      if (transfer.completed >= (transfer.maxTransfers || 2)) {
+        finishTransferWindow();
+        return;
+      }
+      transfer.step = 2;
+      transfer.mode = null;
+      transfer.modeDrawPending = false;
+      transfer.modeDrawOptions = null;
+      transfer.modeDrawTarget = null;
+      Promise.resolve(prepareTransferStep(transfer)).catch((error) => {
+        console.error("Could not open the next transfer step.", error);
+        resetSecondTransferMethod(transfer);
+      });
+    } catch (error) {
+      console.error("Could not complete the selected transfer.", error);
+      toast(uiText("转会执行失败，请重新选择球员后再试。", "The transfer could not be completed. Select the player and try again."));
     }
-    recordFreeAgentSigning(game, candidate, transfer);
-    slot.player = incoming;
-    game.draftedPlayers.push(incoming);
-    rememberPlayerIdentity(game, incoming);
-    const club = candidate.sourceClubName
-      ? null
-      : getClub(transfer.currentSpin.clubId, transfer.currentSpin.season);
-    const clubName = candidate.sourceClubName || club?.name || "";
-    const transferSeason = candidate.sourceSeason || transfer.currentSpin.season;
-    transfer.log.push({
-      step: transfer.step,
-      mode: transfer.mode,
-      club: clubName,
-      season: transferSeason,
-      incoming: incoming.name,
-      incomingId: incoming.id,
-      incomingRate: incoming.rate,
-      outgoing: outgoing.name,
-      outgoingId: outgoing.id,
-      outgoingRate: outgoing.rate,
-      ratingGain: incoming.rate - outgoing.rate,
-      slot: slot.pos,
-      rate: incoming.rate
-    });
-    transfer.completed += 1;
-    transfer.currentSpin = null;
-    transfer.candidates = [];
-    transfer.selectedCandidateId = null;
-    renderPitch();
-    renderTeamRating();
-    if (transfer.completed >= (transfer.maxTransfers || 2)) {
-      finishTransferWindow();
-      return;
-    }
-    transfer.step = 2;
-    transfer.mode = null;
-    transfer.modeDrawPending = false;
-    transfer.modeDrawOptions = null;
-    transfer.modeDrawTarget = null;
-    prepareTransferStep(transfer);
   }
 
   function buildPostSeasonTransferSim(game) {

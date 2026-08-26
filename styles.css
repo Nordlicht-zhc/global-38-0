@@ -1557,9 +1557,16 @@ button {
 }
 
 .slot.compatible {
+  z-index: 6;
   border-color: #4ade80;
   background: rgba(34, 197, 94, 0.2);
   box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.24);
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.slot.compatible > * {
+  pointer-events: none;
 }
 
 .slot.swap-compatible {

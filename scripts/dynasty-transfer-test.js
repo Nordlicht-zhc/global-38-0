@@ -30,6 +30,11 @@ const freeAgentPoolEnd = app.indexOf("function buildWeakTransferClubPool", freeA
 const freeAgentPool = app.slice(freeAgentPoolStart, freeAgentPoolEnd);
 assert(freeAgentPool.includes("const market = ensureFreeAgentMarket(game);"), "Post-season transfer must use the free-agent market.");
 assert(!freeAgentPool.includes("journeyTransferClubsForSeason"), "Post-season free-agent offers must use the normal unrestricted market.");
+assert(app.includes("function buildDynastyPostSeasonCandidates(pool, rng, transfer, game)"), "Dynasty post-season offers are missing the quality-aware candidate draw.");
+assert(app.includes("const upgradeEntries = entries.filter((entry) => entry.fit.change > 0);"), "Dynasty post-season offers must prioritize players who improve the starting XI.");
+assert(app.includes("const highRatingFloor = Math.max(80, squadRating + 3);"), "Dynasty post-season offers must include a relative high-rating threshold.");
+assert(app.includes("Math.min(2, highUpgradeEntries.length)"), "Dynasty post-season offers must reserve up to two high-rated upgrades.");
+assert(app.includes("buildDynastyPostSeasonCandidates(pool, rng, transfer, game)"), "Post-season free signing must use the quality-aware candidate draw.");
 assert(app.includes("const upgradePool = pool.filter((player) => bestTransferFit(player, game, transfer)?.change > 0);"), "Emergency loans are not restricted to positive upgrades.");
 assert(app.includes("buildLoanCandidates(pool, rng, transfer, game)"), "Emergency loans are not evaluated against the current lineup.");
 assert(app.includes("const effectiveRate = Number(candidate.rate || candidate.baseRate || 0);"), "Transfer signing must preserve the offered player rating.");
@@ -38,8 +43,15 @@ assert(app.includes("function animateSlotReelWithFallback"), "Second-transfer me
 assert(app.includes('await animateSlotReelWithFallback("season", modeItems, targetIndex, 2250, "transfer method")'), "Second-transfer method draw must use the recoverable reel path.");
 assert(app.includes("function appendSecondTransferRetry"), "A failed direct transfer preparation must remain retryable.");
 assert(app.includes("appendSecondTransferRetry(ui.candidates, transfer);"), "Direct transfer failures must expose a candidate-area retry action.");
+assert(app.includes("function beginSecondTransferMethodDraw"), "Second transfer must have an explicit method-draw transition.");
+assert(app.includes("transfer.step === 2 && (!transfer.mode || transfer.mode === \"weak\")"), "Second transfer must not fall back to the first weak-area method.");
+assert(app.includes("beginSecondTransferMethodDraw(transfer);"), "The first signing must enter the second method draw immediately.");
 assert(app.includes("transfer.log = Array.isArray(transfer.log) ? transfer.log : [];"), "Transfer completion must tolerate older in-progress saves without a log array.");
 assert(app.includes("const currentSpin = transfer.currentSpin || {};"), "Transfer completion must tolerate missing restored draw metadata.");
+assert(app.includes("function persistedGameSnapshot(game)"), "Runtime simulation graphs must not be written to the active save.");
+assert(app.includes("safeSet(STORAGE_GAME, persistedGameSnapshot(state.game));"), "Active Dynasty saves must use the runtime-free game snapshot.");
+assert(app.includes("Could not refresh the completed transfer view."), "A completed transfer must not be reported as failed when only the view refresh fails.");
+assert(app.includes("joined the squad, but the second transfer could not be prepared"), "Second-step failures must preserve the successful first signing.");
 assert(app.includes("function restoreDynastyLoans(game)"), "Dynasty loans are missing their season-end restoration step.");
 assert(app.includes("delete returned.isLoaned;"), "Returned Dynasty players must not retain the loan marker.");
 assert(app.includes('game.phase === "drafting"\n      && Number(game.dynasty?.currentIndex || 0) > 0\n      && restoreDynastyLoans(game)'), "Next-season drafting must guard against stale loaned players in saved state.");

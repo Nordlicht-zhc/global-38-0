@@ -3,6 +3,8 @@
 
   const $ = (sel) => document.querySelector(sel);
   const STORAGE_GAME = "g38-game-state-v4";
+  const STORAGE_CLASSIC_GAME = "g38-game-state-classic-v1";
+  const STORAGE_DYNASTY_GAME = "g38-game-state-dynasty-v1";
   const STORAGE_RUNS = "g38-runs-v2";
   const STORAGE_CLUB_PEAKS = "g38-club-peak-v1";
   const STORAGE_ACHIEVEMENTS = "g38-achievements-v1";
@@ -1621,10 +1623,6 @@
       playoffOutcome: userPlayoffOutcome
     };
     journey.tier = toTier;
-    if (fromTier === 1 && finish === 1) {
-      journey.completed = true;
-      game.dynasty.completed = true;
-    }
     game.result.journeyPlayoffs = {
       currentTier: fromTier,
       userOutcome: userPlayoffOutcome,
@@ -1637,6 +1635,33 @@
       movement: journey.lastMovement
     };
     game.dynasty.currentIndex = Number(journey.seasonNumber || 1) - 1;
+  }
+
+  function updateDynastyCompletion(game) {
+    if (!isTieredDynasty(game) || game.dynasty.journey?.completed) return;
+    if (!dynastyHasCompletionTrophies(game)) return;
+    game.dynasty.journey.completed = true;
+    game.dynasty.completed = true;
+    if (game.result?.journey) game.result.journey.completed = true;
+  }
+
+  function dynastyHasCompletionTrophies(game) {
+    const trophies = game?.dynasty?.trophies || {};
+    const hasTopTierLeagueTitle = Number(trophies.league || 0) > 0;
+    const hasJourneyCupTitle = Number(trophies.domesticCup || 0) > 0;
+    return hasTopTierLeagueTitle && hasJourneyCupTitle;
+  }
+
+  function normalizeDynastyCompletionState(game) {
+    if (!isTieredDynasty(game) || !game.dynasty.journey) return false;
+    const completed = dynastyHasCompletionTrophies(game);
+    const changed = game.dynasty.completed !== completed
+      || game.dynasty.journey.completed !== completed
+      || (game.result?.journey && game.result.journey.completed !== completed);
+    game.dynasty.completed = completed;
+    game.dynasty.journey.completed = completed;
+    if (game.result?.journey) game.result.journey.completed = completed;
+    return changed;
   }
 
   function updateJourneyAfterSeason(game, leagueTable) {
@@ -1667,14 +1692,31 @@
 
   const safeGet = (key) => G38Storage.get(key);
 
+  function gameStorageKeyFor(gameOrMode) {
+    const mode = typeof gameOrMode === "string" ? gameOrMode : gameOrMode?.mode;
+    return mode === "dynasty" ? STORAGE_DYNASTY_GAME : STORAGE_CLASSIC_GAME;
+  }
+
+  function activeGameStorageKey() {
+    return gameStorageKeyFor(state.setupMode);
+  }
+
+  function migrateLegacyGameSave() {
+    const legacyGame = safeGet(STORAGE_GAME);
+    if (!legacyGame) return;
+    const targetKey = gameStorageKeyFor(legacyGame);
+    if (!safeGet(targetKey)) G38Storage.set(targetKey, legacyGame);
+  }
+
   function normalizeLocalHistory() {
     const helper = window.G38CloudPayload;
     if (!helper?.needsTrim) return;
-    const game = safeGet(STORAGE_GAME);
-    if (game && helper.needsTrim(game)) {
+    [STORAGE_GAME, STORAGE_CLASSIC_GAME, STORAGE_DYNASTY_GAME].forEach((key) => {
+      const game = safeGet(key);
+      if (!game || !helper.needsTrim(game)) return;
       const normalizedGame = helper.prepareGame ? helper.prepareGame(game) : helper.prepare(game);
-      G38Storage.set(STORAGE_GAME, normalizedGame);
-    }
+      G38Storage.set(key, normalizedGame);
+    });
     const runs = safeGet(STORAGE_RUNS);
     if (Array.isArray(runs) && helper.needsTrim(runs)) {
       const normalizedRuns = helper.prepareRuns ? helper.prepareRuns(runs) : helper.prepare(runs);
@@ -1683,7 +1725,16 @@
   }
 
   const loadStorage = async () => {
-    await G38Storage.load([STORAGE_GAME, STORAGE_RUNS, STORAGE_CLUB_PEAKS, STORAGE_ACHIEVEMENTS, STORAGE_CLOUD_META]);
+    await G38Storage.load([
+      STORAGE_GAME,
+      STORAGE_CLASSIC_GAME,
+      STORAGE_DYNASTY_GAME,
+      STORAGE_RUNS,
+      STORAGE_CLUB_PEAKS,
+      STORAGE_ACHIEVEMENTS,
+      STORAGE_CLOUD_META
+    ]);
+    migrateLegacyGameSave();
     normalizeLocalHistory();
   };
 
@@ -1692,19 +1743,26 @@
   }
 
   function hasLocalCloudData() {
-    const game = safeGet(STORAGE_GAME);
+    const classicGame = safeGet(STORAGE_CLASSIC_GAME);
+    const dynastyGame = safeGet(STORAGE_DYNASTY_GAME);
+    const legacyGame = safeGet(STORAGE_GAME);
     const runs = safeGet(STORAGE_RUNS);
     const clubPeaks = safeGet(STORAGE_CLUB_PEAKS);
     const achievements = safeGet(STORAGE_ACHIEVEMENTS);
-    return Boolean(game || (Array.isArray(runs) && runs.length)
+    return Boolean(classicGame || dynastyGame || legacyGame || (Array.isArray(runs) && runs.length)
       || (clubPeaks && typeof clubPeaks === "object" && Object.keys(clubPeaks).length)
       || (Array.isArray(achievements) && achievements.length));
   }
 
   function buildCloudPayload() {
+    const classicGame = safeGet(STORAGE_CLASSIC_GAME);
+    const dynastyGame = safeGet(STORAGE_DYNASTY_GAME);
     const payload = {
       schemaVersion: CLOUD_SCHEMA_VERSION,
-      game: safeGet(STORAGE_GAME),
+      // Keep `game` for older clients; new clients use the two mode-specific fields.
+      game: safeGet(activeGameStorageKey()) || classicGame || dynastyGame || null,
+      classicGame,
+      dynastyGame,
       runs: Array.isArray(safeGet(STORAGE_RUNS)) ? safeGet(STORAGE_RUNS) : [],
       clubPeaks: safeGet(STORAGE_CLUB_PEAKS) || {},
       achievements: Array.isArray(safeGet(STORAGE_ACHIEVEMENTS)) ? safeGet(STORAGE_ACHIEVEMENTS) : [],
@@ -1727,14 +1785,19 @@
   }
 
   const safeSet = (key, value) => {
+    const storageKey = key === STORAGE_GAME ? gameStorageKeyFor(value || state.game) : key;
     let normalizedValue = value;
-    if (key === STORAGE_GAME && window.G38CloudPayload?.prepareGame) {
+    if ((storageKey === STORAGE_CLASSIC_GAME || storageKey === STORAGE_DYNASTY_GAME)
+      && window.G38CloudPayload?.prepareGame) {
       normalizedValue = window.G38CloudPayload.prepareGame(value);
-    } else if (key === STORAGE_RUNS && window.G38CloudPayload?.prepareRuns) {
+    } else if (storageKey === STORAGE_RUNS && window.G38CloudPayload?.prepareRuns) {
       normalizedValue = window.G38CloudPayload.prepareRuns(value);
     }
-    const result = G38Storage.set(key, normalizedValue);
-    if (key === STORAGE_GAME || key === STORAGE_RUNS || key === STORAGE_CLUB_PEAKS || key === STORAGE_ACHIEVEMENTS) touchLocalCloudData();
+    const result = G38Storage.set(storageKey, normalizedValue);
+    if (key === STORAGE_GAME || storageKey === STORAGE_CLASSIC_GAME || storageKey === STORAGE_DYNASTY_GAME
+      || storageKey === STORAGE_RUNS || storageKey === STORAGE_CLUB_PEAKS || storageKey === STORAGE_ACHIEVEMENTS) {
+      touchLocalCloudData();
+    }
     return result;
   };
 
@@ -1813,8 +1876,19 @@
       ? window.G38CloudPayload.prepare(payload)
       : payload;
     state.cloud.suppressLocalTouch = true;
-    if (Object.prototype.hasOwnProperty.call(normalizedPayload, "game")) {
-      G38Storage.set(STORAGE_GAME, normalizedPayload.game || null);
+    const hasClassicGame = Object.prototype.hasOwnProperty.call(normalizedPayload, "classicGame");
+    const hasDynastyGame = Object.prototype.hasOwnProperty.call(normalizedPayload, "dynastyGame");
+    if (hasClassicGame || hasDynastyGame) {
+      if (hasClassicGame) {
+        G38Storage.set(STORAGE_CLASSIC_GAME, normalizedPayload.classicGame || null);
+      }
+      if (hasDynastyGame) {
+        G38Storage.set(STORAGE_DYNASTY_GAME, normalizedPayload.dynastyGame || null);
+      }
+    } else if (Object.prototype.hasOwnProperty.call(normalizedPayload, "game")) {
+      // Migrate payloads written before dual-mode archives were introduced.
+      const legacyGame = normalizedPayload.game || null;
+      G38Storage.set(gameStorageKeyFor(legacyGame), legacyGame);
     }
     if (Object.prototype.hasOwnProperty.call(normalizedPayload, "runs")) {
       G38Storage.set(STORAGE_RUNS, Array.isArray(normalizedPayload.runs) ? normalizedPayload.runs : []);
@@ -2392,9 +2466,21 @@
     ui.difficultySelect.disabled = ironManager;
   }
 
-  function setSetupMode(mode) {
-    state.setupMode = ["challenge", "dynasty"].includes(mode) ? mode : "classic";
+  async function setSetupMode(mode) {
+    const nextMode = ["challenge", "dynasty"].includes(mode) ? mode : "classic";
+    if (state.setupMode === nextMode) {
+      renderChallengeSetup();
+      return;
+    }
+    if (state.setupMode !== nextMode && state.game && !state.game.testMode) saveGame();
+    state.setupMode = nextMode;
+    state.game = null;
+    state.viewingRun = null;
+    state.transfer = null;
     renderChallengeSetup();
+    await loadSavedGame();
+    renderHomeHistory();
+    renderSavedGamePrompt();
   }
 
   function toggleLanguage() {
@@ -2504,7 +2590,7 @@
     window.addEventListener("resize", updateBackHomeButtonFloating);
     ui.playModeSwitch?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-play-mode]");
-      if (button) setSetupMode(button.dataset.playMode);
+      if (button) void setSetupMode(button.dataset.playMode);
     });
     $("#startBtn").addEventListener("click", startGame);
     ui.testClassicBtn?.addEventListener("click", () => startTestGame("classic"));
@@ -2895,7 +2981,7 @@
   }
 
   async function loadSavedGame() {
-    const saved = safeGet(STORAGE_GAME);
+    const saved = safeGet(activeGameStorageKey());
     const resumableDynasty = saved?.mode === "dynasty" && saved?.slots;
     const resumableHistoricalChallenge = saved?.challengeId === "club-peak" && saved?.slots;
     if (resumableDynasty || resumableHistoricalChallenge) {
@@ -2944,14 +3030,24 @@
         saved.europeSim = null;
         safeSet(STORAGE_GAME, saved);
       }
+      if (normalizeDynastyCompletionState(saved)) {
+        safeSet(STORAGE_GAME, persistedGameSnapshot(saved));
+      }
       state.game = saved;
       state.selectedSlotIndex = null;
       state.pendingDraftPlayerId = null;
     }
   }
 
+  function persistedGameSnapshot(game) {
+    if (!game || typeof game !== "object") return game;
+    // The live simulation contains Maps, functions, and back-references to the game.
+    // It cannot be resumed after a reload, so never put that runtime graph in a save.
+    return { ...game, simulation: null };
+  }
+
   function saveGame() {
-    if (state.game && !state.game.testMode) safeSet(STORAGE_GAME, state.game);
+    if (state.game && !state.game.testMode) safeSet(STORAGE_GAME, persistedGameSnapshot(state.game));
   }
 
   async function startGame(options = {}) {
@@ -3242,7 +3338,7 @@
       ui.testConsoleStatus.textContent = uiText("正在加载 2025-26 球员数据……", "Loading 2025-26 player data...");
     }
     try {
-      setSetupMode(mode === "dynasty" ? "dynasty" : "classic");
+      await setSetupMode(mode === "dynasty" ? "dynasty" : "classic");
       if (mode !== "dynasty" && !state.selectedLeagues.size) {
         state.selectedLeagues = new Set(BIG_FIVE_IDS);
         renderLeagueGrid();
@@ -4607,11 +4703,11 @@
       ui.transferWeakText.appendChild(el("strong", "", uiText("赛季结束自由签约", "End-of-season free signings")));
       ui.transferWeakText.appendChild(el("span", "", uiText(
         maxTransfers === 1
-          ? "本次三级征途赛季末转会窗只提供一次自由签约，从当前赛季的合格球员池中随机提供 5 名候选人。"
-          : "本次王朝转会窗固定提供两次自由签约，每次从当前赛季的合格球员池中随机提供 5 名候选人。",
+          ? "本次三级征途赛季末转会窗只提供一次自由签约，5 名候选人会优先从能够提升首发的高评分球员中抽取。"
+          : "本次王朝转会窗固定提供两次自由签约，每次 5 名候选人会优先从能够提升首发的高评分球员中抽取。",
         maxTransfers === 1
-          ? "This Three-Tier Journey end-of-season window gives one free signing from five random eligible current-season players."
-          : "This dynasty window gives two free signings. Each signing offers five random eligible players from the current season."
+          ? "This Three-Tier Journey end-of-season window gives one free signing from five candidates, prioritizing high-rated players who improve the starting XI."
+          : "This dynasty window gives two free signings. Each set of five candidates prioritizes high-rated players who improve the starting XI."
        )));
       const market = ensureFreeAgentMarket(state.game);
       if (market) ui.transferWeakText.appendChild(el("small", "", uiText(
@@ -5075,29 +5171,47 @@
     return prepareTransferStep(transfer);
   }
 
-  async function prepareTransferStep(transfer) {
+  function beginSecondTransferMethodDraw(transfer) {
+    if (!transfer || transfer.postSeason || transfer.step !== 2) return;
+    const modeKeys = transfer.sim.game.mode === "dynasty"
+      ? DYNASTY_SECOND_TRANSFER_MODE_KEYS
+      : SECOND_TRANSFER_MODE_KEYS;
     const rng = gameRng(transfer.sim.game);
+    transfer.modeDrawOptions = [...modeKeys];
+    transfer.modeDrawTarget = modeKeys[Math.floor(rng() * modeKeys.length)];
+    transfer.modeDrawPending = true;
+    transfer.mode = null;
+    transfer.currentSpin = null;
+    transfer.candidates = [];
+    transfer.selectedCandidateId = null;
+    transfer.revealedCandidateId = null;
+    transfer.deadlineOfferIndex = 0;
+    state.spinning = false;
+    try {
+      saveGame();
+    } catch (error) {
+      console.error("Could not save the second-transfer method state.", error);
+    }
+    renderTransferHeader();
+    renderPitch();
+    renderSpinResult();
+    renderCandidates();
+    updateSpinControls();
+  }
+
+  async function prepareTransferStep(transfer) {
     if (transfer.postSeason) {
       transfer.mode = "free";
-    } else if (transfer.step === 2 && !transfer.modeDrawTarget) {
-      const modeKeys = transfer.sim.game.mode === "dynasty"
-        ? DYNASTY_SECOND_TRANSFER_MODE_KEYS
-        : SECOND_TRANSFER_MODE_KEYS;
-      transfer.modeDrawOptions = modeKeys;
-      transfer.modeDrawTarget = modeKeys[Math.floor(rng() * modeKeys.length)];
-      transfer.modeDrawPending = true;
-      transfer.mode = null;
-      transfer.currentSpin = null;
-      transfer.candidates = [];
-      transfer.selectedCandidateId = null;
-      transfer.revealedCandidateId = null;
-      transfer.deadlineOfferIndex = 0;
-      saveGame();
+    } else if (transfer.step === 2 && transfer.modeDrawPending) {
+      state.spinning = false;
       renderTransferHeader();
       renderPitch();
       renderSpinResult();
       renderCandidates();
       updateSpinControls();
+      return;
+    } else if (transfer.step === 2 && (!transfer.mode || transfer.mode === "weak")) {
+      beginSecondTransferMethodDraw(transfer);
       return;
     }
     transfer.modeDrawPending = false;
@@ -5176,6 +5290,63 @@
       .map((player) => ({ ...player }));
   }
 
+  function drawTransferOfferEntries(entries, count, rng, excludedIds, topRatio = 0.35) {
+    const ranked = [...entries].sort((a, b) => (
+      b.fit.change - a.fit.change
+      || Number(b.player.rate || 0) - Number(a.player.rate || 0)
+    ));
+    const windowSize = Math.min(ranked.length, Math.max(count, Math.ceil(ranked.length * topRatio)));
+    const window = ranked.slice(0, windowSize);
+    const selected = [];
+    while (selected.length < count) {
+      const available = window.filter((entry) => !excludedIds.has(entry.player.id));
+      if (!available.length) break;
+      const entry = available[Math.floor(rng() * available.length)];
+      excludedIds.add(entry.player.id);
+      selected.push(entry);
+    }
+    return selected;
+  }
+
+  function buildDynastyPostSeasonCandidates(pool, rng, transfer, game) {
+    const entries = pool
+      .filter((player) => game.slots.some((slot) => slot.player && canPlaySlot(player, slot.pos)))
+      .map((player) => ({ player, fit: bestTransferFit(player, game, transfer) }))
+      .filter((entry) => entry.fit);
+    if (!entries.length) return [];
+
+    const upgradeEntries = entries.filter((entry) => entry.fit.change > 0);
+    const sourceEntries = upgradeEntries.length ? upgradeEntries : entries;
+    const excludedIds = new Set();
+    const squadRating = Number(calcTeamRating(game) || 0);
+    const highRatingFloor = Math.max(80, squadRating + 3);
+    const highUpgradeEntries = upgradeEntries.filter((entry) => Number(entry.player.rate || 0) >= highRatingFloor);
+    const selected = drawTransferOfferEntries(
+      highUpgradeEntries,
+      Math.min(2, highUpgradeEntries.length),
+      rng,
+      excludedIds,
+      0.5
+    );
+    selected.push(...drawTransferOfferEntries(
+      sourceEntries,
+      5 - selected.length,
+      rng,
+      excludedIds,
+      0.35
+    ));
+    if (selected.length < 5 && sourceEntries !== entries) {
+      selected.push(...drawTransferOfferEntries(
+        entries,
+        5 - selected.length,
+        rng,
+        excludedIds,
+        0.35
+      ));
+    }
+    return selected.slice(0, 5).map((entry) => entry.player);
+  }
+
   function buildWeakTransferClubPool(transfer, game) {
     const leagueIds = new Set(game.leagues.length ? game.leagues : [...state.selectedLeagues]);
     return seasonsInRange(game.seasonRange).flatMap((season) => (
@@ -5206,7 +5377,9 @@
       drafted: false
     };
     if (transfer.mode === "free") {
-      transfer.candidates = shuffleWithRng(pool, rng).slice(0, 5);
+      transfer.candidates = transfer.postSeason
+        ? buildDynastyPostSeasonCandidates(pool, rng, transfer, game)
+        : shuffleWithRng(pool, rng).slice(0, 5);
       if (transfer.postSeason) recordFreeAgentOffers(game, transfer.candidates, transfer);
       return;
     }
@@ -5741,14 +5914,15 @@
       toast(message);
       return;
     }
+    const outgoing = slot.player;
+    const currentSpin = transfer.currentSpin || {};
+    let incoming = null;
     try {
-      const outgoing = slot.player;
-      const currentSpin = transfer.currentSpin || {};
       game.draftedPlayers = Array.isArray(game.draftedPlayers) ? game.draftedPlayers : [];
       transfer.log = Array.isArray(transfer.log) ? transfer.log : [];
       game.draftedPlayers = game.draftedPlayers.filter((p) => p.id !== outgoing.id);
       const effectiveRate = Number(candidate.rate || candidate.baseRate || 0);
-      const incoming = {
+      incoming = {
         ...candidate,
         baseRate: effectiveRate,
         forced: false,
@@ -5787,25 +5961,50 @@
       transfer.currentSpin = null;
       transfer.candidates = [];
       transfer.selectedCandidateId = null;
+    } catch (error) {
+      console.error("Could not apply the selected transfer.", error);
+      toast(uiText("转会执行失败，请重新选择球员后再试。", "The transfer could not be completed. Select the player and try again."));
+      return;
+    }
+    try {
       renderPitch();
       renderTeamRating();
-      saveGame();
-      if (transfer.completed >= (transfer.maxTransfers || 2)) {
-        finishTransferWindow();
-        return;
-      }
-      transfer.step = 2;
-      transfer.mode = null;
-      transfer.modeDrawPending = false;
-      transfer.modeDrawOptions = null;
-      transfer.modeDrawTarget = null;
-      Promise.resolve(prepareTransferStep(transfer)).catch((error) => {
-        console.error("Could not open the next transfer step.", error);
-        resetSecondTransferMethod(transfer);
-      });
+      renderCandidates();
+      updateSpinControls();
     } catch (error) {
-      console.error("Could not complete the selected transfer.", error);
-      toast(uiText("转会执行失败，请重新选择球员后再试。", "The transfer could not be completed. Select the player and try again."));
+      console.error("Could not refresh the completed transfer view.", error);
+    }
+    try {
+      saveGame();
+    } catch (error) {
+      console.error("Could not save the completed transfer.", error);
+      toast(uiText(
+        `${incoming.name} 已成功加入阵容，但本地保存失败。`,
+        `${incoming.name} joined the squad, but the local save failed.`
+      ));
+    }
+    if (transfer.completed >= (transfer.maxTransfers || 2)) {
+      try {
+        finishTransferWindow();
+      } catch (error) {
+        console.error("Could not leave the completed transfer window.", error);
+        toast(uiText("转会已完成，但返回比赛时发生错误。", "The transfer completed, but returning to the competition failed."));
+      }
+      return;
+    }
+    transfer.step = 2;
+    transfer.mode = null;
+    transfer.modeDrawPending = false;
+    transfer.modeDrawOptions = null;
+    transfer.modeDrawTarget = null;
+    try {
+      beginSecondTransferMethodDraw(transfer);
+    } catch (error) {
+      console.error("Could not open the next transfer step.", error);
+      toast(uiText(
+        `${incoming.name} 已成功加入阵容，但第二次转会准备失败，请重新抽取。`,
+        `${incoming.name} joined the squad, but the second transfer could not be prepared. Draw again.`
+      ));
     }
   }
 
@@ -6672,6 +6871,7 @@
         game.dynasty.trophies.league += 1;
       }
       if (game.result.domesticCup?.champion === "我的球队") game.dynasty.trophies.domesticCup += 1;
+      updateDynastyCompletion(game);
       game.postSeasonTransfer = dynastyHasNextSeason(game)
         ? { status: "pending", log: [], skipped: false }
         : null;

@@ -13,6 +13,8 @@ const matches = Array.from({ length: 35 }, (_, index) => ({
 const source = {
   schemaVersion: 1,
   game: { result: { matches }, playerStats: [{ id: "player-1", apps: 35 }] },
+  classicGame: { result: { matches: matches.slice() }, mode: "classic" },
+  dynastyGame: { result: { matches: matches.slice() }, mode: "dynasty" },
   runs: [{ result: { matches: matches.slice() } }],
   clubPeaks: { clubA: 88 },
   achievements: ["clean-sheet"],
@@ -25,6 +27,8 @@ assert.strictEqual(context.window.G38CloudPayload.needsTrim(source), true);
 assert.strictEqual(context.window.G38CloudPayload.prepareGame(source.game).result.matches.length, 30);
 assert.strictEqual(context.window.G38CloudPayload.prepareRuns(source.runs)[0].result.matches.length, 30);
 assert.strictEqual(prepared.game.result.matches.length, 30);
+assert.strictEqual(prepared.classicGame.result.matches.length, 30);
+assert.strictEqual(prepared.dynastyGame.result.matches.length, 30);
 assert.strictEqual(prepared.runs[0].result.matches.length, 30);
 assert.strictEqual(prepared.game.result.matches[0].round, 6);
 assert.strictEqual(prepared.game.playerStats[0].apps, 35);
@@ -33,4 +37,13 @@ assert.strictEqual(JSON.stringify(prepared.achievements), JSON.stringify(source.
 assert.strictEqual(source.game.result.matches.length, 35);
 assert.strictEqual(source.runs[0].result.matches.length, 35);
 assert.strictEqual(context.window.G38CloudPayload.needsTrim(prepared), false);
+
+const cyclicGame = { id: "dynasty", simulation: null };
+const simulation = { game: cyclicGame, rng: () => 1 };
+cyclicGame.simulation = simulation;
+const preparedCyclicGame = context.window.G38CloudPayload.prepareGame(cyclicGame);
+assert.strictEqual(preparedCyclicGame.id, "dynasty");
+assert.strictEqual(preparedCyclicGame.simulation.game, undefined);
+assert.strictEqual(preparedCyclicGame.simulation.rng, undefined);
+assert.strictEqual(context.window.G38CloudPayload.needsTrim(cyclicGame), false);
 console.log("Cloud/local history limit: PASS (latest 30 matches; other fields and local source unchanged)");

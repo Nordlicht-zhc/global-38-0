@@ -83,6 +83,61 @@ assert(appSource.includes('dynastyType = dynastyMode ? "tiered" : null'),
   "New dynasty games must always use the Three-Tier Journey.");
 assert(appSource.includes("ensureFreeAgentMarket"), "Dynasty free-agent market is missing.");
 assert(appSource.includes("recordFreeAgentSigning"), "Free-agent signings must be recorded.");
+assert(appSource.includes("function updateDynastyCompletion(game)"),
+  "Dynasty completion must be evaluated from the required trophies.");
+assert(appSource.includes("function normalizeDynastyCompletionState(game)"),
+  "Existing Dynasty saves must be migrated to the trophy-based completion rule.");
+assert(appSource.includes("const hasTopTierLeagueTitle"),
+  "Dynasty completion must require a top-tier league title.");
+assert(appSource.includes("const hasJourneyCupTitle"),
+  "Dynasty completion must require a Journey Cup title.");
+assert(!appSource.includes("if (fromTier === 1 && finish === 1)"),
+  "A top-tier league title alone must not complete the journey.");
+const trophyUpdate = appSource.indexOf("game.dynasty.trophies.domesticCup += 1;");
+const completionUpdate = appSource.indexOf("updateDynastyCompletion(game);", trophyUpdate);
+assert(trophyUpdate >= 0 && completionUpdate > trophyUpdate,
+  "Dynasty completion must be checked after the season trophies are recorded.");
+
+const completionContext = {
+  isTieredDynasty: (game) => Boolean(game?.mode === "dynasty" && game.dynasty?.type === "tiered")
+};
+vm.runInNewContext(`${readSourceFunction("dynastyHasCompletionTrophies")}; ${readSourceFunction("updateDynastyCompletion")}; this.updateDynastyCompletion = updateDynastyCompletion;`, completionContext);
+const completionGame = (league, cup) => ({
+  mode: "dynasty",
+  dynasty: {
+    type: "tiered",
+    completed: false,
+    journey: { completed: false },
+    trophies: { league, domesticCup: cup }
+  },
+  result: { journey: { completed: false } }
+});
+const leagueOnly = completionGame(1, 0);
+completionContext.updateDynastyCompletion(leagueOnly);
+assert.strictEqual(leagueOnly.dynasty.completed, false, "League title alone must not complete Dynasty.");
+const cupOnly = completionGame(0, 1);
+completionContext.updateDynastyCompletion(cupOnly);
+assert.strictEqual(cupOnly.dynasty.completed, false, "Journey Cup title alone must not complete Dynasty.");
+const doubleChampion = completionGame(1, 1);
+completionContext.updateDynastyCompletion(doubleChampion);
+assert.strictEqual(doubleChampion.dynasty.completed, true, "Both required trophies must complete Dynasty.");
+assert.strictEqual(doubleChampion.dynasty.journey.completed, true);
+assert.strictEqual(doubleChampion.result.journey.completed, true);
+
+const normalizeContext = {
+  isTieredDynasty: completionContext.isTieredDynasty
+};
+vm.runInNewContext(`${readSourceFunction("dynastyHasCompletionTrophies")}; ${readSourceFunction("normalizeDynastyCompletionState")}; this.normalizeDynastyCompletionState = normalizeDynastyCompletionState;`, normalizeContext);
+const staleCompleted = completionGame(1, 0);
+staleCompleted.dynasty.completed = true;
+staleCompleted.dynasty.journey.completed = true;
+staleCompleted.result.journey.completed = true;
+assert.strictEqual(normalizeContext.normalizeDynastyCompletionState(staleCompleted), true);
+assert.strictEqual(staleCompleted.dynasty.completed, false, "Old league-only completion must be reopened.");
+assert.strictEqual(staleCompleted.dynasty.journey.completed, false);
+const restoredCompleted = completionGame(1, 1);
+assert.strictEqual(normalizeContext.normalizeDynastyCompletionState(restoredCompleted), true);
+assert.strictEqual(restoredCompleted.dynasty.completed, true, "A saved double champion must remain completed.");
 
 const activeContext = {};
 vm.runInNewContext(`${fs.readFileSync(path.join(root, "src", "season-players.js"), "utf8")};this.data=SEASON_PLAYERS;`, activeContext);

@@ -65,7 +65,7 @@ function loadData() {
     clubs: CLUBS,
     season: SEASON_PLAYERS["2025-26"],
     europeanProfiles: EUROPEAN_CLUB_PROFILES,
-    europeanEntries: EUROPE_2025_26
+    europeanEntries: EUROPE_2026_27
   };`, context);
   return context.__data;
 }

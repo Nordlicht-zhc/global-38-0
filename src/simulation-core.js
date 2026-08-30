@@ -215,23 +215,77 @@
     return { homeName, gf, ga, result, newEloHome, newEloAway };
   }
 
-  function buildLeaguePhaseSchedule(teams, matchdays, rng) {
-    const pairings = [];
-    const order = shuffleWithRng(teams, rng);
-    for (let round = 0; round < matchdays; round += 1) {
-      const matches = [];
-      for (let index = 0; index < order.length / 2; index += 1) {
-        matches.push({
-          teamA: order[index],
-          teamB: order[order.length - 1 - index],
-          edgeId: pairings.length * (order.length / 2) + index
+  function europeanDrawPots(teams, potCount) {
+    const sorted = [...teams].sort((left, right) => (
+      Number(right.clubCoefficient ?? right.strength ?? 0)
+      - Number(left.clubCoefficient ?? left.strength ?? 0)
+      || Number(right.strength || 0) - Number(left.strength || 0)
+      || String(left.name || "").localeCompare(String(right.name || ""))
+    ));
+    const potSize = sorted.length / potCount;
+    return Array.from({ length: potCount }, (_, index) => (
+      sorted.slice(index * potSize, (index + 1) * potSize)
+    ));
+  }
+
+  function europeanAssociationConflict(teamA, teamB) {
+    return Boolean(teamA?.association && teamB?.association && teamA.association === teamB.association);
+  }
+
+  function europeanDrawConflictScore(edges) {
+    return edges.filter((edge) => europeanAssociationConflict(edge.teamA, edge.teamB)).length;
+  }
+
+  function bestEuropeanPotEdges(potA, potB, opponentsPerPot, rng, samePot = false) {
+    let best = null;
+    let bestConflicts = Number.POSITIVE_INFINITY;
+    for (let attempt = 0; attempt < 32; attempt += 1) {
+      const left = shuffleWithRng(potA, rng);
+      const right = samePot ? left : shuffleWithRng(potB, rng);
+      const edges = [];
+      if (samePot && opponentsPerPot === 2) {
+        left.forEach((team, index) => edges.push({
+          teamA: team,
+          teamB: left[(index + 1) % left.length]
+        }));
+      } else if (samePot) {
+        for (let index = 0; index < left.length; index += 2) {
+          edges.push({ teamA: left[index], teamB: left[index + 1] });
+        }
+      } else {
+        left.forEach((team, index) => {
+          for (let opponent = 0; opponent < opponentsPerPot; opponent += 1) {
+            edges.push({ teamA: team, teamB: right[(index + opponent) % right.length] });
+          }
         });
       }
-      pairings.push({ round: round + 1, matches });
-      const last = order.pop();
-      order.splice(1, 0, last);
+      const conflicts = europeanDrawConflictScore(edges);
+      if (conflicts < bestConflicts) {
+        best = edges;
+        bestConflicts = conflicts;
+        if (conflicts === 0) break;
+      }
     }
-    const edges = pairings.flatMap((round) => round.matches);
+    return best || [];
+  }
+
+  function buildEuropeanPotEdges(pots, opponentsPerPot, rng) {
+    const edges = [];
+    for (let left = 0; left < pots.length; left += 1) {
+      for (let right = left; right < pots.length; right += 1) {
+        bestEuropeanPotEdges(
+          pots[left],
+          pots[right],
+          opponentsPerPot,
+          rng,
+          left === right
+        ).forEach((edge) => edges.push({ ...edge, potA: left, potB: right }));
+      }
+    }
+    return edges;
+  }
+
+  function orientEuropeanEdges(teams, edges) {
     const adjacency = new Map(teams.map((team) => [team, []]));
     edges.forEach((edge) => {
       adjacency.get(edge.teamA).push(edge);
@@ -247,14 +301,94 @@
           if (!edge) break;
           unused.delete(edge.edgeId);
           const next = edge.teamA === current ? edge.teamB : edge.teamA;
-          orientation.set(edge.edgeId, { home: current, away: next });
+          orientation.set(edge.edgeId, { ...edge, home: current, away: next });
           current = next;
         } while (current !== start);
       }
     });
-    return pairings.map((round) => ({
+    return orientation;
+  }
+
+  function findEuropeanRound(teams, edges, rng) {
+    const adjacency = new Map(teams.map((team) => [team, []]));
+    edges.forEach((edge) => {
+      adjacency.get(edge.teamA).push(edge);
+      adjacency.get(edge.teamB).push(edge);
+    });
+    const search = (remaining, matches) => {
+      if (!remaining.size) return matches;
+      let selected = null;
+      let candidates = null;
+      remaining.forEach((team) => {
+        const available = adjacency.get(team).filter((edge) => (
+          remaining.has(edge.teamA === team ? edge.teamB : edge.teamA)
+        ));
+        if (!candidates || available.length < candidates.length) {
+          selected = team;
+          candidates = available;
+        }
+      });
+      if (!candidates?.length) return null;
+      const ordered = shuffleWithRng(candidates, rng);
+      for (const edge of ordered) {
+        const opponent = edge.teamA === selected ? edge.teamB : edge.teamA;
+        remaining.delete(selected);
+        remaining.delete(opponent);
+        const result = search(remaining, [...matches, edge]);
+        if (result) return result;
+        remaining.add(selected);
+        remaining.add(opponent);
+      }
+      return null;
+    };
+    return search(new Set(teams), []);
+  }
+
+  function scheduleEuropeanEdges(teams, edges, matchdays, rng) {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      let remaining = [...edges];
+      const rounds = [];
+      for (let round = 0; round < matchdays; round += 1) {
+        const matches = findEuropeanRound(teams, remaining, rng);
+        if (!matches) break;
+        const used = new Set(matches.map((match) => match.edgeId));
+        remaining = remaining.filter((edge) => !used.has(edge.edgeId));
+        rounds.push({ round: round + 1, matches });
+      }
+      if (rounds.length === matchdays && !remaining.length) return rounds;
+    }
+    return null;
+  }
+
+  function buildLeaguePhaseSchedule(teams, matchdays, rng) {
+    const potCount = matchdays === 8 ? 4 : matchdays === 6 ? 6 : 0;
+    if (!potCount || teams.length % potCount !== 0 || teams.length % 2 !== 0) return [];
+    const pots = europeanDrawPots(teams, potCount);
+    const opponentsPerPot = matchdays / potCount;
+    const edges = buildEuropeanPotEdges(pots, opponentsPerPot, rng)
+      .map((edge, edgeId) => ({ ...edge, edgeId }));
+    const expectedEdges = teams.length * matchdays / 2;
+    if (edges.length !== expectedEdges) return [];
+    const orientation = new Map();
+    if (opponentsPerPot === 2) {
+      for (let left = 0; left < pots.length; left += 1) {
+        for (let right = left; right < pots.length; right += 1) {
+          const group = edges.filter((edge) => edge.potA === left && edge.potB === right);
+          orientEuropeanEdges([...new Set(group.flatMap((edge) => [edge.teamA, edge.teamB]))], group)
+            .forEach((value, key) => orientation.set(key, value));
+        }
+      }
+    } else {
+      orientEuropeanEdges(teams, edges).forEach((value, key) => orientation.set(key, value));
+    }
+    const rounds = scheduleEuropeanEdges(teams, edges, matchdays, rng);
+    if (!rounds) return [];
+    return rounds.map((round) => ({
       round: round.round,
-      matches: round.matches.map((match) => orientation.get(match.edgeId))
+      matches: round.matches.map((match) => {
+        const oriented = orientation.get(match.edgeId);
+        return { home: oriented.home, away: oriented.away };
+      })
     }));
   }
 

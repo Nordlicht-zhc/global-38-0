@@ -33,7 +33,7 @@ function loadData() {
     "src/season-standings.js"
   ].forEach((file) => vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context));
   vm.runInContext(
-    "globalThis.__data = { clubs: CLUBS, entries: EUROPE_2025_26, profiles: EUROPEAN_CLUB_PROFILES, associations: EUROPEAN_CLUB_ASSOCIATIONS, coefficients: EUROPEAN_ASSOCIATION_COEFFICIENTS, standings: HISTORICAL_STANDINGS };",
+    "globalThis.__data = { clubs: CLUBS, entries: EUROPE_2026_27, profiles: EUROPEAN_CLUB_PROFILES, associations: EUROPEAN_CLUB_ASSOCIATIONS, coefficients: EUROPEAN_ASSOCIATION_COEFFICIENTS, standings: HISTORICAL_STANDINGS };",
     context
   );
   return context.__data;
@@ -148,6 +148,7 @@ function rankProfile(name, rankIndex, count, clubs) {
 }
 
 function associationForEntry(entry) {
+  if (entry.association) return entry.association;
   if (entry.id && data.clubs[entry.id]?.league) return data.clubs[entry.id].league;
   return data.associations[entry.profile || entry.name] || "other";
 }

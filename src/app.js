@@ -157,7 +157,9 @@
     "罗德兹": "Rodez",
     "特鲁瓦": "Troyes"
   });
-  const EUROPE_LIST_VERSION = "2025-26-v4";
+  const EUROPE_LIST_VERSION = typeof EUROPEAN_REGISTRATION_LIST_VERSION !== "undefined"
+    ? EUROPEAN_REGISTRATION_LIST_VERSION
+    : "2026-27-v1";
   const SIM_VERSION = "2026-v5";
   const FREE_AGENT_MARKET_VERSION = 1;
   // Keep the dynasty opponent rank profile stable across the Three-Tier Journey.
@@ -8608,6 +8610,8 @@
       const strength = teamStrength(profile);
       return {
         name: club.name,
+        association: europeanAssociationForEntry(entry),
+        registeredPlayers: europeanRegisteredPlayersForEntry(entry, club),
         strength,
         profile,
         played: 0,
@@ -8631,6 +8635,8 @@
     const strength = teamStrength(profile);
     return {
       name: entry.name,
+      association: europeanAssociationForEntry(entry),
+      registeredPlayers: europeanRegisteredPlayersForEntry(entry, null),
       strength,
       profile,
       played: 0,
@@ -8660,6 +8666,25 @@
     return "other";
   }
 
+  function europeanRegisteredPlayersForEntry(entry, club) {
+    const registered = typeof getEuropeanRegisteredSquad === "function"
+      ? getEuropeanRegisteredSquad(entry)
+      : null;
+    const source = registered || club?.players || [];
+    const sourceClubId = entry?.id || null;
+    const sourceClubName = club?.name || entry?.name || "";
+    const sourceLeagueId = europeanAssociationForEntry(entry);
+    return source.map((player) => ({
+      ...player,
+      id: player.id || `${EUROPE_ALLOCATION_SEASON}|${sourceClubId || sourceClubName}|${player.name}`,
+      sourceClubId,
+      sourceClubName,
+      sourceLeagueId,
+      sourceSeason: EUROPE_ALLOCATION_SEASON,
+      registrationSource: registered ? "uefa" : "club-season-fallback"
+    }));
+  }
+
   function europeanAssociationCoefficient(association) {
     const coefficients = typeof EUROPEAN_ASSOCIATION_COEFFICIENTS !== "undefined"
       ? EUROPEAN_ASSOCIATION_COEFFICIENTS
@@ -8674,7 +8699,7 @@
   }
 
   // The dynasty pool contains more historical Big-Five clubs than the real
-  // 2025-26 field, especially in UEL/UECL. Calibrate only those surplus
+  // 2026-27 field, especially in UEL/UECL. Calibrate only those surplus
   // clubs so each competition keeps roughly the current-season intensity.
   const DYNASTY_EUROPEAN_LEVEL_ADJUSTMENTS = Object.freeze({
     UCL: -3,
@@ -8747,7 +8772,7 @@
         });
       });
     });
-    const entries = (typeof EUROPE_2025_26 !== "undefined" && EUROPE_2025_26[competition]) || [];
+    const entries = (typeof EUROPE_2026_27 !== "undefined" && EUROPE_2026_27[competition]) || [];
     entries.forEach((entry) => {
       const association = europeanAssociationForEntry(entry);
       if (BIG_FIVE_IDS.has(association)) return;
@@ -8853,7 +8878,7 @@
   function createEuropeanSimulation(run, competition) {
     const season = simulationSeason(run);
     const rng = makeRng(hashSeed(`europe-${run.id}-${season}-${competition}`));
-    const entries = (typeof EUROPE_2025_26 !== "undefined" && EUROPE_2025_26[competition]) || null;
+    const entries = (typeof EUROPE_2026_27 !== "undefined" && EUROPE_2026_27[competition]) || null;
     const teams = [];
     if (run.mode === "dynasty") {
       buildDynastyEuropeanCandidates(run, competition, rng)
@@ -8884,6 +8909,7 @@
           || fallback;
         teams.push({
           name,
+          association: europeanAssociationForEntry({ name, profile: name }),
           strength: teamStrength(profile),
           profile,
           played: 0,
@@ -8904,6 +8930,7 @@
     const userProfile = applyCoachToProfile(calcTeamProfile(run), getCoach(run));
     teams.push({
       name: "\u6211\u7684\u7403\u961f",
+      association: run.league || "user",
       strength: teamStrength(userProfile),
       profile: userProfile,
       played: 0,

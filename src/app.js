@@ -212,8 +212,8 @@
     { sel: "#accountLogoutBtn", en: "Sign out" },
     { sel: ".brand-text strong", en: "Global All-Stars" },
     { sel: ".hero-copy .eyebrow", en: "1994-95 to 2026-27 seasons" },
-    { sel: ".hero-copy h1", en: "All Five Leagues. Build Your Ultimate XI." },
-    { sel: ".hero-sub", en: "Spin separate season and club reels, pick players from that real squad, assign positions, then test your team over a full league season. Covers England, Spain, Italy, Germany and France." },
+    { sel: ".hero-copy h1", en: "Draw Across the Big Five. Build Your Champion XI." },
+    { sel: ".hero-sub", en: "Spin the season and club reels, then draft one player at a time from authentic squads spanning 1994-95 to 2026-27. Shape the lineup, navigate transfers and lead a one-of-a-kind team through a full campaign in pursuit of league, cup and European glory—every draw can reshape the title race." },
     { sel: ".league-panel .eyebrow", en: "Database" },
     { sel: ".league-panel h2", en: "Select Leagues" },
     { sel: ".test-console .eyebrow", en: "Local Debugging" },
@@ -3384,7 +3384,7 @@
     const buttons = [ui.testClassicBtn, ui.testDynastyBtn].filter(Boolean);
     buttons.forEach((button) => { button.disabled = true; });
     if (ui.testConsoleStatus) {
-      ui.testConsoleStatus.textContent = uiText("正在加载 2025-26 球员数据……", "Loading 2025-26 player data...");
+      ui.testConsoleStatus.textContent = uiText("正在加载 2026-27 球员数据……", "Loading 2026-27 player data...");
     }
     try {
       await setSetupMode(mode === "dynasty" ? "dynasty" : "classic");
@@ -3420,8 +3420,8 @@
             `Structure: ${testRatingProfileText(state.game.testRatingProfile)}; rating ${calcTeamRating(state.game)}. Click again to randomize the squad.`
           )
           : uiText(
-            "阵容使用 2025-26 球员，并自动选择位置适配后的高评分球员。",
-            "The squad uses 2025-26 players selected by position-adjusted rating."
+            "阵容使用 2026-27 球员，并自动选择位置适配后的高评分球员。",
+            "The squad uses 2026-27 players selected by position-adjusted rating."
           );
       }
     }
@@ -4233,7 +4233,7 @@
     const copy = el("div", "", "");
     copy.appendChild(el("div", "result-league", `${league.name} · ${league.country}`));
     copy.appendChild(el("strong", "", localizedClubName(club.name)));
-    copy.appendChild(el("span", "", `${club.stadium ? `${club.stadium} · ` : ""}${game.currentSpin.season}`));
+    copy.appendChild(el("span", "", `${club.stadium ? `${club.stadium} · ` : ""}${displaySeasonLabel(game.currentSpin.season)}`));
     const badge = el("span", "league-code", club.short.slice(0, 3));
     badge.style.background = club.colors?.[0] || league.color || "#0f766e";
     box.append(copy, badge);
@@ -4497,7 +4497,7 @@
       renderSpinResult();
       renderCandidates();
       updateSpinControls();
-      toast(`抽中 ${season} · ${localizedClubName(club.name)}`);
+      toast(`抽中 ${displaySeasonLabel(season)} · ${localizedClubName(club.name)}`);
       ui.spinResult.scrollIntoView({ behavior: "smooth", block: "center" });
       if (state.autoSpinPending) {
         state.autoSpinPending = false;
@@ -4514,7 +4514,7 @@
     ui.spinBtn.disabled = true;
     const transferClubDraw = Boolean(state.transfer && !state.transfer.modeDrawPending);
     const seasons = seasonOptions.map((season) => ({
-      primary: season,
+      primary: displaySeasonLabel(season),
       meta: uiText("赛季", "SEASON")
     }));
     const clubs = clubOptions.map((club) => ({
@@ -4883,7 +4883,7 @@
     const candidates = Array.isArray(transfer?.candidates) ? transfer.candidates : [];
     return {
       seasons: candidates.map((candidate) => ({
-        primary: candidate.sourceSeason || simulationSeason(transfer.sim.game),
+        primary: displaySeasonLabel(candidate.sourceSeason || simulationSeason(transfer.sim.game)),
         meta: "SEASON"
       })),
       players: candidates.map((candidate) => ({
@@ -5748,7 +5748,7 @@
     const copy = el("div", "", "");
     copy.appendChild(el("div", "result-league", `${league.name} · ${league.country}`));
     copy.appendChild(el("strong", "", localizedClubName(club.name)));
-    copy.appendChild(el("span", "", transfer.currentSpin.season));
+    copy.appendChild(el("span", "", displaySeasonLabel(transfer.currentSpin.season)));
     const badge = el("span", "league-code", club.short.slice(0, 3));
     badge.style.background = club.colors?.[0] || league.color || "#0f766e";
     box.append(copy, badge);
@@ -5808,7 +5808,7 @@
       button.type = "button";
       button.classList.toggle("pending", candidate.id === transfer.selectedCandidateId);
       button.appendChild(el("strong", "", candidate.name));
-      const sourceBits = [candidate.sourceSeason, candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : ""].filter(Boolean);
+      const sourceBits = [displaySeasonLabel(candidate.sourceSeason), candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : ""].filter(Boolean);
       const clubLine = sourceBits.length ? `${sourceBits.join(" · ")} · ` : "";
       button.appendChild(el("small", "", `${clubLine}${candidate.nat} · ${candidate.pos.map((p) => POSITION_NAMES[p]).join("/")}`));
       button.appendChild(el("span", "rate", String(candidate.rate)));
@@ -5845,7 +5845,7 @@
     card.appendChild(el("span", "deadline-offer-number", uiText(`报价 ${index + 1}/3`, `Offer ${index + 1}/3`)));
     card.appendChild(el("strong", "", candidate.name));
     card.appendChild(el("small", "", [
-      candidate.sourceSeason,
+      displaySeasonLabel(candidate.sourceSeason),
       candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "",
       candidate.nat,
       candidate.pos.map((pos) => POSITION_NAMES[pos] || pos).join("/")
@@ -5920,7 +5920,7 @@
       if (revealed) {
         button.appendChild(el("span", "mystery-risk", mysteryRiskName(candidate.mysteryRisk)));
         button.appendChild(el("strong", "", candidate.name));
-        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "", candidate.nat].filter(Boolean).join(" · ")));
+        button.appendChild(el("small", "", [displaySeasonLabel(candidate.sourceSeason), candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "", candidate.nat].filter(Boolean).join(" · ")));
         button.appendChild(el("small", "", candidate.pos.map((pos) => POSITION_NAMES[pos] || pos).join("/")));
         button.appendChild(el("span", "rate", String(candidate.rate)));
         button.appendChild(el("span", "mystery-locked", uiText("已锁定，必须签下这名球员", "Locked in — this player must be signed")));
@@ -5928,7 +5928,7 @@
         const unit = positionUnit(candidate.pos[0]);
         button.appendChild(el("span", "mystery-number", `0${index + 1}`));
         button.appendChild(el("strong", "", mysteryRiskName(candidate.mysteryRisk)));
-        button.appendChild(el("small", "", [candidate.sourceSeason, candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "", candidate.nat].filter(Boolean).join(" · ")));
+        button.appendChild(el("small", "", [displaySeasonLabel(candidate.sourceSeason), candidate.sourceClubName ? localizedClubName(candidate.sourceClubName) : "", candidate.nat].filter(Boolean).join(" · ")));
         button.appendChild(el("span", "mystery-unit", transferUnitName(unit)));
         button.appendChild(el("span", "mystery-open", uiText("打开盲盒", "Open Mystery Box")));
       }
@@ -6987,7 +6987,7 @@
         saveGame();
         updateRun(game);
         renderGame();
-        toast(uiText(`${nextSeason} 第 ${nextNumber} 季开始，当前为第 ${journey.tier} 级联赛。`, `${nextSeason} season ${nextNumber} started in Tier ${journey.tier}.`));
+        toast(uiText(`${displaySeasonLabel(nextSeason)} 第 ${nextNumber} 季开始，当前为第 ${journey.tier} 级联赛。`, `${displaySeasonLabel(nextSeason)} season ${nextNumber} started in Tier ${journey.tier}.`));
       } catch (error) {
         console.error(error);
         toast(uiText("下一赛季数据加载失败，请重试。", "Could not load the next journey season. Please try again."));
@@ -7025,7 +7025,7 @@
       saveGame();
       updateRun(game);
       renderGame();
-      toast(uiText(`${nextSeason} 赛季开始，阵容已保留。`, `${nextSeason} season started with your squad retained.`));
+      toast(uiText(`${displaySeasonLabel(nextSeason)} 赛季开始，阵容已保留。`, `${displaySeasonLabel(nextSeason)} season started with your squad retained.`));
     } catch (error) {
       console.error(error);
       toast(uiText("下一赛季数据加载失败，请重试。", "Could not load the next season. Please try again."));
@@ -7997,8 +7997,8 @@
       const movement = result.journeyMovement || result.journey?.movement;
       const row = el("article", `dynasty-history-row${isCurrent ? " current" : ""}`, "");
       const seasonLabel = tiered
-        ? uiText(`第 ${entry.seasonNumber || "-"} 季 · ${entry.season || ""}`, `Season ${entry.seasonNumber || "-"} · ${entry.season || ""}`)
-        : String(entry.season || "-");
+        ? uiText(`第 ${entry.seasonNumber || "-"} 季 · ${displaySeasonLabel(entry.season) || ""}`, `Season ${entry.seasonNumber || "-"} · ${displaySeasonLabel(entry.season) || ""}`)
+        : displaySeasonLabel(entry.season) || "-";
       const rowHead = el("div", "dynasty-history-row-head", "");
       const season = el("div", "", "");
       season.appendChild(el("strong", "", seasonLabel));
@@ -8052,7 +8052,7 @@
     }
     const result = run.result;
     const leagueName = getLeague(run.league)?.name || run.league || "";
-    const seasonText = run.season || run.seasonRange?.end || "";
+    const seasonText = displaySeasonLabel(run.season || run.seasonRange?.end || "");
     const challenge = getChallenge(run.challengeId);
     const dynastyActive = run.mode === "dynasty" && run === state.game;
     const dynastyHasNext = dynastyActive && dynastyHasNextSeason(run);
@@ -8067,8 +8067,8 @@
       ? `${challengeName(challenge)}${peakClubName ? ` · ${displayPeakClubName}` : ""} · ${run.formation}`
       : run.mode === "dynasty"
         ? isTieredDynasty(run)
-          ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.result.journey?.tier || run.dynasty?.journey?.tier || 3} · ${simulationSeason(run)}`
-          : `${uiText("王朝模式", "Dynasty")} · ${simulationSeason(run)} · ${Number(run.dynasty?.currentIndex || 0) + 1}/${run.dynasty?.seasons?.length || 1}`
+          ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${run.result.journey?.tier || run.dynasty?.journey?.tier || 3} · ${displaySeasonLabel(simulationSeason(run))}`
+          : `${uiText("王朝模式", "Dynasty")} · ${displaySeasonLabel(simulationSeason(run))} · ${Number(run.dynasty?.currentIndex || 0) + 1}/${run.dynasty?.seasons?.length || 1}`
       : `${run.formation} · ${leagueName || seasonText}`;
     $("#resultRecord").textContent = `${result.wins}-${result.draws}-${result.losses}`;
     $("#resultPoints").textContent = `${result.points} 分`;
@@ -10048,10 +10048,10 @@
     }
     const club = getClub(spin.clubId, spin.season);
     const seasonOptions = seasonsInRange(game?.seasonRange).map((season) => ({
-      primary: season,
+      primary: displaySeasonLabel(season),
       meta: uiText("赛季", "SEASON")
     }));
-    const seasonIndex = Math.max(0, seasonOptions.findIndex((item) => item.primary === spin.season));
+    const seasonIndex = Math.max(0, seasonOptions.findIndex((item) => item.primary === displaySeasonLabel(spin.season)));
     const clubItem = {
       primary: club?.name || uiText("未知球队", "Unknown Club"),
       meta: `${getLeague(spin.leagueId)?.code || "CLB"} · ${club?.short || "---"}`

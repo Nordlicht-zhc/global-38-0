@@ -11,6 +11,8 @@
   const STORAGE_CLOUD_META = "g38-cloud-meta-v1";
   const CLOUD_SCHEMA_VERSION = 1;
   const CURRENT_DATA_SEASON = "2025-26";
+  const CURRENT_DISPLAY_SEASON = "2026-27";
+  const displaySeasonLabel = (season) => season === CURRENT_DATA_SEASON ? CURRENT_DISPLAY_SEASON : season;
   const EUROPE_ALLOCATION_SEASON = "2026-27";
   const BIG_FIVE_IDS = new Set(["eng", "esp", "ita", "ger", "fra"]);
   const { canPlaySlot, isForceableMidfielder, midfielderForcedPenalty } = G38PositionFit;
@@ -170,6 +172,17 @@
     fallbackToCurrent: true,
     fallbackToLeagueAverage: true
   });
+  // The tiered journey is a cross-league super-pool, so its historical rank
+  // signal needs a softer slope than the legacy single-league Dynasty path.
+  // Keep the elite ceiling near 89, while allowing current squad quality to
+  // separate the middle and lower tiers.
+  const DYNASTY_JOURNEY_PROFILE = Object.freeze({
+    rankTop: 90,
+    rankBottom: 68,
+    rankWeight: 0.55,
+    fallbackToCurrent: true,
+    fallbackToLeagueAverage: true
+  });
   const LANG_KEY = "g38-lang";
   let currentLang = "zh";
   try {
@@ -198,7 +211,7 @@
     { sel: "#accountResetBtn", en: "Send password reset email" },
     { sel: "#accountLogoutBtn", en: "Sign out" },
     { sel: ".brand-text strong", en: "Global All-Stars" },
-    { sel: ".hero-copy .eyebrow", en: "1994-95 to 2025-26 seasons" },
+    { sel: ".hero-copy .eyebrow", en: "1994-95 to 2026-27 seasons" },
     { sel: ".hero-copy h1", en: "All Five Leagues. Build Your Ultimate XI." },
     { sel: ".hero-sub", en: "Spin separate season and club reels, pick players from that real squad, assign positions, then test your team over a full league season. Covers England, Spain, Italy, Germany and France." },
     { sel: ".league-panel .eyebrow", en: "Database" },
@@ -219,13 +232,17 @@
     { sel: "#testRatingProfile option[value='defense']", en: "Defense-focused" },
     { sel: "#testClassicBtn", en: "Quick Classic Game" },
     { sel: "#testDynastyBtn", en: "Quick Three-Tier Journey" },
-    { sel: "#testConsoleStatus", en: "The squad uses 2025-26 players selected by position-adjusted rating." },
+    { sel: "#testConsoleStatus", en: "The squad uses 2026-27 players selected by position-adjusted rating." },
     { sel: "#toggleAllLeagues", en: "All / Clear" },
     { sel: ".setup-panel .eyebrow", en: "New Season" },
     { sel: ".setup-panel h2", en: "Draft Setup" },
-    { sel: "#playModeSwitch [data-play-mode='classic']", en: "Classic" },
-    { sel: "#playModeSwitch [data-play-mode='challenge']", en: "Challenges" },
-    { sel: "#playModeSwitch [data-play-mode='dynasty']", en: "Dynasty" },
+    { sel: "#classicModeName", en: "Classic Mode" },
+    { sel: "#classicModeDescription", en: "Spin through seasons and clubs to build your XI." },
+    { sel: "#challengeModeName", en: "Challenge Mode" },
+    { sel: "#challengeModeDescription", en: "Complete special objectives for a higher rating." },
+    { sel: "#dynastyModeName", en: "Dynasty Mode" },
+    { sel: "#dynastyModeDescription", en: "Start lower and complete the three-tier journey." },
+    { sel: "#savedGameKicker", en: "Current Career" },
     { sel: "#nextDynastySeasonBtn", en: "Start Next Season" },
     { sel: ".challenge-picker-head strong", en: "Choose a Challenge" },
     { sel: ".setup-panel label.field:nth-of-type(2) > span", en: "Season Range" },
@@ -287,7 +304,7 @@
     ["欧协联冠军", "Conference League Champion"],
     ["欧协联亚军", "Conference League Runner-Up"],
     ["我的球队", "My Team"],
-    ["2025-26 五大联赛 23 人名单", "2025-26 Big Five 23-man squads"],
+    ["2026-27 五大联赛 23 人名单", "2026-27 Big Five 23-man squads"],
     ["至", "to"],
     ["大联赛", "Leagues"],
     ["本季球队", "Clubs"],
@@ -383,7 +400,7 @@
     ["敢来挑战吗？", "Can you beat it?"],
     ["赛季结果", "Season Result"],
     ["已完成", "Completed"],
-    ["覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。", "A football draft game covering all 2025-26 Big Five clubs and 23-man squads. Build a team and simulate a full season."],
+    ["覆盖 2026-27 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。", "A football draft game covering all 2026-27 Big Five clubs and 23-man squads. Build a team and simulate a full season."],
 
     ["五大联赛", "Big Five"],
     ["赛季阵容", "Season Squad"],
@@ -1296,7 +1313,7 @@
     const end = range ? seasonKeyToIndex(range.end) : SEASON_KEYS.length - 1;
     return SEASON_KEYS.slice(Math.min(start, end), Math.max(start, end) + 1);
   };
-  const seasonRangeText = () => `${seasonIndexToKey(Number(ui.seasonRangeStart.value || 0))} 至 ${seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1))}`;
+  const seasonRangeText = () => `${displaySeasonLabel(seasonIndexToKey(Number(ui.seasonRangeStart.value || 0)))} 至 ${displaySeasonLabel(seasonIndexToKey(Number(ui.seasonRangeEnd.value || SEASON_KEYS.length - 1)))}`;
 
   const initSeasonRange = () => {
     const max = SEASON_KEYS.length - 1;
@@ -1366,7 +1383,13 @@
   function journeyProfileForClub(club, season) {
     const standings = dynastyStandings(season, club.league);
     const count = Math.max(2, standings.length || clubsForLeague(club.league, season).length || 20);
-    return dynastyRankProfile(club.name, journeyRankIndex(club, season), count, clubsForLeague(club.league, season));
+    return dynastyRankProfile(
+      club.name,
+      journeyRankIndex(club, season),
+      count,
+      clubsForLeague(club.league, season),
+      DYNASTY_JOURNEY_PROFILE
+    );
   }
 
   function buildJourneyClubPool(season) {
@@ -1682,8 +1705,8 @@
       ui.seasonRangeEnd.value = String(start);
       end = start;
     }
-    ui.seasonRangeStartLabel.textContent = seasonIndexToKey(start);
-    ui.seasonRangeEndLabel.textContent = seasonIndexToKey(end);
+    ui.seasonRangeStartLabel.textContent = displaySeasonLabel(seasonIndexToKey(start));
+    ui.seasonRangeEndLabel.textContent = displaySeasonLabel(seasonIndexToKey(end));
     if (ui.seasonRangeFill) {
       const total = Math.max(1, max);
       ui.seasonRangeFill.style.left = String((start / total) * 100) + "%";
@@ -2963,7 +2986,7 @@
     const mode = game.mode === "dynasty"
       ? uiText("王朝模式", "Dynasty")
       : uiText("经典模式", "Classic");
-    const season = game.season || game.seasonRange?.end || "";
+    const season = displaySeasonLabel(game.season || game.seasonRange?.end || "");
     const drafted = Array.isArray(game.draftedPlayers)
       ? game.draftedPlayers.length
       : game.slots.filter((slot) => slot.player).length;
@@ -3431,8 +3454,8 @@
     ui.formationTitle.textContent = game.formation;
     ui.gameProgress.textContent = `${game.draftedPlayers.length}/${game.slots.length}`;
     const rangeText = game.seasonRange
-      ? `${game.seasonRange.start} - ${game.seasonRange.end}`
-      : game.season;
+      ? `${displaySeasonLabel(game.seasonRange.start)} - ${displaySeasonLabel(game.seasonRange.end)}`
+      : displaySeasonLabel(game.season);
     const scopeText = game.leagues.length === LEAGUES.length
       ? `五大联赛 · ${rangeText}`
       : `${game.leagues.map((id) => getLeague(id)?.name).filter(Boolean).join(" / ")} · ${rangeText}`;
@@ -3446,8 +3469,8 @@
         : `${challengeName(challenge)} · ${scopeText}`
       : game.mode === "dynasty"
         ? isTieredDynasty(game)
-          ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${game.dynasty?.journey?.tier || 3} · ${simulationSeason(game)}`
-          : `${uiText("王朝", "Dynasty")} ${Number(game.dynasty?.currentIndex || 0) + 1}/${game.dynasty?.seasons?.length || 1} · ${simulationSeason(game)}`
+          ? `${uiText("三级征途", "Three-Tier Journey")} · Tier ${game.dynasty?.journey?.tier || 3} · ${displaySeasonLabel(simulationSeason(game))}`
+          : `${uiText("王朝", "Dynasty")} ${Number(game.dynasty?.currentIndex || 0) + 1}/${game.dynasty?.seasons?.length || 1} · ${displaySeasonLabel(simulationSeason(game))}`
       : scopeText;
     renderChallengeGameBanner(game);
     document.querySelector(".game-layout")?.classList.remove("hidden");
@@ -6620,10 +6643,16 @@
     if (shouldPlayDomesticCupRound(sim)) {
       const cupMatch = simulateDomesticCupRound(sim);
       if (cupMatch) {
-        playDomesticCupMatch(sim, cupMatch, () => {
-          renderSimulationStep(sim);
-          setTimeout(() => simulateNextMatch(sim), 600);
-        });
+        const continueSimulation = () => setTimeout(() => simulateNextMatch(sim), 600);
+        if (isDomesticCupLeaguePhaseMatch(cupMatch)) {
+          renderDomesticCupLeaguePhaseMatch(sim, cupMatch);
+          continueSimulation();
+        } else {
+          playDomesticCupMatch(sim, cupMatch, () => {
+            renderSimulationStep(sim);
+            continueSimulation();
+          });
+        }
       } else {
         renderSimulationStep(sim);
         setTimeout(() => simulateNextMatch(sim), 600);
@@ -9544,6 +9573,40 @@
       seedId: sim.game.id,
       className: "domestic-cup-live"
     });
+  }
+
+  function isDomesticCupLeaguePhaseMatch(match) {
+    return String(match?.stage || "").startsWith("联赛阶段");
+  }
+
+  function renderDomesticCupLeaguePhaseMatch(sim, match) {
+    const played = match.played || {};
+    const home = played.home || match.tie?.teamA;
+    const away = played.away || match.tie?.teamB;
+    const log = {
+      stage: match.stage,
+      home: home?.name || "",
+      away: away?.name || "",
+      homeGoals: Number(played.homeGoals || 0),
+      awayGoals: Number(played.awayGoals || 0),
+      homeIsUser: Boolean(home?.isUser),
+      awayIsUser: Boolean(away?.isUser),
+      userMatch: true
+    };
+    ui.simulationCurrent.classList.remove("league-simulation-shell");
+    ui.simulationProgress.textContent = uiText(
+      `${sim.matches.length}/${sim.matchCount} · ${match.cup.name}`,
+      `${sim.matches.length}/${sim.matchCount} · ${match.cup.nameEn || "Domestic cup"}`
+    );
+    ui.simulationCurrent.innerHTML = "";
+    const result = renderEuropeanLeagueResultRow(log, true);
+    result.classList.add("domestic-cup-static");
+    ui.simulationCurrent.appendChild(result);
+    ui.simulationCurrent.appendChild(el(
+      "span",
+      "cup-status",
+      uiText(`${match.cup.name} · ${match.stage}`, `${match.cup.nameEn || "Domestic cup"} · ${domesticCupStageText(match.stage)}`)
+    ));
   }
 
   function playEuropeanKnockoutMatch(sim, stage, tie, played, onComplete, options = {}) {

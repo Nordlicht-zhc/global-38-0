@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1512" />
   <meta name="description" content="Global 38-0：覆盖 2025-26 赛季五大联赛全部俱乐部和每队 23 人名单，选人组队并模拟完整赛季的足球选秀游戏。" />
   <title>Global 38-0 | 全球全明星赛季</title>
-    <link rel="stylesheet" href="styles.css?v=20260825-03" />
+    <link rel="stylesheet" href="styles.css?v=20260905-02" />
 </head>
 <body>
   <header class="topbar">
@@ -47,6 +47,14 @@
           <h1>五大联赛全部球队，组建你的终极十一人</h1>
           <p class="hero-sub">老虎机分别抽取赛季和球队，从这家俱乐部当赛季真实球员池里选人，自己分配位置并自由换位，再用一个完整联赛赛季检验阵容。覆盖英超、西甲、意甲、德甲、法甲。</p>
           <div class="hero-stats" id="heroStats"></div>
+          <div class="saved-game-box hero-saved-game hidden" id="savedGameBox">
+            <div class="saved-game-heading">
+              <span class="saved-game-kicker" id="savedGameKicker">当前生涯</span>
+              <strong id="savedGameTitle">检测到本地存档</strong>
+            </div>
+            <span class="saved-game-status" id="savedGameStatus"></span>
+            <button class="btn btn-accent" id="continueGameBtn" type="button">继续上次游戏</button>
+          </div>
         </div>
         <div class="hero-pitch" aria-hidden="true">
           <div class="pitch-markings">
@@ -131,9 +139,27 @@
             </div>
           </div>
           <div class="play-mode-switch" id="playModeSwitch" aria-label="游戏模式">
-            <button class="play-mode-option active" data-play-mode="classic" type="button">经典模式</button>
-            <button class="play-mode-option" data-play-mode="challenge" type="button">挑战模式</button>
-            <button class="play-mode-option" data-play-mode="dynasty" type="button">王朝模式</button>
+            <button class="play-mode-option active" data-play-mode="classic" type="button">
+              <span class="mode-card-icon" aria-hidden="true">⚽</span>
+              <span class="mode-card-copy">
+                <strong id="classicModeName">经典模式</strong>
+                <small id="classicModeDescription">跨赛季抽取球队，组建你的首发十一人</small>
+              </span>
+            </button>
+            <button class="play-mode-option" data-play-mode="challenge" type="button">
+              <span class="mode-card-icon" aria-hidden="true">★</span>
+              <span class="mode-card-copy">
+                <strong id="challengeModeName">挑战模式</strong>
+                <small id="challengeModeDescription">完成特殊目标，争取更高评价</small>
+              </span>
+            </button>
+            <button class="play-mode-option" data-play-mode="dynasty" type="button">
+              <span class="mode-card-icon" aria-hidden="true">◆</span>
+              <span class="mode-card-copy">
+                <strong id="dynastyModeName">王朝模式</strong>
+                <small id="dynastyModeDescription">从低级别起步，完成三级征途</small>
+              </span>
+            </button>
           </div>
           <div class="challenge-picker hidden" id="challengePicker">
             <div class="challenge-picker-head">
@@ -193,11 +219,6 @@
           </label>
           <button class="btn btn-primary btn-lg" id="startBtn" type="button">开始游戏</button>
           <p class="hint">开始后会生成一个本地存档，刷新页面不会丢失。</p>
-          <div class="saved-game-box hidden" id="savedGameBox">
-            <strong id="savedGameTitle">检测到本地存档</strong>
-            <span id="savedGameStatus"></span>
-            <button class="btn btn-accent" id="continueGameBtn" type="button">继续上次游戏</button>
-          </div>
         </aside>
       </div>
 
@@ -545,6 +566,6 @@
   <script defer src="src/cloud-payload.js?v=20260826-01"></script>
   <script defer src="src/cloud-config.js?v=20260815-02"></script>
   <script defer src="src/cloud-storage.js?v=20260818-01"></script>
-  <script defer src="src/app.js?v=20260905-01"></script>
+  <script defer src="src/app.js?v=20260905-02"></script>
 </body>
 </html>

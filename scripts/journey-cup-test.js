@@ -100,6 +100,10 @@ assert(appSource.includes('name: "32强"') && appSource.includes('name: "决赛"
   "Journey Cup knockout stages are incomplete.");
 assert(appSource.includes("twoLeg: true") && appSource.includes("twoLeg = nextName !== \"决赛\""),
   "Journey Cup must use two legs before the single-match final.");
+assert(appSource.includes("renderJourneyCupResult(cup);"),
+  "Journey Cup results must use their dedicated European-style renderer.");
+assert(appSource.includes("renderEuropeanBracket(knockoutRounds.map"),
+  "Journey Cup knockout rounds must render as a connected bracket.");
 
 const progressionContext = {
   G38SimulationCore: core,

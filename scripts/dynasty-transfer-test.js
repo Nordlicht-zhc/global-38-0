@@ -32,8 +32,10 @@ assert(freeAgentPool.includes("const market = ensureFreeAgentMarket(game);"), "P
 assert(!freeAgentPool.includes("journeyTransferClubsForSeason"), "Post-season free-agent offers must use the normal unrestricted market.");
 assert(app.includes("function buildDynastyPostSeasonCandidates(pool, rng, transfer, game)"), "Dynasty post-season offers are missing the quality-aware candidate draw.");
 assert(app.includes("const upgradeEntries = entries.filter((entry) => entry.fit.change > 0);"), "Dynasty post-season offers must prioritize players who improve the starting XI.");
-assert(app.includes("const highRatingFloor = Math.max(80, squadRating + 3);"), "Dynasty post-season offers must include a relative high-rating threshold.");
-assert(app.includes("Math.min(2, highUpgradeEntries.length)"), "Dynasty post-season offers must reserve up to two high-rated upgrades.");
+assert(app.includes("const ratingBandMin = squadRating > 0 ? Math.max(40, squadRating - 4) : 40;"), "Dynasty post-season offers must anchor ratings near the squad overall.");
+assert(app.includes("const ratingBandMax = squadRating > 0 ? Math.min(99, squadRating + 4) : 99;"), "Dynasty post-season offers must cap the squad-relative rating band.");
+assert(app.includes("const balancedEntries = sourceEntries.filter((entry) => {"), "Dynasty post-season offers must filter candidates by squad-relative rating.");
+assert(app.includes("const candidateEntries = balancedEntries.length >= 5 ? balancedEntries : sourceEntries;"), "Dynasty post-season offers must keep a safe fallback when the rating band is sparse.");
 assert(app.includes("buildDynastyPostSeasonCandidates(pool, rng, transfer, game)"), "Post-season free signing must use the quality-aware candidate draw.");
 assert(app.includes("const upgradePool = pool.filter((player) => bestTransferFit(player, game, transfer)?.change > 0);"), "Emergency loans are not restricted to positive upgrades.");
 assert(app.includes("buildLoanCandidates(pool, rng, transfer, game)"), "Emergency loans are not evaluated against the current lineup.");

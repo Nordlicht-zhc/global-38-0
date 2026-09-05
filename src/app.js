@@ -4729,11 +4729,11 @@
       ui.transferWeakText.appendChild(el("strong", "", uiText("赛季结束自由签约", "End-of-season free signings")));
       ui.transferWeakText.appendChild(el("span", "", uiText(
         maxTransfers === 1
-          ? "本次三级征途赛季末转会窗只提供一次自由签约，5 名候选人会优先从能够提升首发的高评分球员中抽取。"
-          : "本次王朝转会窗固定提供两次自由签约，每次 5 名候选人会优先从能够提升首发的高评分球员中抽取。",
+          ? "本次三级征途赛季末转会窗只提供一次自由签约，候选充足时会围绕球队总评上下 4 分抽取，并优先选择能提升首发的球员。"
+          : "本次王朝转会窗固定提供两次自由签约，候选充足时每次 5 人会围绕球队总评上下 4 分抽取，并优先选择能提升首发的球员。",
         maxTransfers === 1
-          ? "This Three-Tier Journey end-of-season window gives one free signing from five candidates, prioritizing high-rated players who improve the starting XI."
-          : "This dynasty window gives two free signings. Each set of five candidates prioritizes high-rated players who improve the starting XI."
+          ? "This Three-Tier Journey end-of-season window gives one free signing from five candidates, prioritizing starting-XI upgrades around the squad rating (within four points when available)."
+          : "This dynasty window gives two free signings. Each set of five candidates prioritizes starting-XI upgrades around the squad rating (within four points when available)."
        )));
       const market = ensureFreeAgentMarket(state.game);
       if (market) ui.transferWeakText.appendChild(el("small", "", uiText(
@@ -5345,23 +5345,21 @@
     const sourceEntries = upgradeEntries.length ? upgradeEntries : entries;
     const excludedIds = new Set();
     const squadRating = Number(calcTeamRating(game) || 0);
-    const highRatingFloor = Math.max(80, squadRating + 3);
-    const highUpgradeEntries = upgradeEntries.filter((entry) => Number(entry.player.rate || 0) >= highRatingFloor);
+    const ratingBandMin = squadRating > 0 ? Math.max(40, squadRating - 4) : 40;
+    const ratingBandMax = squadRating > 0 ? Math.min(99, squadRating + 4) : 99;
+    const balancedEntries = sourceEntries.filter((entry) => {
+      const rating = Number(entry.player.rate || 0);
+      return rating >= ratingBandMin && rating <= ratingBandMax;
+    });
+    const candidateEntries = balancedEntries.length >= 5 ? balancedEntries : sourceEntries;
     const selected = drawTransferOfferEntries(
-      highUpgradeEntries,
-      Math.min(2, highUpgradeEntries.length),
+      candidateEntries,
+      Math.min(5, candidateEntries.length),
       rng,
       excludedIds,
-      0.5
+      balancedEntries.length >= 5 ? 0.65 : 0.5
     );
-    selected.push(...drawTransferOfferEntries(
-      sourceEntries,
-      5 - selected.length,
-      rng,
-      excludedIds,
-      0.35
-    ));
-    if (selected.length < 5 && sourceEntries !== entries) {
+    if (selected.length < 5 && candidateEntries !== entries) {
       selected.push(...drawTransferOfferEntries(
         entries,
         5 - selected.length,
@@ -8767,8 +8765,9 @@
     }
     ui.domesticCupStatus.appendChild(summary);
     ui.domesticCupResults.innerHTML = "";
-    if (cup.journeyLeaguePhase && cup.leagueTable?.length) {
-      renderJourneyCupLeagueTable(cup.leagueTable, ui.domesticCupResults);
+    if (cup.journeyLeaguePhase) {
+      renderJourneyCupResult(cup);
+      return;
     }
     [...cup.rounds].reverse().forEach((round) => {
       const block = el("details", "cup-round", "");
@@ -8789,8 +8788,27 @@
     });
   }
 
+  function renderJourneyCupResult(cup) {
+    if (cup.leagueTable?.length) {
+      renderJourneyCupLeagueTable(cup.leagueTable, ui.domesticCupResults);
+    }
+    const knockoutRounds = (cup.rounds || [])
+      .filter((round) => !String(round.name || "").startsWith("联赛阶段"));
+    const bracket = renderEuropeanBracket(knockoutRounds.map((round) => ({
+      ...round,
+      ties: (round.ties || []).map((tie) => ({
+        ...tie,
+        home: { name: tie.home, isUser: tie.home === JOURNEY_USER_NAME },
+        away: { name: tie.away, isUser: tie.away === JOURNEY_USER_NAME },
+        winner: tie.winner ? { name: tie.winner, isUser: tie.winner === JOURNEY_USER_NAME } : null
+      }))
+    })));
+    if (bracket) ui.domesticCupResults.appendChild(bracket);
+  }
+
   function renderJourneyCupLeagueTable(table, container) {
     const details = el("details", "europe-block europe-collapse journey-cup-table", "");
+    details.open = true;
     const heading = el("summary", "europe-table-summary", "");
     heading.appendChild(el("h3", "", uiText("征途杯 96 队联赛阶段积分表", "Journey Cup 96-club League Phase")));
     details.appendChild(heading);
@@ -9412,6 +9430,9 @@
   function europeanStageText(stage) {
     const names = {
       "附加赛": "Knockout play-off",
+      "32强": "Round of 32",
+      "16强": "Round of 16",
+      "八强": "Quarter-final",
       "1/8决赛": "Round of 16",
       "1/4决赛": "Quarter-final",
       "半决赛": "Semi-final",

@@ -215,7 +215,8 @@
     { sel: "#accountLogoutBtn", en: "Sign out" },
     { sel: ".brand-text strong", en: "Global All-Stars" },
     { sel: ".hero-copy .eyebrow", en: "1994-95 to 2026-27 seasons" },
-    { sel: ".hero-copy h1", en: "Draw Across the Big Five. Build Your Champion XI." },
+    { sel: "#heroTitleLead", en: "Draw Across the Big Five." },
+    { sel: "#heroTitleFinish", en: "Build Your Champion XI." },
     { sel: ".hero-sub", en: "Spin the season and club reels, then draft one player at a time from authentic squads spanning 1994-95 to 2026-27. Shape the lineup, navigate transfers and lead a one-of-a-kind team through a full campaign in pursuit of league, cup and European glory—every draw can reshape the title race." },
     { sel: ".league-panel .eyebrow", en: "Database" },
     { sel: ".league-panel h2", en: "Select Leagues" },
@@ -1465,6 +1466,23 @@
     return Object.values(journey.clubs || {}).find((record) => record.name === name) || null;
   }
 
+  function synchronizeJourneyClubNames(game) {
+    const journey = game?.dynasty?.journey;
+    if (!journey || !isTieredDynasty(game)) return false;
+    const activeClubs = allClubs(CURRENT_DATA_SEASON).filter((club) => BIG_FIVE_IDS.has(club.league));
+    let changed = false;
+    Object.values(journey.clubs || {}).forEach((record) => {
+      if (!record || record.id === JOURNEY_USER_ID) return;
+      const current = activeClubs.find((club) => club.id === record.sourceClubId)
+        || findDynastySeasonClub(record.name, activeClubs);
+      if (!current) return;
+      if (record.name !== current.name || record.short !== (current.short || record.short)) changed = true;
+      record.name = current.name;
+      record.short = current.short || record.short;
+    });
+    return changed;
+  }
+
   function journeyProfileMap(game, names) {
     return Object.fromEntries(names.map((name) => {
       const record = journeyRecordForName(game, name);
@@ -1475,6 +1493,7 @@
   function refreshJourneySeason(game, season) {
     const journey = game?.dynasty?.journey;
     if (!journey) return;
+    synchronizeJourneyClubNames(game);
     const fixedRoster = journey.rosterSeason === CURRENT_DATA_SEASON;
     if (fixedRoster && journey.profileVersion === DYNASTY_JOURNEY_PROFILE_VERSION) {
       journey.currentSeason = season;
@@ -3104,6 +3123,9 @@
       if (clearDynastyEuropeanState(saved)) {
         safeSet(STORAGE_GAME, persistedGameSnapshot(saved));
       }
+      if (synchronizeJourneyClubNames(saved)) {
+        safeSet(STORAGE_GAME, persistedGameSnapshot(saved));
+      }
       if (normalizeDynastyCompletionState(saved)) {
         safeSet(STORAGE_GAME, persistedGameSnapshot(saved));
       }
@@ -4090,15 +4112,6 @@
     review.appendChild(el("small", "", contribution
       ? uiText(`新援合计贡献 ${contribution}。${directContributions >= 12 ? "他们迅速成为赛季后半程的重要力量。" : directContributions > 0 ? "他们已经带来直接回报，但仍有继续提升的空间。" : ""}`, `The arrivals combined for ${contribution}. ${directContributions >= 12 ? "They quickly became an important force in the second half of the season." : directContributions > 0 ? "They delivered an immediate return, with room for more." : ""}`)
       : uiText("新援尚未直接参与进球或零封，转会的长期价值仍需后续赛季检验。", "The arrivals did not directly register a goal, assist, or clean sheet, so the long-term value of the business remains to be proven.")));
-    if (result.freeAgentMarket) {
-      const market = result.freeAgentMarket;
-      review.appendChild(el("small", "", uiText(
-        /*
-        `自由球员市场记录：可用 ${market.available} 名，已签约 ${market.signed} 名`,
-        */ `Free-agent market record: ${market.available} available, ${market.signed} signed`,
-        `Free-agent market record: ${market.available} available, ${market.signed} signed`
-      )));
-    }
     container.appendChild(review);
   }
 
@@ -4302,7 +4315,9 @@
       ...game.candidates.filter((candidate) => !canPlace(candidate) && !canForce(candidate)).sort(sortFn)
     ];
     ordered.forEach((candidate) => {
-      const button = el("button", "candidate", "");
+      const button = el("button", "candidate scout-card", "");
+      button.dataset.unit = positionUnit(candidate.pos[0]);
+      button.appendChild(el("span", "scout-position", candidate.pos.join(" / ")));
       button.type = "button";
       button.classList.toggle("used", isDrafted(candidate.id));
       button.classList.toggle("pending", candidate.id === state.pendingDraftPlayerId);
@@ -5829,7 +5844,9 @@
       return;
     }
     transfer.candidates.forEach((candidate) => {
-      const button = el("button", "candidate", "");
+      const button = el("button", "candidate scout-card", "");
+      button.dataset.unit = positionUnit(candidate.pos[0]);
+      button.appendChild(el("span", "scout-position", candidate.pos.join(" / ")));
       button.type = "button";
       button.classList.toggle("pending", candidate.id === transfer.selectedCandidateId);
       button.appendChild(el("strong", "", candidate.name));

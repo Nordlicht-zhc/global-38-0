@@ -189,6 +189,34 @@ const unresolvedFallback = activeBigFive.filter((club) => (
 assert.strictEqual(unresolvedFallback.length, 0,
   `All current clubs must resolve through historical rank or current-pool fallback; unresolved: ${unresolvedFallback.map((club) => club.name).join(", ")}`);
 
+const displayNameContext = {
+  CURRENT_DATA_SEASON: "2025-26",
+  BIG_FIVE_IDS: new Set(["eng", "esp", "ita", "ger", "fra"]),
+  JOURNEY_USER_ID: "__journey_user__",
+  allClubs: () => activeBigFive,
+  isTieredDynasty: (game) => Boolean(game?.mode === "dynasty" && game.dynasty?.type === "tiered")
+};
+vm.runInNewContext([
+  readSourceFunction("normalizeDynastyClubName"),
+  readSourceFunction("findDynastySeasonClub"),
+  readSourceFunction("synchronizeJourneyClubNames")
+].join("\n"), displayNameContext);
+const legacyNameGame = {
+  mode: "dynasty",
+  dynasty: {
+    type: "tiered",
+    journey: {
+      clubs: {
+        "ita:inter-milan": { id: "ita:inter-milan", name: "Internazionale", short: "INT", sourceClubId: "inter-milan" },
+        "ger:paderborn": { id: "ger:paderborn", name: "SC Paderborn 07", short: "SCP", sourceClubId: "paderborn" }
+      }
+    }
+  }
+};
+assert.strictEqual(displayNameContext.synchronizeJourneyClubNames(legacyNameGame), true);
+assert.strictEqual(legacyNameGame.dynasty.journey.clubs["ita:inter-milan"].name, "Inter Milan");
+assert.strictEqual(legacyNameGame.dynasty.journey.clubs["ger:paderborn"].name, "Paderborn");
+
 const seasons = ["1994-95", "2003-04", "2023-24"];
 seasons.forEach((season) => {
   const context = { window: { G38_HISTORY_DATA: {} } };

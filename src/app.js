@@ -174,10 +174,13 @@
   });
   // The tiered journey is a cross-league super-pool, so its historical rank
   // signal needs a softer slope than the legacy single-league Dynasty path.
-  // Keep the elite ceiling near 89, while allowing current squad quality to
-  // separate the middle and lower tiers.
+  // Preserve current squad differences while keeping an 85-rated user side
+  // competitive in the concentrated top tier.
+  const DYNASTY_JOURNEY_PROFILE_VERSION = 1;
   const DYNASTY_JOURNEY_PROFILE = Object.freeze({
-    rankTop: 90,
+    // The global 32-team top tier concentrates five leagues' strongest clubs.
+    // Keep its rank prior lower than the legacy single-league Dynasty prior.
+    rankTop: 84,
     rankBottom: 68,
     rankWeight: 0.55,
     fallbackToCurrent: true,
@@ -1435,6 +1438,7 @@
       startSeason,
       currentSeason: startSeason,
       rosterSeason,
+      profileVersion: DYNASTY_JOURNEY_PROFILE_VERSION,
       seasonNumber: 1,
       tier: 3,
       tiers,
@@ -1471,11 +1475,13 @@
   function refreshJourneySeason(game, season) {
     const journey = game?.dynasty?.journey;
     if (!journey) return;
-    if (journey.rosterSeason === CURRENT_DATA_SEASON) {
+    const fixedRoster = journey.rosterSeason === CURRENT_DATA_SEASON;
+    if (fixedRoster && journey.profileVersion === DYNASTY_JOURNEY_PROFILE_VERSION) {
       journey.currentSeason = season;
       return;
     }
-    const clubs = allClubs(season).filter((club) => BIG_FIVE_IDS.has(club.league));
+    const profileSeason = fixedRoster ? journey.rosterSeason : season;
+    const clubs = allClubs(profileSeason).filter((club) => BIG_FIVE_IDS.has(club.league));
     Object.values(journey.clubs || {}).forEach((record) => {
       if (!record || record.id === JOURNEY_USER_ID) return;
       const current = findDynastySeasonClub(record.name, clubs)
@@ -1485,9 +1491,10 @@
       record.short = current.short || record.short;
       record.league = current.league;
       record.sourceClubId = current.id;
-      record.sourceSeason = season;
-      record.profile = journeyProfileForClub(current, season);
+      record.sourceSeason = profileSeason;
+      record.profile = journeyProfileForClub(current, profileSeason);
     });
+    journey.profileVersion = DYNASTY_JOURNEY_PROFILE_VERSION;
     journey.currentSeason = season;
   }
 
@@ -1583,17 +1590,34 @@
     };
   }
 
+  function simulateJourneyTierTable(game, tierIndex) {
+    const journey = game.dynasty.journey;
+    const names = journey.tiers[tierIndex].map((id) => journeyClubName(game, id));
+    const profiles = journeyProfileMap(game, names);
+    const table = G38SimulationCore.createLeagueTable(names);
+    const elo = G38SimulationCore.createEloMap(profiles);
+    const rng = makeRng(hashSeed(`${game.id}|journey-league|${journey.seasonNumber || 1}|${simulationSeason(game)}|${tierIndex}`));
+    const schedule = G38SimulationCore.createLeagueSchedule(names, JOURNEY_USER_NAME, { doubleRound: false });
+    simulateAIMatches(schedule, profiles, rng, table, elo);
+    return G38SimulationCore.sortLeagueRows(table).map((row, index) => ({ ...row, position: index + 1 }));
+  }
+
   function simulateJourneyPlayoffs(game, leagueTable) {
     const journey = game?.dynasty?.journey;
     if (!journey || !Array.isArray(leagueTable)) return null;
+    // Settlement may be resumed after saving; never apply movement twice.
+    if (game.result?.journeyPlayoffs) return game.result.journeyPlayoffs;
     const currentTier = clamp(Number(journey.tier) || 3, 1, 3);
+    const leagueTables = journey.tiers.map((tier, index) => currentTier === index + 1
+      ? leagueTable.map((row) => ({ ...row }))
+      : simulateJourneyTierTable(game, index));
     const rng = makeRng(hashSeed(`${game.id}|journey-playoffs|${journey.seasonNumber || 1}|${simulationSeason(game)}`));
     const boundaries = [];
     const movementPlans = [];
     for (let upperIndex = 0; upperIndex < 2; upperIndex += 1) {
       const lowerIndex = upperIndex + 1;
-      const upperTable = currentTier === upperIndex + 1 ? leagueTable : null;
-      const lowerTable = currentTier === lowerIndex + 1 ? leagueTable : null;
+      const upperTable = leagueTables[upperIndex];
+      const lowerTable = leagueTables[lowerIndex];
       const upperRanked = journeyRankedIds(game, upperIndex, upperTable);
       const lowerRanked = journeyRankedIds(game, lowerIndex, lowerTable);
       const directUpper = upperRanked.slice(-JOURNEY_DIRECT_MOVEMENT_COUNT);
@@ -1650,6 +1674,7 @@
     journey.tier = toTier;
     game.result.journeyPlayoffs = {
       currentTier: fromTier,
+      leagueTables,
       userOutcome: userPlayoffOutcome,
       boundaries
     };

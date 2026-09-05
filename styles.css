@@ -4454,6 +4454,14 @@ button {
   grid-template-columns: 44px minmax(180px, 1fr) repeat(8, 48px);
 }
 
+.journey-cup-table .europe-league-table {
+  min-width: 770px;
+}
+
+.journey-cup-table .europe-table-row {
+  grid-template-columns: 44px minmax(180px, 1fr) 44px repeat(8, 48px);
+}
+
 .europe-table-row.table-head {
   position: sticky;
   top: 0;

@@ -71,13 +71,29 @@ assert(appSource.includes("simulateJourneyPlayoffs"), "Promotion and relegation 
 assert(appSource.includes("JOURNEY_DIRECT_MOVEMENT_COUNT = 6"), "Journey direct movement count is missing.");
 assert(appSource.includes("doubleRound: false"), "Three-tier mode must use a single round robin.");
 assert(appSource.includes("createJourneyCupSimulation"), "Three-tier mode must create the Journey Cup.");
-assert(appSource.includes('roundTargets = [64, 32, 16, 8, 4, 2, 1]'), "Journey Cup must include all 96 clubs in a knockout path.");
+assert(appSource.includes("journeyLeaguePhase: true"), "Journey Cup must use the new league-phase format.");
+assert(appSource.includes("buildEuropeanLeagueRounds(teams, 8, sim.rng)"), "Journey Cup must draw an eight-match league phase.");
+assert(appSource.includes("table.slice(0, 16)"), "Journey Cup must send the top 16 directly to the Round of 32.");
+assert(appSource.includes("table.slice(16, 48)"), "Journey Cup must send ranks 17-48 to the play-offs.");
+assert(appSource.includes("function nextJourneyCupStage"), "Journey Cup must progress from the play-offs into a 32-club knockout path.");
 assert(appSource.includes('const stageNames = cup.stages || DOMESTIC_CUP_STAGES;'),
   "Simulation cup progress must use the Journey Cup stage list when present.");
-assert(appSource.includes("firstRoundByeNames"), "Journey Cup must persist seeded first-round byes.");
-assert(appSource.includes("cup.roundIndex === 1"), "Journey Cup must protect seeded clubs in the Round of 64 draw.");
-assert(appSource.includes('qualified: false,\n        competition: null,\n        competitionName: "三级征途不参加欧战"'),
-  "Three-tier mode must not allocate European competition places.");
+assert(!readSourceFunction("createJourneyCupSimulation").includes("firstRoundByeNames"),
+  "The retired Journey Cup bye draw must not be created for Dynasty mode.");
+assert(appSource.includes('if (game?.mode === "dynasty")'),
+  "Dynasty mode must not allocate European competition places.");
+const qualificationContext = {
+  EUROPE_ALLOCATION_SEASON: "2026-27",
+  isTieredDynasty: (game) => Boolean(game?.mode === "dynasty" && game.dynasty?.type === "tiered")
+};
+vm.runInNewContext(`${readSourceFunction("getEuropeanQualification")}; this.getEuropeanQualification = getEuropeanQualification;`, qualificationContext);
+const dynastyQualification = qualificationContext.getEuropeanQualification({ mode: "dynasty", dynasty: {} }, 1);
+assert.strictEqual(dynastyQualification.qualified, false, "Normal Dynasty must not qualify for Europe.");
+assert.strictEqual(dynastyQualification.allocation.ucl, 0);
+assert.strictEqual(dynastyQualification.allocation.uel, 0);
+assert.strictEqual(dynastyQualification.allocation.uecl, 0);
+const classicQualification = qualificationContext.getEuropeanQualification({ mode: "classic", league: "eng" }, 1);
+assert.strictEqual(classicQualification.qualified, true, "Classic mode European qualification must remain available.");
 assert(!html.includes('data-dynasty-type="normal"'), "The removed Big Five dynasty selector is still exposed.");
 assert(appSource.includes('dynastyType = dynastyMode ? "tiered" : null'),
   "New dynasty games must always use the Three-Tier Journey.");
@@ -148,18 +164,30 @@ assert.strictEqual(activeBigFive.length, 96, "The pinned 2025-26 tier pool shoul
 
 const profileContext = {
   HISTORICAL_CLUB_IDS: readSourceConst("HISTORICAL_CLUB_IDS"),
-  DYNASTY_CLUB_ALIASES: readSourceConst("DYNASTY_CLUB_ALIASES")
+  DYNASTY_CLUB_ALIASES: readSourceConst("DYNASTY_CLUB_ALIASES"),
+  dynastyStandings: (season, league) => activeContext.historicalStandings[season]?.[league] || [],
+  clubsForLeague: (league) => activeBigFive.filter((club) => club.league === league)
 };
 vm.runInNewContext([
   readSourceFunction("normalizeDynastyClubName"),
   readSourceFunction("findDynastyCanonicalClubId"),
-  readSourceFunction("journeyStandingIndex")
+  readSourceFunction("journeyStandingIndex"),
+  readSourceFunction("journeyRankIndex")
 ].join("\n"), profileContext);
-const unresolved = activeBigFive.filter((club) => (
+const unresolvedHistorical = activeBigFive.filter((club) => (
   profileContext.journeyStandingIndex(club, activeContext.historicalStandings["2025-26"][club.league]) < 0
 ));
-assert.strictEqual(unresolved.length, 0,
-  `All 96 journey clubs must resolve to a standings rank; unresolved: ${unresolved.map((club) => club.name).join(", ")}`);
+const expectedNewSeasonClubs = new Set([
+  "coventry", "hull", "ipswich", "deportivo", "malaga", "racing-santander",
+  "frosinone", "monza", "venezia", "paderborn", "schalke", "elversberg", "lemans", "troyes"
+]);
+assert.deepStrictEqual(new Set(unresolvedHistorical.map((club) => club.id)), expectedNewSeasonClubs,
+  `Unexpected clubs without a 2025-26 historical rank: ${unresolvedHistorical.map((club) => club.name).join(", ")}`);
+const unresolvedFallback = activeBigFive.filter((club) => (
+  profileContext.journeyRankIndex(club, "2025-26") < 0
+));
+assert.strictEqual(unresolvedFallback.length, 0,
+  `All current clubs must resolve through historical rank or current-pool fallback; unresolved: ${unresolvedFallback.map((club) => club.name).join(", ")}`);
 
 const seasons = ["1994-95", "2003-04", "2023-24"];
 seasons.forEach((season) => {

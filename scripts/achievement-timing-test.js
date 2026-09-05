@@ -72,9 +72,11 @@ assert(app.includes("relegation-playoff-win"), "Relegation playoff result tracki
 assert(app.includes("附加赛突围") && app.includes("惊险保级"), "Playoff achievements are missing.");
 assert(app.includes("renderJourneyPlayoffs(result.journeyPlayoffs)"), "Journey playoff result rendering is missing.");
 assert(app.includes('JOURNEY_DIRECT_MOVEMENT_COUNT = 6'), "Journey playoff table zoning is missing.");
-assert(app.includes('const europePending = result.achievementStatus === "pending-europe" && !run.europeResult;'),
-  "Result rendering must expose the pending-European state.");
-assert(app.includes("Complete this season's European competition before starting the next season."),
-  "Dynasty continuation must wait for European completion.");
+assert(app.includes('if (game?.mode === "dynasty")'),
+  "Dynasty mode must explicitly opt out of European qualification.");
+assert(!app.includes("buildDynastyEuropeanCandidates"),
+  "Removed Dynasty European candidate builder is still referenced.");
+assert(!app.includes("dynastyEuropeanClubCoefficient"),
+  "Removed Dynasty European coefficient helper is still referenced.");
 
-console.log("Achievement timing: PASS (settles after European competition)");
+console.log("Achievement timing: PASS (classic Europe settlement, Dynasty excluded)");

@@ -36,35 +36,6 @@
     return copy;
   }
 
-  function allocateWeightedAssociationSlots(pools, coefficients, totalSlots, seededAssociationCount = 0) {
-    const associations = Object.keys(pools || {})
-      .filter((association) => Array.isArray(pools[association]) && pools[association].length)
-      .sort((left, right) => Number(coefficients?.[right] || 0) - Number(coefficients?.[left] || 0)
-        || left.localeCompare(right));
-    const slots = Object.fromEntries(associations.map((association) => [association, 0]));
-    const target = Math.max(0, Math.min(Number(totalSlots) || 0,
-      associations.reduce((sum, association) => sum + pools[association].length, 0)));
-    const seeded = Math.min(Math.max(0, Number(seededAssociationCount) || 0), target, associations.length);
-    associations.slice(0, seeded).forEach((association) => {
-      slots[association] = 1;
-    });
-    let assigned = seeded;
-    while (assigned < target) {
-      const available = associations.filter((association) => slots[association] < pools[association].length);
-      if (!available.length) break;
-      available.sort((left, right) => {
-        const leftPriority = Number(coefficients?.[left] || 0) / (slots[left] + 1);
-        const rightPriority = Number(coefficients?.[right] || 0) / (slots[right] + 1);
-        return rightPriority - leftPriority
-          || Number(coefficients?.[right] || 0) - Number(coefficients?.[left] || 0)
-          || left.localeCompare(right);
-      });
-      slots[available[0]] += 1;
-      assigned += 1;
-    }
-    return slots;
-  }
-
   function teamStrength(profile) {
     const phases = [
       profile.attack || 78,
@@ -525,7 +496,6 @@
     createLeagueSchedule,
     createLeagueTable,
     createEloMap,
-    allocateWeightedAssociationSlots,
     advanceAiFixtures,
     simulateLeagueResult,
     buildLeaguePhaseSchedule,

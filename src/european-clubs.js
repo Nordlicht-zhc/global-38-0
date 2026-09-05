@@ -76,52 +76,6 @@ Object.assign(EUROPEAN_CLUB_PROFILES, {
   "Twente": {"attack":70,"midfield":71,"defense":68,"goalkeeper":65,"overall":69}
 });
 
-// Association coefficients drive the historical dynasty entry allocation.
-// They are intentionally normalized to a 0-100 scale so the allocation stays
-// deterministic even when a historical club is represented by a rank profile.
-const EUROPEAN_ASSOCIATION_COEFFICIENTS = {
-  eng: 100,
-  esp: 98,
-  ita: 94,
-  ger: 92,
-  fra: 88,
-  ned: 74,
-  por: 72,
-  bel: 66,
-  tur: 63,
-  gre: 58,
-  aut: 55,
-  cze: 53,
-  sco: 50,
-  sui: 48,
-  ukr: 46,
-  den: 44,
-  pol: 42,
-  nor: 40,
-  cro: 38,
-  srb: 37,
-  isr: 35,
-  hun: 33,
-  rou: 31,
-  swe: 30,
-  cyp: 28,
-  aze: 27,
-  svn: 26,
-  svk: 25,
-  kaz: 24,
-  fin: 22,
-  isl: 20,
-  bih: 19,
-  mkd: 18,
-  irl: 17,
-  mlt: 15,
-  kos: 14,
-  bul: 23,
-  arm: 12,
-  gib: 10,
-  other: 8
-};
-
 const EUROPEAN_CLUB_ASSOCIATIONS = {
   PSV: "ned",
   Ajax: "ned",

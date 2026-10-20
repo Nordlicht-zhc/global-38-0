@@ -8,8 +8,6 @@
   const STORAGE_RUNS = "g38-runs-v2";
   const STORAGE_CLUB_PEAKS = "g38-club-peak-v1";
   const STORAGE_ACHIEVEMENTS = "g38-achievements-v1";
-  const STORAGE_CLOUD_META = "g38-cloud-meta-v1";
-  const CLOUD_SCHEMA_VERSION = 1;
   const CURRENT_DATA_SEASON = "2025-26";
   const CURRENT_DISPLAY_SEASON = "2026-27";
   const displaySeasonLabel = (season) => season === CURRENT_DATA_SEASON ? CURRENT_DISPLAY_SEASON : season;
@@ -202,17 +200,6 @@
     { sel: "#achievementFilter [data-achievement-filter='all']", en: "All Achievements" },
     { sel: "#achievementFilter [data-achievement-filter='unlocked']", en: "Unlocked by Me" },
     { sel: "#newGameBtnText", en: "New Game" },
-    { sel: "#accountBtnText", en: "Cloud Save" },
-    { sel: "#accountModalEyebrow", en: "Online Account" },
-    { sel: "#accountModalTitle", en: "Cloud Save & Account" },
-    { sel: "#accountEmailLabel", en: "Email" },
-    { sel: "#accountPasswordLabel", en: "Password" },
-    { sel: "#accountDisplayNameLabel", en: "Display name (optional)" },
-    { sel: "#accountSignInBtn", en: "Sign in" },
-    { sel: "#accountSignUpBtn", en: "Create account" },
-    { sel: "#accountUploadLocalBtn", en: "Upload this local save" },
-    { sel: "#accountResetBtn", en: "Send password reset email" },
-    { sel: "#accountLogoutBtn", en: "Sign out" },
     { sel: ".brand-text strong", en: "Global All-Stars" },
     { sel: ".hero-copy .eyebrow", en: "1994-95 to 2026-27 seasons" },
     { sel: "#heroTitleLead", en: "Draw Across the Big Five." },
@@ -1004,21 +991,7 @@
     pendingDraftPlayerId: null,
     autoSpinPending: false,
     spinning: false,
-    transfer: null,
-    cloud: {
-      configured: false,
-      initializing: true,
-      ready: false,
-      user: null,
-      syncing: false,
-      initialSyncDone: false,
-      suppressLocalTouch: true,
-      localChangedAt: 0,
-      revision: 0,
-      syncTimer: null,
-      lastError: "",
-      localOnly: false
-    }
+    transfer: null
   };
 
   const ui = {
@@ -1042,23 +1015,6 @@
     seasonRangeFill: $("#seasonRangeFill"),
     difficultySelect: $("#difficultySelect"),
     langToggle: $("#langToggle"),
-    accountBtn: $("#accountBtn"),
-    accountBtnText: $("#accountBtnText"),
-    accountStatusDot: $("#accountStatusDot"),
-    accountModal: $("#accountModal"),
-    accountCloseBtn: $("#accountCloseBtn"),
-    accountStatus: $("#accountStatus"),
-    accountForm: $("#accountForm"),
-    accountEmail: $("#accountEmail"),
-    accountPassword: $("#accountPassword"),
-    accountDisplayName: $("#accountDisplayName"),
-    accountDisplayNameField: $("#accountDisplayNameField"),
-    accountSignInBtn: $("#accountSignInBtn"),
-    accountSignUpBtn: $("#accountSignUpBtn"),
-    accountResetBtn: $("#accountResetBtn"),
-    accountLogoutBtn: $("#accountLogoutBtn"),
-    accountUploadLocalBtn: $("#accountUploadLocalBtn"),
-    accountSyncInfo: $("#accountSyncInfo"),
     achievementBtn: $("#achievementBtn"),
     achievementBtnCount: $("#achievementBtnCount"),
     achievementModal: $("#achievementModal"),
@@ -1778,7 +1734,7 @@
   }
 
   function normalizeLocalHistory() {
-    const helper = window.G38CloudPayload;
+    const helper = window.G38SaveData;
     if (!helper?.needsTrim) return;
     [STORAGE_GAME, STORAGE_CLASSIC_GAME, STORAGE_DYNASTY_GAME].forEach((key) => {
       const game = safeGet(key);
@@ -1800,430 +1756,23 @@
       STORAGE_DYNASTY_GAME,
       STORAGE_RUNS,
       STORAGE_CLUB_PEAKS,
-      STORAGE_ACHIEVEMENTS,
-      STORAGE_CLOUD_META
+      STORAGE_ACHIEVEMENTS
     ]);
     migrateLegacyGameSave();
     normalizeLocalHistory();
   };
 
-  function cloudMeta() {
-    return safeGet(STORAGE_CLOUD_META) || {};
-  }
-
-  function hasLocalCloudData() {
-    const classicGame = safeGet(STORAGE_CLASSIC_GAME);
-    const dynastyGame = safeGet(STORAGE_DYNASTY_GAME);
-    const legacyGame = safeGet(STORAGE_GAME);
-    const runs = safeGet(STORAGE_RUNS);
-    const clubPeaks = safeGet(STORAGE_CLUB_PEAKS);
-    const achievements = safeGet(STORAGE_ACHIEVEMENTS);
-    return Boolean(classicGame || dynastyGame || legacyGame || (Array.isArray(runs) && runs.length)
-      || (clubPeaks && typeof clubPeaks === "object" && Object.keys(clubPeaks).length)
-      || (Array.isArray(achievements) && achievements.length));
-  }
-
-  function buildCloudPayload() {
-    const classicGame = safeGet(STORAGE_CLASSIC_GAME);
-    const dynastyGame = safeGet(STORAGE_DYNASTY_GAME);
-    const payload = {
-      schemaVersion: CLOUD_SCHEMA_VERSION,
-      // Keep `game` for older clients; new clients use the two mode-specific fields.
-      game: safeGet(activeGameStorageKey()) || classicGame || dynastyGame || null,
-      classicGame,
-      dynastyGame,
-      runs: Array.isArray(safeGet(STORAGE_RUNS)) ? safeGet(STORAGE_RUNS) : [],
-      clubPeaks: safeGet(STORAGE_CLUB_PEAKS) || {},
-      achievements: Array.isArray(safeGet(STORAGE_ACHIEVEMENTS)) ? safeGet(STORAGE_ACHIEVEMENTS) : [],
-      localChangedAt: Number(state.cloud.localChangedAt || 0)
-    };
-    return window.G38CloudPayload?.prepare
-      ? window.G38CloudPayload.prepare(payload)
-      : payload;
-  }
-
-  function touchLocalCloudData() {
-    if (state.cloud.suppressLocalTouch) return;
-    state.cloud.localChangedAt = Date.now();
-    G38Storage.set(STORAGE_CLOUD_META, {
-      ...cloudMeta(),
-      localChangedAt: state.cloud.localChangedAt,
-      userId: state.cloud.user?.id || cloudMeta().userId || null
-    });
-    queueCloudSync();
-  }
-
   const safeSet = (key, value) => {
     const storageKey = key === STORAGE_GAME ? gameStorageKeyFor(value || state.game) : key;
     let normalizedValue = value;
     if ((storageKey === STORAGE_CLASSIC_GAME || storageKey === STORAGE_DYNASTY_GAME)
-      && window.G38CloudPayload?.prepareGame) {
-      normalizedValue = window.G38CloudPayload.prepareGame(value);
-    } else if (storageKey === STORAGE_RUNS && window.G38CloudPayload?.prepareRuns) {
-      normalizedValue = window.G38CloudPayload.prepareRuns(value);
+      && window.G38SaveData?.prepareGame) {
+      normalizedValue = window.G38SaveData.prepareGame(value);
+    } else if (storageKey === STORAGE_RUNS && window.G38SaveData?.prepareRuns) {
+      normalizedValue = window.G38SaveData.prepareRuns(value);
     }
-    const result = G38Storage.set(storageKey, normalizedValue);
-    if (key === STORAGE_GAME || storageKey === STORAGE_CLASSIC_GAME || storageKey === STORAGE_DYNASTY_GAME
-      || storageKey === STORAGE_RUNS || storageKey === STORAGE_CLUB_PEAKS || storageKey === STORAGE_ACHIEVEMENTS) {
-      touchLocalCloudData();
-    }
-    return result;
+    return G38Storage.set(storageKey, normalizedValue);
   };
-
-  function cloudErrorText(error) {
-    const message = String(error?.message || "");
-    if (/invalid login|invalid credentials|invalid email/i.test(message)) {
-      return uiText("邮箱或密码不正确。", "The email or password is incorrect.");
-    }
-    if (/already registered|already exists/i.test(message)) {
-      return uiText("这个邮箱已经注册，请直接登录。", "This email is already registered. Please sign in.");
-    }
-    if (/password/i.test(message) && /length|weak|short/i.test(message)) {
-      return uiText("密码至少需要 6 位。", "The password must contain at least 6 characters.");
-    }
-    return uiText("云存档服务暂时不可用，请稍后重试。", "Cloud sync is temporarily unavailable. Please try again.");
-  }
-
-  function renderCloudAccount() {
-    if (!ui.accountBtn || !ui.accountStatus) return;
-    const configured = state.cloud.configured;
-    const user = state.cloud.user;
-    ui.accountStatusDot.classList.toggle("is-online", Boolean(configured && user));
-    ui.accountStatusDot.classList.toggle("is-configured", Boolean(configured && !user));
-    ui.accountBtnText.textContent = user
-      ? uiText("账号", "Account")
-      : uiText("云存档", "Cloud Save");
-    ui.accountStatus.textContent = state.cloud.initializing
-      ? uiText("正在加载云存档…", "Loading cloud save…")
-      : !configured
-      ? uiText("云存档未配置，当前使用本地存档。", "Cloud sync is not configured. Local saves remain active.")
-      : user
-        ? uiText(`已登录：${user.email || "账号"}`, `Signed in: ${user.email || "Account"}`)
-        : uiText("登录后可跨设备同步游戏进度。", "Sign in to sync your progress across devices.");
-    ui.accountForm.classList.toggle("hidden", Boolean(user));
-    ui.accountLogoutBtn.classList.toggle("hidden", !user);
-    ui.accountResetBtn.classList.toggle("hidden", Boolean(user) || !configured);
-    ui.accountDisplayNameField.classList.toggle("hidden", Boolean(user));
-    ui.accountUploadLocalBtn.classList.toggle("hidden", !Boolean(user && state.cloud.localOnly));
-    if (!configured) {
-      ui.accountSyncInfo.textContent = uiText(
-        "请在 src/cloud-config.js 中填写 Supabase 项目地址和 publishable key。",
-        "Fill in the Supabase URL and publishable key in src/cloud-config.js to enable accounts."
-      );
-    } else if (state.cloud.localOnly) {
-      ui.accountSyncInfo.textContent = uiText(
-        "本地存档属于其他账号，点击上方按钮后才会上传到当前账号。",
-        "The local save belongs to another account. Upload it to this account only after confirming above."
-      );
-    } else if (state.cloud.syncing) {
-      ui.accountSyncInfo.textContent = uiText("正在同步存档…", "Syncing your save…");
-    } else if (state.cloud.lastError) {
-      ui.accountSyncInfo.textContent = state.cloud.lastError;
-    } else if (user && state.cloud.initialSyncDone) {
-      ui.accountSyncInfo.textContent = uiText("云存档已同步，之后的进度会自动上传。", "Cloud save synced. Future progress uploads automatically.");
-    } else {
-      ui.accountSyncInfo.textContent = uiText("首次登录时会自动选择最新存档。", "The newest save is selected automatically on first sign-in.");
-    }
-  }
-
-  function openAccountModal() {
-    renderCloudAccount();
-    ui.accountModal?.classList.remove("hidden");
-    ui.accountEmail?.focus();
-    initializeCloudOnce().then(() => renderCloudAccount());
-  }
-
-  function closeAccountModal() {
-    ui.accountModal?.classList.add("hidden");
-  }
-
-  function applyCloudPayload(payload, remote) {
-    if (!payload || Number(payload.schemaVersion || 0) > CLOUD_SCHEMA_VERSION) {
-      throw new Error("Unsupported cloud save version.");
-    }
-    const normalizedPayload = window.G38CloudPayload?.prepare
-      ? window.G38CloudPayload.prepare(payload)
-      : payload;
-    state.cloud.suppressLocalTouch = true;
-    const hasClassicGame = Object.prototype.hasOwnProperty.call(normalizedPayload, "classicGame");
-    const hasDynastyGame = Object.prototype.hasOwnProperty.call(normalizedPayload, "dynastyGame");
-    if (hasClassicGame || hasDynastyGame) {
-      if (hasClassicGame) {
-        G38Storage.set(STORAGE_CLASSIC_GAME, normalizedPayload.classicGame || null);
-      }
-      if (hasDynastyGame) {
-        G38Storage.set(STORAGE_DYNASTY_GAME, normalizedPayload.dynastyGame || null);
-      }
-    } else if (Object.prototype.hasOwnProperty.call(normalizedPayload, "game")) {
-      // Migrate payloads written before dual-mode archives were introduced.
-      const legacyGame = normalizedPayload.game || null;
-      G38Storage.set(gameStorageKeyFor(legacyGame), legacyGame);
-    }
-    if (Object.prototype.hasOwnProperty.call(normalizedPayload, "runs")) {
-      G38Storage.set(STORAGE_RUNS, Array.isArray(normalizedPayload.runs) ? normalizedPayload.runs : []);
-    }
-    G38Storage.set(
-      STORAGE_CLUB_PEAKS,
-      normalizedPayload.clubPeaks && typeof normalizedPayload.clubPeaks === "object" && !Array.isArray(normalizedPayload.clubPeaks)
-        ? normalizedPayload.clubPeaks
-        : {}
-    );
-    G38Storage.set(
-      STORAGE_ACHIEVEMENTS,
-      Array.isArray(normalizedPayload.achievements) ? [...new Set(normalizedPayload.achievements)] : []
-    );
-    state.cloud.revision = Number(remote?.revision || 0);
-    state.cloud.localChangedAt = Number(normalizedPayload.localChangedAt || Date.parse(remote?.updated_at || "") || Date.now());
-    G38Storage.set(STORAGE_CLOUD_META, {
-      userId: state.cloud.user?.id || null,
-      revision: state.cloud.revision,
-      localChangedAt: state.cloud.localChangedAt,
-      syncedAt: Date.now()
-    });
-  }
-
-  async function uploadCloudSnapshot() {
-    if (!state.cloud.ready || !state.cloud.initialSyncDone || state.cloud.syncing) return;
-    state.cloud.syncing = true;
-    state.cloud.lastError = "";
-    renderCloudAccount();
-    try {
-      const payload = buildCloudPayload();
-      const row = await G38Cloud.save(payload, state.cloud.revision + 1);
-      state.cloud.revision = Number(row.revision || state.cloud.revision + 1);
-      G38Storage.set(STORAGE_CLOUD_META, {
-        ...cloudMeta(),
-        userId: state.cloud.user?.id || null,
-        revision: state.cloud.revision,
-        syncedAt: Date.now()
-      });
-    } catch (error) {
-      state.cloud.lastError = cloudErrorText(error);
-      console.error("Cloud save failed", error);
-    } finally {
-      state.cloud.syncing = false;
-      renderCloudAccount();
-    }
-  }
-
-  function queueCloudSync() {
-    if (!state.cloud.ready || !state.cloud.initialSyncDone || state.cloud.suppressLocalTouch || state.cloud.localOnly) return;
-    clearTimeout(state.cloud.syncTimer);
-    state.cloud.syncTimer = setTimeout(() => {
-      state.cloud.syncTimer = null;
-      uploadCloudSnapshot();
-    }, 900);
-  }
-
-  async function syncCloudForUser(user) {
-    if (!user || !state.cloud.configured || state.cloud.syncing) return;
-    if (state.cloud.syncedUserId === user.id && state.cloud.initialSyncDone) return;
-    state.cloud.syncing = true;
-    state.cloud.suppressLocalTouch = true;
-    state.cloud.lastError = "";
-    renderCloudAccount();
-    try {
-      const remote = await G38Cloud.load();
-      const localMeta = cloudMeta();
-      const localPayload = buildCloudPayload();
-      const localBelongsToOtherUser = Boolean(localMeta.userId && localMeta.userId !== user.id);
-      const remoteChangedAt = Math.max(
-        Date.parse(remote?.updated_at || "") || 0,
-        Number(remote?.payload?.localChangedAt || 0)
-      );
-      const localIsNewer = Boolean(
-        remote
-        && hasLocalCloudData()
-        && localMeta.userId === user.id
-        && Number(localMeta.localChangedAt || 0) > remoteChangedAt
-      );
-      if (remote?.payload && !localIsNewer) {
-        const remoteNeedsTrim = Boolean(window.G38CloudPayload?.needsTrim?.(remote.payload));
-        applyCloudPayload(remote.payload, remote);
-        if (remoteNeedsTrim) {
-          const normalizedPayload = buildCloudPayload();
-          const row = await G38Cloud.save(normalizedPayload, Number(remote.revision || 0) + 1);
-          state.cloud.revision = Number(row.revision || Number(remote.revision || 0) + 1);
-          G38Storage.set(STORAGE_CLOUD_META, {
-            ...cloudMeta(),
-            userId: user.id,
-            revision: state.cloud.revision,
-            localChangedAt: Number(normalizedPayload.localChangedAt || Date.now()),
-            syncedAt: Date.now()
-          });
-        }
-        state.cloud.localOnly = false;
-      } else if (hasLocalCloudData() && !localBelongsToOtherUser) {
-        const row = await G38Cloud.save(localPayload, Number(remote?.revision || 0) + 1);
-        state.cloud.revision = Number(row.revision || 1);
-        state.cloud.localChangedAt = Number(localPayload.localChangedAt || Date.now());
-        G38Storage.set(STORAGE_CLOUD_META, {
-          userId: user.id,
-          revision: state.cloud.revision,
-          localChangedAt: state.cloud.localChangedAt,
-          syncedAt: Date.now()
-        });
-        state.cloud.localOnly = false;
-      } else {
-        state.cloud.revision = Number(remote?.revision || 0);
-        if (localBelongsToOtherUser) {
-          state.cloud.localOnly = true;
-          state.cloud.lastError = uiText(
-            "检测到其他账号的本地存档，未自动上传。",
-            "A local save belongs to another account, so it was not uploaded automatically."
-          );
-        } else {
-          state.cloud.localOnly = false;
-        }
-      }
-      state.cloud.syncedUserId = user.id;
-      state.cloud.initialSyncDone = true;
-    } catch (error) {
-      state.cloud.lastError = cloudErrorText(error);
-      console.error("Cloud load failed", error);
-    } finally {
-      state.cloud.syncing = false;
-      state.cloud.suppressLocalTouch = false;
-      renderCloudAccount();
-    }
-  }
-
-  function handleCloudAuthState({ user }) {
-    state.cloud.user = user || null;
-    state.cloud.ready = Boolean(state.cloud.configured && user);
-    if (!user) {
-      state.cloud.initialSyncDone = false;
-      state.cloud.syncedUserId = null;
-      state.cloud.revision = 0;
-      state.cloud.localOnly = false;
-    }
-    renderCloudAccount();
-    if (user) syncCloudForUser(user);
-  }
-
-  async function initializeCloud() {
-    const meta = cloudMeta();
-    state.cloud.localChangedAt = Number(meta.localChangedAt || 0);
-    if (!window.G38Cloud) {
-      renderCloudAccount();
-      return;
-    }
-    try {
-      const result = await G38Cloud.initialize(handleCloudAuthState);
-      state.cloud.configured = Boolean(result.configured);
-      state.cloud.user = result.user || null;
-      state.cloud.ready = Boolean(state.cloud.configured && state.cloud.user);
-      renderCloudAccount();
-      if (state.cloud.user) await syncCloudForUser(state.cloud.user);
-    } catch (error) {
-      state.cloud.configured = true;
-      state.cloud.lastError = cloudErrorText(error);
-      console.error("Cloud initialization failed", error);
-      renderCloudAccount();
-    }
-  }
-
-  let cloudInitPromise = null;
-
-  function initializeCloudOnce() {
-    if (!cloudInitPromise) {
-      state.cloud.initializing = true;
-      cloudInitPromise = initializeCloud().finally(() => {
-        state.cloud.initializing = false;
-        renderCloudAccount();
-      });
-    }
-    return cloudInitPromise;
-  }
-
-  function scheduleCloudInitialization(startupGameId) {
-    const start = () => {
-      initializeCloudOnce().then(async () => {
-        const setupVisible = !document.querySelector("#setupView")?.classList.contains("hidden");
-        const stateChangedDuringInit = Boolean(state.game && state.game.id !== startupGameId);
-        if (stateChangedDuringInit && state.cloud.initialSyncDone) touchLocalCloudData();
-        if (!setupVisible || stateChangedDuringInit) return;
-        const previousGame = state.game;
-        state.game = null;
-        await loadSavedGame();
-        if (state.game !== previousGame) {
-          renderHomeHistory();
-          renderSavedGamePrompt();
-        }
-      });
-    };
-    if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(start, { timeout: 2000 });
-    } else {
-      setTimeout(start, 100);
-    }
-  }
-
-  async function submitAccount(mode) {
-    await initializeCloudOnce();
-    if (!state.cloud.configured || !window.G38Cloud) {
-      renderCloudAccount();
-      return;
-    }
-    const email = ui.accountEmail.value.trim();
-    const password = ui.accountPassword.value;
-    const displayName = ui.accountDisplayName.value.trim();
-    if (!email || !password) {
-      ui.accountStatus.textContent = uiText("请输入邮箱和密码。", "Enter an email and password.");
-      return;
-    }
-    ui.accountSignInBtn.disabled = true;
-    ui.accountSignUpBtn.disabled = true;
-    try {
-      const result = mode === "signup"
-        ? await G38Cloud.signUp(email, password, displayName)
-        : await G38Cloud.signIn(email, password);
-      const user = result?.session?.user || result?.user || G38Cloud.getUser();
-      if (user && result?.session) {
-        state.cloud.user = user;
-        state.cloud.ready = true;
-        await syncCloudForUser(user);
-        ui.accountPassword.value = "";
-      } else if (mode === "signup") {
-        ui.accountStatus.textContent = uiText(
-          "注册成功，请检查邮箱确认后再登录。",
-          "Account created. Check your email to confirm, then sign in."
-        );
-      }
-      renderCloudAccount();
-    } catch (error) {
-      ui.accountStatus.textContent = cloudErrorText(error);
-    } finally {
-      ui.accountSignInBtn.disabled = false;
-      ui.accountSignUpBtn.disabled = false;
-    }
-  }
-
-  async function resetAccountPassword() {
-    await initializeCloudOnce();
-    if (!state.cloud.configured || !window.G38Cloud) {
-      renderCloudAccount();
-      return;
-    }
-    const email = ui.accountEmail.value.trim();
-    if (!email) {
-      ui.accountStatus.textContent = uiText("请先填写邮箱。", "Enter your email first.");
-      return;
-    }
-    try {
-      await G38Cloud.requestPasswordReset(email);
-      ui.accountStatus.textContent = uiText("重置密码邮件已发送，请检查邮箱。", "Password reset email sent. Check your inbox.");
-    } catch (error) {
-      ui.accountStatus.textContent = cloudErrorText(error);
-    }
-  }
-
-  async function uploadCurrentLocalSave() {
-    if (!state.cloud.user || !state.cloud.localOnly) return;
-    state.cloud.localOnly = false;
-    state.cloud.lastError = "";
-    await uploadCloudSnapshot();
-  }
 
   function isSelfMatch(match) {
     if (!match) return false;
@@ -2604,7 +2153,6 @@
     }
     const resultRun = state.viewingRun || (state.game?.result ? state.game : null);
     if (resultRun) renderResult(resultRun);
-    renderCloudAccount();
     showView(activeView, { scroll: false });
     setTimeout(translateDom, 0);
   }
@@ -2629,16 +2177,13 @@
     }
     bindEvents();
     await loadSavedGame();
-    state.cloud.suppressLocalTouch = false;
     renderSavedGamePrompt();
     showView("setup");
     drawWheel();
-    scheduleCloudInitialization(state.game?.id || null);
   }
 
   function bindEvents() {
     ui.langToggle.addEventListener("click", toggleLanguage);
-    ui.accountBtn?.addEventListener("click", openAccountModal);
     ui.achievementBtn?.addEventListener("click", openAchievementModal);
     ui.achievementCloseBtn?.addEventListener("click", closeAchievementModal);
     ui.achievementModal?.addEventListener("click", (event) => {
@@ -2655,26 +2200,6 @@
       if (!button) return;
       state.achievementCategory = button.dataset.achievementCategory || "all";
       renderAchievementCatalog();
-    });
-    ui.accountCloseBtn?.addEventListener("click", closeAccountModal);
-    ui.accountModal?.addEventListener("click", (event) => {
-      if (event.target === ui.accountModal) closeAccountModal();
-    });
-    ui.accountForm?.addEventListener("submit", (event) => {
-      event.preventDefault();
-      submitAccount("signin");
-    });
-    ui.accountSignUpBtn?.addEventListener("click", () => submitAccount("signup"));
-    ui.accountResetBtn?.addEventListener("click", resetAccountPassword);
-    ui.accountUploadLocalBtn?.addEventListener("click", uploadCurrentLocalSave);
-    ui.accountLogoutBtn?.addEventListener("click", async () => {
-      try {
-        await G38Cloud.signOut();
-        handleCloudAuthState({ user: null });
-        closeAccountModal();
-      } catch (error) {
-        ui.accountStatus.textContent = cloudErrorText(error);
-      }
     });
     window.addEventListener("scroll", updateBackHomeButtonFloating, { passive: true });
     window.addEventListener("resize", updateBackHomeButtonFloating);

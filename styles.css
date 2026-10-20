@@ -114,10 +114,6 @@ button {
   gap: 10px;
 }
 
-.cloud-account-btn {
-  position: relative;
-}
-
 .achievements-btn {
   white-space: nowrap;
 }
@@ -132,24 +128,6 @@ button {
   font-size: 10px;
   line-height: 1.2;
   text-align: center;
-}
-
-.cloud-account-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(159, 180, 170, 0.6);
-  box-shadow: 0 0 0 3px rgba(159, 180, 170, 0.08);
-}
-
-.cloud-account-dot.is-configured {
-  background: var(--amber);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
-}
-
-.cloud-account-dot.is-online {
-  background: var(--green);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
 }
 
 .btn {
@@ -4038,66 +4016,6 @@ button {
   line-height: 1;
 }
 
-.cloud-account-status {
-  margin: 0 0 16px;
-  padding: 11px 12px;
-  border: 1px solid rgba(74, 222, 128, 0.2);
-  border-radius: 8px;
-  color: #c9f8d9;
-  background: rgba(34, 197, 94, 0.08);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.cloud-account-form {
-  display: grid;
-  gap: 12px;
-}
-
-.cloud-account-form input {
-  width: 100%;
-  min-height: 42px;
-  padding: 9px 11px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  outline: none;
-  color: var(--text);
-  background: rgba(2, 8, 6, 0.35);
-}
-
-.cloud-account-form input:focus {
-  border-color: rgba(74, 222, 128, 0.65);
-  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
-}
-
-.cloud-account-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.cloud-reset-btn {
-  margin-top: 14px;
-}
-
-.cloud-account-modal > #accountUploadLocalBtn {
-  width: 100%;
-  margin-top: 14px;
-}
-
-.cloud-account-modal > #accountLogoutBtn {
-  width: 100%;
-  margin-top: 14px;
-}
-
-.cloud-sync-info {
-  margin: 16px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.55;
-}
-
 .achievement-modal {
   width: min(100%, 720px);
 }
@@ -4467,10 +4385,6 @@ button {
 
   .topbar-actions {
     gap: 5px;
-  }
-
-  .cloud-account-btn {
-    padding-inline: 9px;
   }
 
   .achievements-btn {

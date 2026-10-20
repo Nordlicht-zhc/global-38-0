@@ -17,11 +17,11 @@
 
 普通模式与王朝模式各有一份进行中的存档，可以交替游玩；挑战模式与普通模式共用档案槽。新建同类游戏会更新对应档案，建议先确认是否需要继续已有进度。
 
-## 存档与账号
+## 本地存档
 
-游戏默认使用本地存档，无需注册即可游玩。同一浏览器、同一站点下可以继续已有进度；清除站点数据或更换设备前，请留意存档是否已同步。
+当前版本不提供在线账号或云同步功能。游戏无需网络服务即可游玩，存档保存在当前浏览器或桌面版的本机数据中；经典／挑战档案与王朝档案彼此独立，挑战模式与经典模式共用档案槽。更换浏览器、设备或清除站点数据不会自动迁移存档，建议在清理浏览器数据前先做好备份。
 
-可选的 Supabase 在线账号提供跨设备云存档，同步普通与王朝档案、历史记录和成就。历史赛果明细在本地和云端均最多保留每份赛果的最新 30 场，积分与球员统计等其他字段继续保留。云同步需要网络连接。
+每份赛季赛果最多保留最近 30 场比赛明细，积分榜、球员统计、成就及其他存档数据不受此限制。
 
 ## 本地运行
 
@@ -44,12 +44,12 @@ Windows 用户也可以从 Releases 下载便携版 EXE，直接运行；若系�
 | `global 38-0.html`、`index.html` | 游戏入口与首页跳转 |
 | `src/app.js` | 界面交互、选秀、转会与赛事流程 |
 | `src/simulation-core.js` | 带种子的联赛模拟逻辑 |
-| `src/storage.js`、`src/cloud-*.js` | 本地存储与云存档集成 |
+| `src/storage.js`、`src/save-data.js` | 本地存档与安全序列化、历史记录限制 |
 | `src/big-five*.js`、`src/season-*.js` | 俱乐部、球员、赛季数据与加载逻辑 |
 | `history-data/` | 按赛季拆分、按需加载的历史数据 |
 | `styles.css` | 页面布局、主题与动画 |
 | `scripts/` | 数据校验、回归检查、平衡模拟与数据生成工具 |
-| `supabase/`、`docs/` | 云端数据库初始化 SQL 与配置说明 |
+| `docs/` | 开发参考文档 |
 | `source-data/`、`archive/` | 数据生成输入与退役参考代码 |
 
 ## 开发与验证
@@ -61,11 +61,11 @@ node --check src/app.js
 node scripts/validate-data.js
 node scripts/random-test.js
 node scripts/season-loader-test.js
-node scripts/cloud-history-limit-test.js
+node scripts/save-history-limit-test.js
 node scripts/dynasty-tier-test.js
 git diff --check
 ```
 
 修改交互时，请同时检查中文和英文界面。修改数据时，请核对球队 ID、球员身份、阵容完整性及赛季加载；游戏中的评分与模拟结果属于玩法模型，不代表真实比赛预测。
 
-自行部署云存档请参阅 [云存档配置说明](docs/CLOUD_SETUP.md)。前端仅使用公开的项目地址与 publishable key；服务端密钥和数据库密码不得写入客户端或提交到仓库。贡献代码前请阅读 [仓库贡献指南](AGENTS.md)。
+贡献代码前请阅读 [仓库贡献指南](AGENTS.md)。

@@ -1,5 +1,7 @@
 # Global 38-0｜全球全明星赛季
 
+[简体中文](README.md) | [English](README.en.md)
+
 一款支持中英文切换的足球选秀与赛季模拟游戏。从不同赛季、不同俱乐部的阵容中挑选球员，组建属于你的跨时代首发十一人，调整阵型、聘请教练并运作转会，争夺联赛、国内杯赛与欧洲赛事冠军。
 
 **[在线游玩](https://nordlicht-zhc.github.io/global-38-0/) · [下载 Windows 便携版](https://github.com/Nordlicht-zhc/global-38-0/releases/latest)**

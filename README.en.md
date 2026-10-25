@@ -1,15 +1,42 @@
+<div align="center">
+
 # Global 38-0 | Global All-Stars
 
-[简体中文](README.md) | [English](README.en.md)
+**Bring stars from different eras into one starting XI.**
 
-A football drafting and season simulation game in Chinese and English. Draft players across seasons, build your starting eleven, and compete for league, domestic cup, and European titles.
+Draft across seasons, shape your squad, and chase league, cup, and European glory.
 
-**[Play online](https://nordlicht-zhc.github.io/global-38-0/) · [Download the Windows portable edition](https://github.com/Nordlicht-zhc/global-38-0/releases/latest)**
+[Play online](https://nordlicht-zhc.github.io/global-38-0/) · [Download for Windows](https://github.com/Nordlicht-zhc/global-38-0/releases/latest) · [简体中文](README.md)
 
-## Features
+</div>
 
-- **Draft across seasons:** Pick players from club squads across Europe's five major leagues, with customizable seasons, league selections, and difficulty.
-- **Manage your squad:** Adjust formations, hire coaches, and strengthen your team through transfers, free signings, and loans.
-- **Simulate competitions:** Play league, domestic cup, and European campaigns, with standings, match results, and player statistics.
-- **Three game modes:** Chase a single-season title in Classic, pursue special objectives in Challenge, or manage across seasons with promotion and relegation in Dynasty's Three-Tier Journey.
-- **Achievements and saves:** Unlock achievements, review past seasons, and save progress automatically on your device. Classic/Challenge and Dynasty have separate save slots.
+![Global 38-0 home screen](docs/screenshots/overview-en.png)
+
+## From your first draw to the final whistle
+
+- **Draft across eras:** Pick players from Europe's five major leagues across the 1994-95 to 2026-27 seasons, bringing stars from different generations together.
+- **Build your team:** Adjust formations, choose a coach, and strengthen weak positions through transfers, free signings, and loans.
+- **Compete for trophies:** Play league, domestic cup, and European campaigns, then review standings, match results, and player statistics.
+- **Make your mark:** Unlock achievements, keep season records, and save progress locally. Classic/Challenge and Dynasty have separate save slots.
+
+## Choose your journey
+
+| Classic | Challenge | Dynasty |
+| :--- | :--- | :--- |
+| Draft your starting eleven and chase a single-season title. | Find new ways to win under squad restrictions and special objectives. | Keep your squad across seasons and navigate promotion, relegation, and transfers in the Three-Tier Journey. |
+
+## Your squad. Your decisions.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><strong>Draw a club. Find your next key player.</strong><br><br><img src="docs/screenshots/draft-en.png" alt="Season and club draw with available player candidates" width="100%"></td>
+    <td width="50%" valign="top"><strong>Find the right place for every player.</strong><br><br><img src="docs/screenshots/squad-en.png" alt="A 4-3-3 starting eleven and squad ratings" width="100%"></td>
+  </tr>
+</table>
+
+<details>
+<summary>See the league table after a full season</summary>
+
+![League standings after a complete simulated season](docs/screenshots/season-en.png)
+
+</details>

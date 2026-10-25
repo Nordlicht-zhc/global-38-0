@@ -49,25 +49,10 @@ Windows users can also download the portable EXE from Releases and run it direct
 | `src/storage.js`, `src/save-data.js` | Local persistence, safe serialization, and match-history limits |
 | `src/big-five*.js`, `src/season-*.js` | Club, player, and season data and loading logic |
 | `history-data/` | Historical data split by season and loaded on demand |
+| `assets/club-crests/` | Local club badges and asset attribution |
 | `styles.css` | Layout, themes, and animations |
-| `scripts/` | Data validation, regression checks, balance simulations, and data-generation tools |
 | `docs/` | Development reference documentation |
-| `source-data/`, `archive/` | Data-generation inputs and retired reference code |
 
-## Development and validation
+## Contributing
 
-Use Node.js to run checks relevant to your changes from the repository root, for example:
-
-```powershell
-node --check src/app.js
-node scripts/validate-data.js
-node scripts/random-test.js
-node scripts/season-loader-test.js
-node scripts/save-history-limit-test.js
-node scripts/dynasty-tier-test.js
-git diff --check
-```
-
-When changing interactions, check both Chinese and English interfaces. When changing data, verify club IDs, player identities, squad completeness, and season loading. Ratings and simulated results are gameplay models, not predictions of real matches.
-
-Read the [repository contribution guidelines](AGENTS.md) before contributing.
+Read the [repository contribution guidelines](AGENTS.md) before contributing. See the [development reference](docs/DEVELOPMENT.md) for module locations and local preview instructions.

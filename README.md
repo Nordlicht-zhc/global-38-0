@@ -49,25 +49,10 @@ Windows 用户也可以从 Releases 下载便携版 EXE，直接运行；若系�
 | `src/storage.js`、`src/save-data.js` | 本地存档与安全序列化、历史记录限制 |
 | `src/big-five*.js`、`src/season-*.js` | 俱乐部、球员、赛季数据与加载逻辑 |
 | `history-data/` | 按赛季拆分、按需加载的历史数据 |
+| `assets/club-crests/` | 本地俱乐部队徽及素材来源说明 |
 | `styles.css` | 页面布局、主题与动画 |
-| `scripts/` | 数据校验、回归检查、平衡模拟与数据生成工具 |
 | `docs/` | 开发参考文档 |
-| `source-data/`、`archive/` | 数据生成输入与退役参考代码 |
 
-## 开发与验证
+## 参与开发
 
-使用 Node.js 从项目根目录执行与改动相关的检查，例如：
-
-```powershell
-node --check src/app.js
-node scripts/validate-data.js
-node scripts/random-test.js
-node scripts/season-loader-test.js
-node scripts/save-history-limit-test.js
-node scripts/dynasty-tier-test.js
-git diff --check
-```
-
-修改交互时，请同时检查中文和英文界面。修改数据时，请核对球队 ID、球员身份、阵容完整性及赛季加载；游戏中的评分与模拟结果属于玩法模型，不代表真实比赛预测。
-
-贡献代码前请阅读 [仓库贡献指南](AGENTS.md)。
+贡献代码前请阅读 [仓库贡献指南](AGENTS.md)。模块位置和本地预览方式见 [开发参考](docs/DEVELOPMENT.md)。

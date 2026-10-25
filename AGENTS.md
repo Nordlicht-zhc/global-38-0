@@ -2,7 +2,7 @@
 
 ## Project constraints
 
-This is a build-free, bilingual browser football game. The entry point is `global 38-0.html`; runtime code lives in `src/`, presentation in `styles.css`. No package installation or browser build is needed. Keep data separate from behavior and preserve established global data shapes. `archive/` contains retired code and must not be loaded by the game.
+This is a build-free, bilingual browser football game. The entry point is `global 38-0.html`; runtime code lives in `src/`, presentation in `styles.css`. No package installation or browser build is needed. Keep data separate from behavior and preserve established global data shapes.
 
 Use two-space indentation, semicolons, `const` unless reassigned, camelCase identifiers, and kebab-case club IDs. Build UI nodes with `el()` rather than HTML strings. Add user-facing text in both Chinese and English.
 
@@ -12,7 +12,7 @@ Never commit credentials, service-role keys, or database passwords. Keep `.vs/` 
 
 ## Working and validation
 
-Use the current task and affected code to decide what to read and verify. [Development reference](docs/DEVELOPMENT.md) contains module locations, test entry points, and data-generation commands; consult the relevant section when needed. These references are not a mandatory reading or execution checklist.
+Use the current task and affected code to decide what to read and verify. [Development reference](docs/DEVELOPMENT.md) contains module locations and local preview instructions; consult the relevant section when needed. These references are not a mandatory reading or execution checklist.
 
 Complete requested local changes and relevant validation, including fixing failures caused by the change, without pausing for routine implementation choices. Preserve unrelated work. Treat historical memory and skill checklists as context; current user instructions and these project constraints govern project-specific workflow.
 

@@ -703,6 +703,37 @@
     return out;
   }
 
+  function clubLabel(team, options = {}) {
+    const info = typeof team === "string" ? { name: team } : team || {};
+    const isUser = Boolean(info.isUser || info.name === "我的球队" || info.name === "My Team");
+    const game = options.game || state.viewingRun || state.game;
+    const peakClub = isUser && game && isClubPeakChallenge(game) ? clubPeakClub(game.peakClubId) : null;
+    const identity = peakClub || info;
+    const name = options.text || (isUser ? uiText("我的球队", "My Team") : localizedClubName(info.name));
+    const node = el(options.tag || "span", `club-label ${options.className || ""}`, "");
+    const emblem = el("span", "club-emblem", "");
+    emblem.setAttribute("aria-hidden", "true");
+    const fallback = el("span", "club-emblem-fallback", isUser && !peakClub ? "38" : String(identity.short || identity.id || identity.name || "FC").replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase() || "FC");
+    if (identity.colors?.[0]) fallback.style.backgroundColor = identity.colors[0];
+    emblem.appendChild(fallback);
+    const src = isUser && !peakClub ? "" : window.G38ClubCrests.resolve([identity.id, identity.name, localizedClubName(identity.name)]);
+    if (src) {
+      const image = el("img", "club-crest", "");
+      image.alt = "";
+      image.width = 24;
+      image.height = 24;
+      image.decoding = "async";
+      image.addEventListener("load", () => { if (image.parentNode === emblem) fallback.hidden = true; }, { once: true });
+      image.addEventListener("error", () => { image.remove(); fallback.hidden = false; }, { once: true });
+      image.src = src;
+      emblem.appendChild(image);
+    }
+    const text = el("span", "club-label-text", name);
+    node.append(emblem, text);
+    node.title = name;
+    return node;
+  }
+
   function localizedTeamName(team) {
     if (!team) return "--";
     return team.isUser ? uiText("我的球队", "My Team") : localizedClubName(team.name);
@@ -2081,7 +2112,7 @@
         card.type = "button";
         const record = records[club.id];
         const target = clubPeakBenchmark(club.id);
-        card.appendChild(el("strong", "", localizedClubName(club.name)));
+        card.appendChild(clubLabel(club, { tag: "strong", className: "club-label-card" }));
         card.appendChild(el("span", "", uiText(
           `队史 #${target?.bestFinish || "-"} · 个人 ${record ? `#${record.bestFinish}` : "--"}`,
           `Club #${target?.bestFinish || "-"} · Personal ${record ? `#${record.bestFinish}` : "--"}`
@@ -3795,7 +3826,7 @@
     const box = el("div", "result-club", "");
     const copy = el("div", "", "");
     copy.appendChild(el("div", "result-league", `${league.name} · ${league.country}`));
-    copy.appendChild(el("strong", "", localizedClubName(club.name)));
+    copy.appendChild(clubLabel(club, { tag: "strong", className: "club-label-result" }));
     copy.appendChild(el("span", "", `${club.stadium ? `${club.stadium} · ` : ""}${displaySeasonLabel(game.currentSpin.season)}`));
     const badge = el("span", "league-code", club.short.slice(0, 3));
     badge.style.background = club.colors?.[0] || league.color || "#0f766e";
@@ -5312,7 +5343,7 @@
     const box = el("div", "result-club", "");
     const copy = el("div", "", "");
     copy.appendChild(el("div", "result-league", `${league.name} · ${league.country}`));
-    copy.appendChild(el("strong", "", localizedClubName(club.name)));
+    copy.appendChild(clubLabel(club, { tag: "strong", className: "club-label-result" }));
     copy.appendChild(el("span", "", displaySeasonLabel(transfer.currentSpin.season)));
     const badge = el("span", "league-code", club.short.slice(0, 3));
     badge.style.background = club.colors?.[0] || league.color || "#0f766e";
@@ -6375,8 +6406,8 @@
       match.home ? "主场" : "客场",
       match.home ? "Home" : "Away"
     ));
-    const opponentName = localizedClubName(match.opponent);
-    const matchup = el("strong", "", uiText(`我的球队 vs ${opponentName}`, `My Team vs ${opponentName}`));
+    const matchup = el("strong", "club-matchup", "");
+    matchup.append(clubLabel("我的球队"), el("small", "", "vs"), clubLabel(match.opponent));
     row.append(score, round, venue, matchup);
     if (current) {
       row.appendChild(el(
@@ -7709,7 +7740,9 @@
       row.classList.add(match.result === "W" ? "result-win" : match.result === "D" ? "result-draw" : "result-loss");
       row.appendChild(el("span", "match-round", `R${match.round}`));
       const teams = el("div", "match-teams", "");
-      teams.appendChild(el("span", "", `${match.home ? "主" : "客"} vs ${localizedClubName(match.opponent)}`));
+      const matchup = el("div", "club-matchup", "");
+      matchup.append(el("small", "", `${match.home ? uiText("主", "Home") : uiText("客", "Away")} vs`), clubLabel(match.opponent));
+      teams.appendChild(matchup);
       teams.appendChild(el("span", "", match.scorers.length ? `进球：${match.scorers.join("、")}` : "无进球"));
       const score = el("div", "match-score", `${match.gf}-${match.ga}`);
       const resultLabel = match.result === "W" ? "胜" : match.result === "D" ? "平" : "负";
@@ -7785,7 +7818,9 @@
       else if (row.position > teamCount - (leagueId === "ger" ? 2 : 3)) tr.classList.add("league-zone-relegation");
       const goalDiff = Number(row.goalDiff || 0);
       [row.position, row.isUser && userTeamName ? localizedClubName(userTeamName) : localizedClubName(row.name), row.played, row.wins, row.draws, row.losses, row.goalsFor, row.goalsAgainst, goalDiff > 0 ? `+${goalDiff}` : goalDiff, row.points]
-        .forEach((value) => tr.appendChild(el("span", "", String(value))));
+        .forEach((value, index) => tr.appendChild(index === 1
+          ? clubLabel(row.isUser && userTeamName ? userTeamName : row.name, { text: String(value) })
+          : el("span", "", String(value))));
       body.appendChild(tr);
     });
     scroll.appendChild(body);
@@ -8446,7 +8481,7 @@
         team.goalsAgainst,
         goalDiff > 0 ? `+${goalDiff}` : goalDiff,
         team.points
-      ].forEach((value) => row.appendChild(el("span", "", String(value ?? "-"))));
+      ].forEach((value, index) => row.appendChild(index === 1 ? clubLabel(team) : el("span", "", String(value ?? "-"))));
       body.appendChild(row);
     });
     scroll.appendChild(body);
@@ -9016,9 +9051,9 @@
       match.homeIsUser ? "Home" : "Away"
     )));
     const teams = el("div", "europe-league-matchup", "");
-    teams.appendChild(el("span", userFirst ? "user-team" : "", uiText(firstTeam, userFirst ? "My Team" : firstTeam)));
+    teams.appendChild(clubLabel(firstTeam, { className: userFirst ? "user-team" : "" }));
     teams.appendChild(el("small", "", "vs"));
-    teams.appendChild(el("span", "", secondTeam));
+    teams.appendChild(clubLabel(secondTeam));
     row.appendChild(teams);
     return row;
   }
@@ -9196,9 +9231,9 @@
     live.appendChild(heading);
 
     const scoreboard = el("div", "europe-live-scoreboard", "");
-    const homeName = el("span", "europe-live-team home", localizedTeamName(played.home));
+    const homeName = clubLabel(played.home, { className: "europe-live-team home club-label-live" });
     const score = el("strong", "europe-live-score", "0 - 0");
-    const awayName = el("span", "europe-live-team away", localizedTeamName(played.away));
+    const awayName = clubLabel(played.away, { className: "europe-live-team away club-label-live" });
     scoreboard.append(homeName, score, awayName);
     live.appendChild(scoreboard);
 
@@ -9384,7 +9419,7 @@
           const row = el("div", "europe-bracket-team", "");
           row.classList.toggle("winner", Boolean(winner.name && winner.name === team.name));
           row.classList.toggle("user-team", Boolean(team.isUser));
-          row.appendChild(el("span", "", localizedTeamName(team)));
+          row.appendChild(clubLabel(team));
           row.appendChild(el("strong", "", String(goals ?? "-")));
           card.appendChild(row);
         });
@@ -9516,7 +9551,7 @@
           goalDiff > 0 ? `+${goalDiff}` : goalDiff,
           team.points
         ];
-        values.forEach((value) => row.appendChild(el("span", "", String(value))));
+        values.forEach((value, index) => row.appendChild(index === 1 ? clubLabel(team) : el("span", "", String(value))));
         body.appendChild(row);
       });
       scroll.appendChild(body);

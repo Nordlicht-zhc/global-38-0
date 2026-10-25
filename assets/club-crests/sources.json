@@ -1,0 +1,1046 @@
+{
+  "repository": "https://github.com/luukhopman/football-logos",
+  "revision": "2a3978f0b4730645c205d855a4bda54c161183e9",
+  "assets": [
+    {
+      "file": "hajduk-split.png",
+      "source": "history/2021-22/Croatia - SuperSport HNL/Hajduk Split.png"
+    },
+    {
+      "file": "brighton.png",
+      "source": "history/2021-22/England - Premier League/Brighton.png"
+    },
+    {
+      "file": "burnley.png",
+      "source": "history/2021-22/England - Premier League/Burnley.png"
+    },
+    {
+      "file": "leicester-city.png",
+      "source": "history/2021-22/England - Premier League/Leicester City.png"
+    },
+    {
+      "file": "southampton.png",
+      "source": "history/2021-22/England - Premier League/Southampton.png"
+    },
+    {
+      "file": "watford-fc.png",
+      "source": "history/2021-22/England - Premier League/Watford FC.png"
+    },
+    {
+      "file": "west-ham.png",
+      "source": "history/2021-22/England - Premier League/West Ham.png"
+    },
+    {
+      "file": "wolverhampton-wanderers.png",
+      "source": "history/2021-22/England - Premier League/Wolverhampton Wanderers.png"
+    },
+    {
+      "file": "as-saint-etienne.png",
+      "source": "history/2021-22/France - Ligue 1/AS Saint-Étienne.png"
+    },
+    {
+      "file": "clermont-foot-63.png",
+      "source": "history/2021-22/France - Ligue 1/Clermont Foot 63.png"
+    },
+    {
+      "file": "fc-metz.png",
+      "source": "history/2021-22/France - Ligue 1/FC Metz.png"
+    },
+    {
+      "file": "fc-nantes.png",
+      "source": "history/2021-22/France - Ligue 1/FC Nantes.png"
+    },
+    {
+      "file": "marseille.png",
+      "source": "history/2021-22/France - Ligue 1/Marseille.png"
+    },
+    {
+      "file": "montpellier.png",
+      "source": "history/2021-22/France - Ligue 1/Montpellier.png"
+    },
+    {
+      "file": "sco-angers.png",
+      "source": "history/2021-22/France - Ligue 1/SCO Angers.png"
+    },
+    {
+      "file": "arminia-bielefeld.png",
+      "source": "history/2021-22/Germany - Bundesliga/Arminia Bielefeld.png"
+    },
+    {
+      "file": "fc-bayern.png",
+      "source": "history/2021-22/Germany - Bundesliga/FC Bayern .png"
+    },
+    {
+      "file": "hertha-bsc.png",
+      "source": "history/2021-22/Germany - Bundesliga/Hertha BSC.png"
+    },
+    {
+      "file": "vfl-bochum.png",
+      "source": "history/2021-22/Germany - Bundesliga/VfL Bochum.png"
+    },
+    {
+      "file": "vfl-wolfsburg.png",
+      "source": "history/2021-22/Germany - Bundesliga/VfL Wolfsburg.png"
+    },
+    {
+      "file": "fc-empoli.png",
+      "source": "history/2021-22/Italy - Serie A/FC Empoli.png"
+    },
+    {
+      "file": "hellas-verona.png",
+      "source": "history/2021-22/Italy - Serie A/Hellas Verona.png"
+    },
+    {
+      "file": "lazio.png",
+      "source": "history/2021-22/Italy - Serie A/Lazio.png"
+    },
+    {
+      "file": "sampdoria.png",
+      "source": "history/2021-22/Italy - Serie A/Sampdoria.png"
+    },
+    {
+      "file": "sassuolo.png",
+      "source": "history/2021-22/Italy - Serie A/Sassuolo.png"
+    },
+    {
+      "file": "us-salernitana-1919.png",
+      "source": "history/2021-22/Italy - Serie A/US Salernitana 1919.png"
+    },
+    {
+      "file": "ajax.png",
+      "source": "history/2021-22/Netherlands - Eredivisie/Ajax.png"
+    },
+    {
+      "file": "feyenoord.png",
+      "source": "history/2021-22/Netherlands - Eredivisie/Feyenoord.png"
+    },
+    {
+      "file": "jagiellonia.png",
+      "source": "history/2021-22/Poland - PKO BP Ekstraklasa/Jagiellonia.png"
+    },
+    {
+      "file": "benfica.png",
+      "source": "history/2021-22/Portugal - Liga Portugal/Benfica.png"
+    },
+    {
+      "file": "alaves.png",
+      "source": "history/2021-22/Spain - LaLiga/Alavés.png"
+    },
+    {
+      "file": "cadiz-cf.png",
+      "source": "history/2021-22/Spain - LaLiga/Cádiz CF.png"
+    },
+    {
+      "file": "espanyol.png",
+      "source": "history/2021-22/Spain - LaLiga/Espanyol.png"
+    },
+    {
+      "file": "granada-cf.png",
+      "source": "history/2021-22/Spain - LaLiga/Granada CF.png"
+    },
+    {
+      "file": "rcd-mallorca.png",
+      "source": "history/2021-22/Spain - LaLiga/RCD Mallorca.png"
+    },
+    {
+      "file": "besiktas.png",
+      "source": "history/2021-22/Türkiye - Süper Lig/Besiktas.png"
+    },
+    {
+      "file": "west-ham-united.png",
+      "source": "history/2022-23/England - Premier League/West Ham United.png"
+    },
+    {
+      "file": "ac-ajaccio.png",
+      "source": "history/2022-23/France - Ligue 1/AC Ajaccio.png"
+    },
+    {
+      "file": "montpellier-hsc.png",
+      "source": "history/2022-23/France - Ligue 1/Montpellier HSC.png"
+    },
+    {
+      "file": "uc-sampdoria.png",
+      "source": "history/2022-23/Italy - Serie A/UC Sampdoria.png"
+    },
+    {
+      "file": "us-cremonese.png",
+      "source": "history/2022-23/Italy - Serie A/US Cremonese.png"
+    },
+    {
+      "file": "girona-fc.png",
+      "source": "history/2022-23/Spain - LaLiga/Girona FC.png"
+    },
+    {
+      "file": "real-valladolid-cf.png",
+      "source": "history/2022-23/Spain - LaLiga/Real Valladolid CF.png"
+    },
+    {
+      "file": "ud-almeria.png",
+      "source": "history/2022-23/Spain - LaLiga/UD Almería.png"
+    },
+    {
+      "file": "luton-town.png",
+      "source": "history/2023-24/England - Premier League/Luton Town.png"
+    },
+    {
+      "file": "sheffield-united.png",
+      "source": "history/2023-24/England - Premier League/Sheffield United.png"
+    },
+    {
+      "file": "sv-darmstadt-98.png",
+      "source": "history/2023-24/Germany - Bundesliga/SV Darmstadt 98.png"
+    },
+    {
+      "file": "ud-las-palmas.png",
+      "source": "history/2023-24/Spain - LaLiga/UD Las Palmas.png"
+    },
+    {
+      "file": "fc-st-pauli.png",
+      "source": "history/2024-25/Germany - Bundesliga/FC St. Pauli.png"
+    },
+    {
+      "file": "holstein-kiel.png",
+      "source": "history/2024-25/Germany - Bundesliga/Holstein Kiel.png"
+    },
+    {
+      "file": "cd-leganes.png",
+      "source": "history/2024-25/Spain - LaLiga/CD Leganés.png"
+    },
+    {
+      "file": "real-oviedo.png",
+      "source": "history/2025-26/Spain - LaLiga/Real Oviedo.png"
+    },
+    {
+      "file": "lask.png",
+      "source": "logos/Austria - Bundesliga/LASK.png"
+    },
+    {
+      "file": "rapid-vienna.png",
+      "source": "logos/Austria - Bundesliga/Rapid Vienna.png"
+    },
+    {
+      "file": "red-bull-salzburg.png",
+      "source": "logos/Austria - Bundesliga/Red Bull Salzburg.png"
+    },
+    {
+      "file": "sk-sturm-graz.png",
+      "source": "logos/Austria - Bundesliga/SK Sturm Graz.png"
+    },
+    {
+      "file": "club-brugge-kv.png",
+      "source": "logos/Belgium - Jupiler Pro League/Club Brugge KV.png"
+    },
+    {
+      "file": "kaa-gent.png",
+      "source": "logos/Belgium - Jupiler Pro League/KAA Gent.png"
+    },
+    {
+      "file": "krc-genk.png",
+      "source": "logos/Belgium - Jupiler Pro League/KRC Genk.png"
+    },
+    {
+      "file": "rsc-anderlecht.png",
+      "source": "logos/Belgium - Jupiler Pro League/RSC Anderlecht.png"
+    },
+    {
+      "file": "sint-truidense-vv.png",
+      "source": "logos/Belgium - Jupiler Pro League/Sint-Truidense VV.png"
+    },
+    {
+      "file": "union-saint-gilloise.png",
+      "source": "logos/Belgium - Jupiler Pro League/Union Saint-Gilloise.png"
+    },
+    {
+      "file": "cska-sofia.png",
+      "source": "logos/Bulgaria - efbet Liga/CSKA Sofia.png"
+    },
+    {
+      "file": "levski-sofia.png",
+      "source": "logos/Bulgaria - efbet Liga/Levski Sofia.png"
+    },
+    {
+      "file": "ludogorets-razgrad.png",
+      "source": "logos/Bulgaria - efbet Liga/Ludogorets Razgrad.png"
+    },
+    {
+      "file": "gnk-dinamo-zagreb.png",
+      "source": "logos/Croatia - SuperSport HNL/GNK Dinamo Zagreb.png"
+    },
+    {
+      "file": "hnk-rijeka.png",
+      "source": "logos/Croatia - SuperSport HNL/HNK Rijeka.png"
+    },
+    {
+      "file": "ac-sparta-prague.png",
+      "source": "logos/Czech Republic - Chance Liga/AC Sparta Prague.png"
+    },
+    {
+      "file": "fc-viktoria-plzen.png",
+      "source": "logos/Czech Republic - Chance Liga/FC Viktoria Plzen.png"
+    },
+    {
+      "file": "fk-jablonec.png",
+      "source": "logos/Czech Republic - Chance Liga/FK Jablonec.png"
+    },
+    {
+      "file": "sk-sigma-olomouc.png",
+      "source": "logos/Czech Republic - Chance Liga/SK Sigma Olomouc.png"
+    },
+    {
+      "file": "sk-slavia-prague.png",
+      "source": "logos/Czech Republic - Chance Liga/SK Slavia Prague.png"
+    },
+    {
+      "file": "aarhus-gf.png",
+      "source": "logos/Denmark - Superliga/Aarhus GF.png"
+    },
+    {
+      "file": "fc-copenhagen.png",
+      "source": "logos/Denmark - Superliga/FC Copenhagen.png"
+    },
+    {
+      "file": "fc-midtjylland.png",
+      "source": "logos/Denmark - Superliga/FC Midtjylland.png"
+    },
+    {
+      "file": "fc-nordsjaelland.png",
+      "source": "logos/Denmark - Superliga/FC Nordsjaelland.png"
+    },
+    {
+      "file": "afc-bournemouth.png",
+      "source": "logos/England - Premier League/AFC Bournemouth.png"
+    },
+    {
+      "file": "arsenal-fc.png",
+      "source": "logos/England - Premier League/Arsenal FC.png"
+    },
+    {
+      "file": "aston-villa.png",
+      "source": "logos/England - Premier League/Aston Villa.png"
+    },
+    {
+      "file": "brentford-fc.png",
+      "source": "logos/England - Premier League/Brentford FC.png"
+    },
+    {
+      "file": "brighton-hove-albion.png",
+      "source": "logos/England - Premier League/Brighton & Hove Albion.png"
+    },
+    {
+      "file": "chelsea-fc.png",
+      "source": "logos/England - Premier League/Chelsea FC.png"
+    },
+    {
+      "file": "coventry-city.png",
+      "source": "logos/England - Premier League/Coventry City.png"
+    },
+    {
+      "file": "crystal-palace.png",
+      "source": "logos/England - Premier League/Crystal Palace.png"
+    },
+    {
+      "file": "everton-fc.png",
+      "source": "logos/England - Premier League/Everton FC.png"
+    },
+    {
+      "file": "fulham-fc.png",
+      "source": "logos/England - Premier League/Fulham FC.png"
+    },
+    {
+      "file": "hull-city.png",
+      "source": "logos/England - Premier League/Hull City.png"
+    },
+    {
+      "file": "ipswich-town.png",
+      "source": "logos/England - Premier League/Ipswich Town.png"
+    },
+    {
+      "file": "leeds-united.png",
+      "source": "logos/England - Premier League/Leeds United.png"
+    },
+    {
+      "file": "liverpool-fc.png",
+      "source": "logos/England - Premier League/Liverpool FC.png"
+    },
+    {
+      "file": "manchester-city.png",
+      "source": "logos/England - Premier League/Manchester City.png"
+    },
+    {
+      "file": "manchester-united.png",
+      "source": "logos/England - Premier League/Manchester United.png"
+    },
+    {
+      "file": "newcastle-united.png",
+      "source": "logos/England - Premier League/Newcastle United.png"
+    },
+    {
+      "file": "nottingham-forest.png",
+      "source": "logos/England - Premier League/Nottingham Forest.png"
+    },
+    {
+      "file": "sunderland-afc.png",
+      "source": "logos/England - Premier League/Sunderland AFC.png"
+    },
+    {
+      "file": "tottenham-hotspur.png",
+      "source": "logos/England - Premier League/Tottenham Hotspur.png"
+    },
+    {
+      "file": "aj-auxerre.png",
+      "source": "logos/France - Ligue 1/AJ Auxerre.png"
+    },
+    {
+      "file": "as-monaco.png",
+      "source": "logos/France - Ligue 1/AS Monaco.png"
+    },
+    {
+      "file": "angers-sco.png",
+      "source": "logos/France - Ligue 1/Angers SCO.png"
+    },
+    {
+      "file": "estac-troyes.png",
+      "source": "logos/France - Ligue 1/ESTAC Troyes.png"
+    },
+    {
+      "file": "fc-lorient.png",
+      "source": "logos/France - Ligue 1/FC Lorient.png"
+    },
+    {
+      "file": "fc-toulouse.png",
+      "source": "logos/France - Ligue 1/FC Toulouse.png"
+    },
+    {
+      "file": "losc-lille.png",
+      "source": "logos/France - Ligue 1/LOSC Lille.png"
+    },
+    {
+      "file": "le-havre-ac.png",
+      "source": "logos/France - Ligue 1/Le Havre AC.png"
+    },
+    {
+      "file": "le-mans-fc.png",
+      "source": "logos/France - Ligue 1/Le Mans FC.png"
+    },
+    {
+      "file": "ogc-nice.png",
+      "source": "logos/France - Ligue 1/OGC Nice.png"
+    },
+    {
+      "file": "olympique-lyon.png",
+      "source": "logos/France - Ligue 1/Olympique Lyon.png"
+    },
+    {
+      "file": "olympique-marseille.png",
+      "source": "logos/France - Ligue 1/Olympique Marseille.png"
+    },
+    {
+      "file": "paris-fc.png",
+      "source": "logos/France - Ligue 1/Paris FC.png"
+    },
+    {
+      "file": "paris-saint-germain.png",
+      "source": "logos/France - Ligue 1/Paris Saint-Germain.png"
+    },
+    {
+      "file": "rc-lens.png",
+      "source": "logos/France - Ligue 1/RC Lens.png"
+    },
+    {
+      "file": "rc-strasbourg-alsace.png",
+      "source": "logos/France - Ligue 1/RC Strasbourg Alsace.png"
+    },
+    {
+      "file": "stade-brestois-29.png",
+      "source": "logos/France - Ligue 1/Stade Brestois 29.png"
+    },
+    {
+      "file": "stade-rennais-fc.png",
+      "source": "logos/France - Ligue 1/Stade Rennais FC.png"
+    },
+    {
+      "file": "1-fc-koln.png",
+      "source": "logos/Germany - Bundesliga/1.FC Köln.png"
+    },
+    {
+      "file": "1-fc-union-berlin.png",
+      "source": "logos/Germany - Bundesliga/1.FC Union Berlin.png"
+    },
+    {
+      "file": "1-fsv-mainz-05.png",
+      "source": "logos/Germany - Bundesliga/1.FSV Mainz 05.png"
+    },
+    {
+      "file": "bayer-04-leverkusen.png",
+      "source": "logos/Germany - Bundesliga/Bayer 04 Leverkusen.png"
+    },
+    {
+      "file": "bayern-munich.png",
+      "source": "logos/Germany - Bundesliga/Bayern Munich.png"
+    },
+    {
+      "file": "borussia-dortmund.png",
+      "source": "logos/Germany - Bundesliga/Borussia Dortmund.png"
+    },
+    {
+      "file": "borussia-monchengladbach.png",
+      "source": "logos/Germany - Bundesliga/Borussia Mönchengladbach.png"
+    },
+    {
+      "file": "eintracht-frankfurt.png",
+      "source": "logos/Germany - Bundesliga/Eintracht Frankfurt.png"
+    },
+    {
+      "file": "fc-augsburg.png",
+      "source": "logos/Germany - Bundesliga/FC Augsburg.png"
+    },
+    {
+      "file": "fc-schalke-04.png",
+      "source": "logos/Germany - Bundesliga/FC Schalke 04.png"
+    },
+    {
+      "file": "hamburger-sv.png",
+      "source": "logos/Germany - Bundesliga/Hamburger SV.png"
+    },
+    {
+      "file": "rb-leipzig.png",
+      "source": "logos/Germany - Bundesliga/RB Leipzig.png"
+    },
+    {
+      "file": "sc-freiburg.png",
+      "source": "logos/Germany - Bundesliga/SC Freiburg.png"
+    },
+    {
+      "file": "sc-paderborn-07.png",
+      "source": "logos/Germany - Bundesliga/SC Paderborn 07.png"
+    },
+    {
+      "file": "sv-07-elversberg.png",
+      "source": "logos/Germany - Bundesliga/SV 07 Elversberg.png"
+    },
+    {
+      "file": "sv-werder-bremen.png",
+      "source": "logos/Germany - Bundesliga/SV Werder Bremen.png"
+    },
+    {
+      "file": "tsg-1899-hoffenheim.png",
+      "source": "logos/Germany - Bundesliga/TSG 1899 Hoffenheim.png"
+    },
+    {
+      "file": "vfb-stuttgart.png",
+      "source": "logos/Germany - Bundesliga/VfB Stuttgart.png"
+    },
+    {
+      "file": "aek-athens.png",
+      "source": "logos/Greece - Super League 1/AEK Athens.png"
+    },
+    {
+      "file": "ofi-crete.png",
+      "source": "logos/Greece - Super League 1/OFI Crete.png"
+    },
+    {
+      "file": "olympiacos-piraeus.png",
+      "source": "logos/Greece - Super League 1/Olympiacos Piraeus.png"
+    },
+    {
+      "file": "paok-thessaloniki.png",
+      "source": "logos/Greece - Super League 1/PAOK Thessaloniki.png"
+    },
+    {
+      "file": "panathinaikos.png",
+      "source": "logos/Greece - Super League 1/Panathinaikos.png"
+    },
+    {
+      "file": "hapoel-beer-sheva.png",
+      "source": "logos/Israel - Ligat ha'Al/Hapoel Beer Sheva.png"
+    },
+    {
+      "file": "maccabi-tel-aviv.png",
+      "source": "logos/Israel - Ligat ha'Al/Maccabi Tel Aviv.png"
+    },
+    {
+      "file": "ac-milan.png",
+      "source": "logos/Italy - Serie A/AC Milan.png"
+    },
+    {
+      "file": "ac-monza.png",
+      "source": "logos/Italy - Serie A/AC Monza.png"
+    },
+    {
+      "file": "acf-fiorentina.png",
+      "source": "logos/Italy - Serie A/ACF Fiorentina.png"
+    },
+    {
+      "file": "as-roma.png",
+      "source": "logos/Italy - Serie A/AS Roma.png"
+    },
+    {
+      "file": "atalanta-bc.png",
+      "source": "logos/Italy - Serie A/Atalanta BC.png"
+    },
+    {
+      "file": "bologna-fc-1909.png",
+      "source": "logos/Italy - Serie A/Bologna FC 1909.png"
+    },
+    {
+      "file": "cagliari-calcio.png",
+      "source": "logos/Italy - Serie A/Cagliari Calcio.png"
+    },
+    {
+      "file": "como-1907.png",
+      "source": "logos/Italy - Serie A/Como 1907.png"
+    },
+    {
+      "file": "frosinone-calcio.png",
+      "source": "logos/Italy - Serie A/Frosinone Calcio.png"
+    },
+    {
+      "file": "genoa-cfc.png",
+      "source": "logos/Italy - Serie A/Genoa CFC.png"
+    },
+    {
+      "file": "inter-milan.png",
+      "source": "logos/Italy - Serie A/Inter Milan.png"
+    },
+    {
+      "file": "juventus-fc.png",
+      "source": "logos/Italy - Serie A/Juventus FC.png"
+    },
+    {
+      "file": "parma-calcio-1913.png",
+      "source": "logos/Italy - Serie A/Parma Calcio 1913.png"
+    },
+    {
+      "file": "ss-lazio.png",
+      "source": "logos/Italy - Serie A/SS Lazio.png"
+    },
+    {
+      "file": "ssc-napoli.png",
+      "source": "logos/Italy - Serie A/SSC Napoli.png"
+    },
+    {
+      "file": "torino-fc.png",
+      "source": "logos/Italy - Serie A/Torino FC.png"
+    },
+    {
+      "file": "us-lecce.png",
+      "source": "logos/Italy - Serie A/US Lecce.png"
+    },
+    {
+      "file": "udinese-calcio.png",
+      "source": "logos/Italy - Serie A/Udinese Calcio.png"
+    },
+    {
+      "file": "venezia-fc.png",
+      "source": "logos/Italy - Serie A/Venezia FC.png"
+    },
+    {
+      "file": "az-alkmaar.png",
+      "source": "logos/Netherlands - Eredivisie/AZ Alkmaar.png"
+    },
+    {
+      "file": "ajax-amsterdam.png",
+      "source": "logos/Netherlands - Eredivisie/Ajax Amsterdam.png"
+    },
+    {
+      "file": "fc-twente-enschede.png",
+      "source": "logos/Netherlands - Eredivisie/FC Twente Enschede.png"
+    },
+    {
+      "file": "fc-utrecht.png",
+      "source": "logos/Netherlands - Eredivisie/FC Utrecht.png"
+    },
+    {
+      "file": "go-ahead-eagles.png",
+      "source": "logos/Netherlands - Eredivisie/Go Ahead Eagles.png"
+    },
+    {
+      "file": "nec-nijmegen.png",
+      "source": "logos/Netherlands - Eredivisie/NEC Nijmegen.png"
+    },
+    {
+      "file": "psv-eindhoven.png",
+      "source": "logos/Netherlands - Eredivisie/PSV Eindhoven.png"
+    },
+    {
+      "file": "lillestrm-sk.png",
+      "source": "logos/Norway - Eliteserien/Lillestrøm SK.png"
+    },
+    {
+      "file": "sk-brann.png",
+      "source": "logos/Norway - Eliteserien/SK Brann.png"
+    },
+    {
+      "file": "viking-fk.png",
+      "source": "logos/Norway - Eliteserien/Viking FK.png"
+    },
+    {
+      "file": "lech-poznan.png",
+      "source": "logos/Poland - PKO BP Ekstraklasa/Lech Poznan.png"
+    },
+    {
+      "file": "legia-warszawa.png",
+      "source": "logos/Poland - PKO BP Ekstraklasa/Legia Warszawa.png"
+    },
+    {
+      "file": "rakow-czestochowa.png",
+      "source": "logos/Poland - PKO BP Ekstraklasa/Raków Częstochowa.png"
+    },
+    {
+      "file": "fc-porto.png",
+      "source": "logos/Portugal - Liga Portugal/FC Porto.png"
+    },
+    {
+      "file": "sc-braga.png",
+      "source": "logos/Portugal - Liga Portugal/SC Braga.png"
+    },
+    {
+      "file": "sl-benfica.png",
+      "source": "logos/Portugal - Liga Portugal/SL Benfica.png"
+    },
+    {
+      "file": "sporting-cp.png",
+      "source": "logos/Portugal - Liga Portugal/Sporting CP.png"
+    },
+    {
+      "file": "fcsb.png",
+      "source": "logos/Romania - SuperLiga/FCSB.png"
+    },
+    {
+      "file": "universitatea-craiova.png",
+      "source": "logos/Romania - SuperLiga/Universitatea Craiova.png"
+    },
+    {
+      "file": "aberdeen-fc.png",
+      "source": "logos/Scotland - Scottish Premiership/Aberdeen FC.png"
+    },
+    {
+      "file": "celtic-fc.png",
+      "source": "logos/Scotland - Scottish Premiership/Celtic FC.png"
+    },
+    {
+      "file": "rangers-fc.png",
+      "source": "logos/Scotland - Scottish Premiership/Rangers FC.png"
+    },
+    {
+      "file": "red-star-belgrade.png",
+      "source": "logos/Serbia - Super liga Srbije/Red Star Belgrade.png"
+    },
+    {
+      "file": "athletic-bilbao.png",
+      "source": "logos/Spain - LaLiga/Athletic Bilbao.png"
+    },
+    {
+      "file": "atletico-de-madrid.png",
+      "source": "logos/Spain - LaLiga/Atlético de Madrid.png"
+    },
+    {
+      "file": "ca-osasuna.png",
+      "source": "logos/Spain - LaLiga/CA Osasuna.png"
+    },
+    {
+      "file": "celta-de-vigo.png",
+      "source": "logos/Spain - LaLiga/Celta de Vigo.png"
+    },
+    {
+      "file": "deportivo-a-coruna.png",
+      "source": "logos/Spain - LaLiga/Deportivo A Coruña.png"
+    },
+    {
+      "file": "deportivo-alaves.png",
+      "source": "logos/Spain - LaLiga/Deportivo Alavés.png"
+    },
+    {
+      "file": "elche-cf.png",
+      "source": "logos/Spain - LaLiga/Elche CF.png"
+    },
+    {
+      "file": "fc-barcelona.png",
+      "source": "logos/Spain - LaLiga/FC Barcelona.png"
+    },
+    {
+      "file": "getafe-cf.png",
+      "source": "logos/Spain - LaLiga/Getafe CF.png"
+    },
+    {
+      "file": "levante-ud.png",
+      "source": "logos/Spain - LaLiga/Levante UD.png"
+    },
+    {
+      "file": "malaga-cf.png",
+      "source": "logos/Spain - LaLiga/Málaga CF.png"
+    },
+    {
+      "file": "rcd-espanyol-barcelona.png",
+      "source": "logos/Spain - LaLiga/RCD Espanyol Barcelona.png"
+    },
+    {
+      "file": "racing-santander.png",
+      "source": "logos/Spain - LaLiga/Racing Santander.png"
+    },
+    {
+      "file": "rayo-vallecano.png",
+      "source": "logos/Spain - LaLiga/Rayo Vallecano.png"
+    },
+    {
+      "file": "real-betis-balompie.png",
+      "source": "logos/Spain - LaLiga/Real Betis Balompié.png"
+    },
+    {
+      "file": "real-madrid.png",
+      "source": "logos/Spain - LaLiga/Real Madrid.png"
+    },
+    {
+      "file": "real-sociedad.png",
+      "source": "logos/Spain - LaLiga/Real Sociedad.png"
+    },
+    {
+      "file": "sevilla-fc.png",
+      "source": "logos/Spain - LaLiga/Sevilla FC.png"
+    },
+    {
+      "file": "valencia-cf.png",
+      "source": "logos/Spain - LaLiga/Valencia CF.png"
+    },
+    {
+      "file": "villarreal-cf.png",
+      "source": "logos/Spain - LaLiga/Villarreal CF.png"
+    },
+    {
+      "file": "bk-hacken.png",
+      "source": "logos/Sweden - Allsvenskan/BK Häcken.png"
+    },
+    {
+      "file": "malmo-ff.png",
+      "source": "logos/Sweden - Allsvenskan/Malmö FF.png"
+    },
+    {
+      "file": "mjallby-aif.png",
+      "source": "logos/Sweden - Allsvenskan/Mjällby AIF.png"
+    },
+    {
+      "file": "bsc-young-boys.png",
+      "source": "logos/Switzerland - Super League/BSC Young Boys.png"
+    },
+    {
+      "file": "fc-basel-1893.png",
+      "source": "logos/Switzerland - Super League/FC Basel 1893.png"
+    },
+    {
+      "file": "fc-lausanne-sport.png",
+      "source": "logos/Switzerland - Super League/FC Lausanne-Sport.png"
+    },
+    {
+      "file": "fc-lugano.png",
+      "source": "logos/Switzerland - Super League/FC Lugano.png"
+    },
+    {
+      "file": "fc-thun.png",
+      "source": "logos/Switzerland - Super League/FC Thun.png"
+    },
+    {
+      "file": "fenerbahce.png",
+      "source": "logos/Türkiye - Süper Lig/Fenerbahce.png"
+    },
+    {
+      "file": "galatasaray.png",
+      "source": "logos/Türkiye - Süper Lig/Galatasaray.png"
+    },
+    {
+      "file": "samsunspor.png",
+      "source": "logos/Türkiye - Süper Lig/Samsunspor.png"
+    },
+    {
+      "file": "trabzonspor.png",
+      "source": "logos/Türkiye - Süper Lig/Trabzonspor.png"
+    },
+    {
+      "file": "dynamo-kyiv.png",
+      "source": "logos/Ukraine - Premier Liga/Dynamo Kyiv.png"
+    },
+    {
+      "file": "shakhtar-donetsk.png",
+      "source": "logos/Ukraine - Premier Liga/Shakhtar Donetsk.png"
+    },
+    {
+      "file": "apoel.png",
+      "source": "https://en.wikipedia.org/wiki/APOEL_FC",
+      "image": "APOEL_(logo_with_stars).svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/93/APOEL_%28logo_with_stars%29.svg/250px-APOEL_%28logo_with_stars%29.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "ferencvaros.png",
+      "source": "https://en.wikipedia.org/wiki/Ferencvárosi_TC",
+      "image": "Ferencvarosi_TC.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/Ferencvarosi_TC.svg/250px-Ferencvarosi_TC.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "bod-glimt.png",
+      "source": "https://en.wikipedia.org/wiki/FK_Bodø/Glimt",
+      "image": "FK_Bodo_Glimt_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/8/8d/FK_Bodo_Glimt_logo.svg/250px-FK_Bodo_Glimt_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "kairat-almaty.png",
+      "source": "https://en.wikipedia.org/wiki/FC_Kairat",
+      "image": "FC_Kairat_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/0/0d/FC_Kairat_logo.svg/250px-FC_Kairat_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "pafos.png",
+      "source": "https://en.wikipedia.org/wiki/Pafos_FC",
+      "image": "Pafos_FC_crest.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/9/9b/Pafos_FC_crest.svg/250px-Pafos_FC_crest.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "qarabag.png",
+      "source": "https://en.wikipedia.org/wiki/Qarabağ_FK",
+      "image": "Qarabağ_FK_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/f/fe/Qaraba%C4%9F_FK_logo.svg/250px-Qaraba%C4%9F_FK_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "noah.png",
+      "source": "https://en.wikipedia.org/wiki/FC_Noah",
+      "image": "FC_Noah_logo_(2024).svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/6/6e/FC_Noah_logo_%282024%29.svg/250px-FC_Noah_logo_%282024%29.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "zrinjski.png",
+      "source": "https://en.wikipedia.org/wiki/HŠK_Zrinjski_Mostar",
+      "image": "HŠK_Zrinjski_Mostar.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/6/69/H%C5%A0K_Zrinjski_Mostar.svg/250px-H%C5%A0K_Zrinjski_Mostar.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "aek-larnaca.png",
+      "source": "https://en.wikipedia.org/wiki/AEK_Larnaca_FC",
+      "image": "AEK_Larnaca_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/f/f9/AEK_Larnaca_logo.svg/250px-AEK_Larnaca_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "omonoia.png",
+      "source": "https://en.wikipedia.org/wiki/AC_Omonia",
+      "image": "AC_Omonia_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/3/3d/AC_Omonia_logo.svg/250px-AC_Omonia_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "kups.png",
+      "source": "https://en.wikipedia.org/wiki/Kuopion_Palloseura",
+      "image": "KuPS_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/b/bd/KuPS_logo.svg/250px-KuPS_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "lincoln-red-imps.png",
+      "source": "https://en.wikipedia.org/wiki/Lincoln_Red_Imps_F.C.",
+      "image": "Lincoln_Red_Imps_FC_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/6/6e/Lincoln_Red_Imps_FC_logo.svg/250px-Lincoln_Red_Imps_FC_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "breidablik.png",
+      "source": "https://en.wikipedia.org/wiki/Breiðablik_(sports_club)",
+      "image": "Breiðablik_UBK_Logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/d/d9/Brei%C3%B0ablik_UBK_Logo.svg/250px-Brei%C3%B0ablik_UBK_Logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "drita.png",
+      "source": "https://en.wikipedia.org/wiki/FC_Drita",
+      "image": "FC_Drita.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/a/a0/FC_Drita.svg/250px-FC_Drita.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "hamrun-spartans.png",
+      "source": "https://en.wikipedia.org/wiki/Hamrun_Spartans_F.C.",
+      "image": "Hamrun_Spartans_FC_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/a/a7/Hamrun_Spartans_FC_logo.svg/250px-Hamrun_Spartans_FC_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "shkendija.png",
+      "source": "https://en.wikipedia.org/wiki/KF_Shkëndija",
+      "image": "KF_Shkëndija_Logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/KF_Shk%C3%ABndija_Logo.svg/250px-KF_Shk%C3%ABndija_Logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "shamrock-rovers.png",
+      "source": "https://en.wikipedia.org/wiki/Shamrock_Rovers_F.C.",
+      "image": "Shamrock_Rovers_F.C._crest.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/6/63/Shamrock_Rovers_F.C._crest.svg/250px-Shamrock_Rovers_F.C._crest.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "shelbourne.png",
+      "source": "https://en.wikipedia.org/wiki/Shelbourne_F.C.",
+      "image": "Shelbourne_F.C._crest.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/7/7d/Shelbourne_F.C._crest.svg/250px-Shelbourne_F.C._crest.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "slovan-bratislava.png",
+      "source": "https://en.wikipedia.org/wiki/ŠK_Slovan_Bratislava",
+      "image": "SK_Slovan_Bratislava_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/01/SK_Slovan_Bratislava_logo.svg/250px-SK_Slovan_Bratislava_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "celje.png",
+      "source": "https://en.wikipedia.org/wiki/NK_Celje",
+      "image": "NK_Celje_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/7/75/NK_Celje_logo.svg/250px-NK_Celje_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "sabah.png",
+      "source": "https://en.wikipedia.org/wiki/Sabah_FK_(Azerbaijan)",
+      "image": "Sabah_FK_(Azerbaijan)_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/1/17/Sabah_FK_%28Azerbaijan%29_logo.svg/250px-Sabah_FK_%28Azerbaijan%29_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "ararat-armenia.png",
+      "source": "https://en.wikipedia.org/wiki/FC_Ararat-Armenia",
+      "image": "FC_Ararat-Armenia_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/FC_Ararat-Armenia_logo.svg/250px-FC_Ararat-Armenia_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "torreense.png",
+      "source": "https://en.wikipedia.org/wiki/S.C.U._Torreense",
+      "image": "S.C.U._Torreense_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/d/dc/S.C.U._Torreense_logo.svg/250px-S.C.U._Torreense_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "borac.png",
+      "source": "https://en.wikipedia.org/wiki/FK_Borac_Banja_Luka",
+      "image": "FK_Borac_Logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/2/21/FK_Borac_Logo.svg/250px-FK_Borac_Logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "egnatia.png",
+      "source": "https://en.wikipedia.org/wiki/KF_Egnatia",
+      "image": "Egnatia_Club_Logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/a/a5/Egnatia_Club_Logo.svg/250px-Egnatia_Club_Logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "hearts.png",
+      "source": "https://en.wikipedia.org/wiki/Heart_of_Midlothian_F.C.",
+      "image": "Heart_of_Midlothian_FC_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/6/61/Heart_of_Midlothian_FC_logo.svg/250px-Heart_of_Midlothian_FC_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "iberia-tbilisi.png",
+      "source": "https://en.wikipedia.org/wiki/FC_Iberia_1999",
+      "image": "FC_Iberia_1999_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/6/61/FC_Iberia_1999_logo.svg/250px-FC_Iberia_1999_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "inter-escaldes.png",
+      "source": "https://en.wikipedia.org/wiki/Inter_Club_d'Escaldes",
+      "image": "Inter_d'Escaldes_logo.png",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c7/Inter_d%27Escaldes_logo.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+    },
+    {
+      "file": "kauno-zalgiris.png",
+      "source": "https://en.wikipedia.org/wiki/FK_Kauno_Žalgiris",
+      "image": "FK_Kauno_Žalgiris_logo.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/f/fd/FK_Kauno_%C5%BDalgiris_logo.svg/250px-FK_Kauno_%C5%BDalgiris_logo.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    },
+    {
+      "file": "riga.png",
+      "source": "https://en.wikipedia.org/wiki/Riga_FC",
+      "image": "Riga_Football_Club.svg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/en/thumb/e/e9/Riga_Football_Club.svg/250px-Riga_Football_Club.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+    }
+  ]
+}

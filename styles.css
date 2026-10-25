@@ -3279,11 +3279,11 @@ button {
   background: #1d2e30;
 }
 
-.league-table-row span:nth-child(n + 3) {
+.league-table-row > span:nth-child(n + 3) {
   text-align: center;
 }
 
-.league-table-row span:last-child {
+.league-table-row > span:last-child {
   color: #fbbf24;
   font-weight: 900;
 }
@@ -4761,11 +4761,11 @@ button {
   background: #1d2e30;
 }
 
-.europe-table-row span:nth-child(n + 3) {
+.europe-table-row > span:nth-child(n + 3) {
   text-align: center;
 }
 
-.europe-table-row span:last-child {
+.europe-table-row > span:last-child {
   color: #fbbf24;
   font-weight: 900;
 }
@@ -5425,4 +5425,99 @@ button {
   .lineup-player-stats { grid-template-columns: minmax(360px, 1fr); }
   .transfer-half-head { flex-wrap: wrap; }
   .coach-card { padding: 14px; }
+}
+
+/* Club identity stays inside the existing name cell; reels remain text-only. */
+.club-label {
+  --crest-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.club-label > .club-emblem {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 var(--crest-size);
+  width: var(--crest-size);
+  height: var(--crest-size);
+  overflow: visible;
+}
+
+.club-emblem > .club-crest,
+.club-emblem > .club-emblem-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.club-crest {
+  object-fit: contain;
+}
+
+.club-emblem > .club-emblem-fallback {
+  display: grid;
+  place-items: center;
+  clip-path: polygon(8% 0, 92% 0, 88% 68%, 50% 100%, 12% 68%);
+  background: #345967;
+  color: #fff;
+  font: 800 9px/1 system-ui, sans-serif;
+  text-shadow: 0 1px 2px #000;
+}
+
+.club-emblem > .club-emblem-fallback[hidden] {
+  display: none;
+}
+
+.club-label > .club-label-text {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.club-label-card,
+.club-label-live {
+  --crest-size: 24px;
+}
+
+.club-label-result {
+  --crest-size: 28px;
+}
+
+.club-matchup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.club-matchup > .club-label {
+  flex: 0 1 auto;
+}
+
+.europe-live-scoreboard {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.europe-live-team.home {
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .club-label-live {
+    --crest-size: 20px;
+  }
+
+  .sim-match-current > .club-matchup,
+  .sim-match-row > .club-matchup {
+    grid-column: 1 / -1;
+  }
 }
